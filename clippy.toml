@@ -1,5 +1,5 @@
 allow-unwrap-in-tests = true
-allowed-duplicate-crates = []
+allowed-duplicate-crates = ["windows-sys"]
 allowed-wildcard-imports = ["super"]
 too-many-arguments-threshold = 4
 too-many-lines-threshold = 60
