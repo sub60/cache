@@ -4,7 +4,7 @@ use axum::extract::Path;
 use axum::routing::{MethodRouter, get};
 
 use crate::Context;
-use crate::types::{CacheName, UserName};
+use crate::types::{CacheName, NixStoreHash, UserName};
 
 pub(crate) const ROUTE: &str = "/{user}/{cache}/{hash}.narinfo";
 
@@ -17,7 +17,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 struct NarInfoPath {
     user: UserName,
     cache: CacheName,
-    hash: String,
+    hash: NixStoreHash,
 }
 
 async fn handler(Path(_path): Path<NarInfoPath>, _ctx: &mut impl Context) {}
