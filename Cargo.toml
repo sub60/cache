@@ -5,6 +5,7 @@ publish = false
 
 [workspace.dependencies]
 axum = "0.8"
+serde = "1"
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"
@@ -44,6 +45,7 @@ publish.workspace = true
 
 [dependencies]
 axum = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 
 [lints]
 workspace = true

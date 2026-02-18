@@ -1,6 +1,9 @@
-use crate::Context;
+use axum::Router;
 
-/// Returns the axum router defining the cache server's API.
-pub fn router(_ctx: impl Context) -> axum::Router {
-    todo!();
+use crate::{Context, routes};
+
+/// Returns the axum [`Router`] defining the cache server's API.
+pub fn router(ctx: impl Context) -> Router {
+    Router::new()
+        .route(routes::narinfo::ROUTE, routes::narinfo::router(ctx.clone()))
 }
