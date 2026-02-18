@@ -8,7 +8,8 @@ use smol_str::SmolStr;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CacheName(SmolStr);
 
-/// The type of error that can occur when converting a string to a `CacheName`.
+/// The type of error that can occur when converting a string to a
+/// [`CacheName`].
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 pub enum CacheNameFromStrError {
     /// The string was empty.
