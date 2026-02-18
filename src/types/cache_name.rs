@@ -1,0 +1,87 @@
+use core::fmt;
+use core::str::FromStr;
+use std::borrow::Cow;
+
+use smol_str::SmolStr;
+
+/// The type representing the name of a cache.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CacheName(SmolStr);
+
+/// The type of error that can occur when converting a string to a `CacheName`.
+#[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
+pub enum CacheNameFromStrError {
+    /// The string was empty.
+    #[display("Cache name cannot be empty")]
+    Empty,
+
+    /// The string was longer than the [maximum](CacheName::MAX_LEN) length.
+    #[display(
+        "Cache name cannot be longer than {} characters",
+        CacheName::MAX_LEN
+    )]
+    TooLong,
+
+    /// The cache name contains an invalid character at the given offset.
+    #[display(
+        "Cache name contains an invalid character at offset {offset}: \
+         '{character}'"
+    )]
+    InvalidCharacter {
+        /// The invalid character.
+        character: char,
+
+        /// The offset of the invalid character.
+        offset: usize,
+    },
+}
+
+impl CacheName {
+    /// The maximum length of a cache name, in bytes.
+    pub const MAX_LEN: usize = 64;
+}
+
+impl fmt::Display for CacheName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl FromStr for CacheName {
+    type Err = CacheNameFromStrError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Err(CacheNameFromStrError::Empty);
+        }
+
+        if s.len() > Self::MAX_LEN {
+            return Err(CacheNameFromStrError::TooLong);
+        }
+
+        for (offset, character) in s.char_indices() {
+            if !character.is_ascii_alphanumeric()
+                && character != '-'
+                && character != '_'
+            {
+                return Err(CacheNameFromStrError::InvalidCharacter {
+                    character,
+                    offset,
+                });
+            }
+        }
+
+        Ok(Self(SmolStr::new(s)))
+    }
+}
+
+impl<'de> serde::de::Deserialize<'de> for CacheName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        <Cow<str>>::deserialize(deserializer)?
+            .parse::<Self>()
+            .map_err(serde::de::Error::custom)
+    }
+}

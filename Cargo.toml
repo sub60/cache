@@ -5,7 +5,10 @@ publish = false
 
 [workspace.dependencies]
 axum = "0.8"
+cauchy = { git = "https://github.com/nomad/cauchy.git" }
+derive_more = { version = "2", default-features = false }
 serde = "1"
+smol_str = "0.3"
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"
@@ -45,7 +48,10 @@ publish.workspace = true
 
 [dependencies]
 axum = { workspace = true }
+cauchy = { workspace = true }
+derive_more = { workspace = true, features = ["display"] }
 serde = { workspace = true, features = ["derive"] }
+smol_str = { workspace = true, features = ["serde"] }
 
 [lints]
 workspace = true

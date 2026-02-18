@@ -1,3 +1,3 @@
 //! TODO: docs.
 
-pub mod narinfo;
+pub(crate) mod narinfo;
