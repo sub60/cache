@@ -1,0 +1,45 @@
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace.lints.clippy]
+alloc_instead_of_core = "warn"
+bool_to_int_with_if = "deny"
+cognitive_complexity = "deny"
+let_underscore_future = "allow"
+module_inception = "allow"
+multiple_crate_versions = "deny"
+needless_collect = "deny"
+same_name_method = "deny"
+std_instead_of_core = "warn"
+too_many_arguments = "deny"
+too_many_lines = "deny"
+trivially_copy_pass_by_ref = "warn"
+undocumented_unsafe_blocks = "deny"
+unwrap_used = "deny"
+use_self = "warn"
+wildcard_dependencies = "deny"
+wildcard_imports = "warn"
+
+[workspace.lints.rust]
+future_incompatible = { level = "deny", priority = -1 }
+missing_docs = "deny"
+nonstandard_style = { level = "deny", priority = -1 }
+refining_impl_trait = { level = "allow", priority = -1 }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "deny"
+
+[package]
+name = "cache"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
