@@ -1,6 +1,5 @@
 use core::fmt;
 use core::str::FromStr;
-use std::borrow::Cow;
 
 use smol_str::SmolStr;
 
@@ -8,7 +7,7 @@ use smol_str::SmolStr;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserName(SmolStr);
 
-/// The type of error that can occur when converting a string to a [`UserName`].
+/// The type of error that can occur when parsing a string into a [`UserName`].
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 pub enum UserNameFromStrError {
     /// The string was empty.
@@ -39,18 +38,8 @@ pub enum UserNameFromStrError {
 impl UserName {
     /// The maximum length of a username, in bytes.
     pub const MAX_LEN: usize = 64;
-}
 
-impl fmt::Display for UserName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl FromStr for UserName {
-    type Err = UserNameFromStrError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn validate(s: &str) -> Result<(), UserNameFromStrError> {
         if s.is_empty() {
             return Err(UserNameFromStrError::Empty);
         }
@@ -71,6 +60,21 @@ impl FromStr for UserName {
             }
         }
 
+        Ok(())
+    }
+}
+
+impl fmt::Display for UserName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl FromStr for UserName {
+    type Err = UserNameFromStrError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::validate(s)?;
         Ok(Self(SmolStr::new(s)))
     }
 }
@@ -80,8 +84,8 @@ impl<'de> serde::de::Deserialize<'de> for UserName {
     where
         D: serde::de::Deserializer<'de>,
     {
-        <Cow<str>>::deserialize(deserializer)?
-            .parse::<Self>()
-            .map_err(serde::de::Error::custom)
+        let s = SmolStr::deserialize(deserializer)?;
+        Self::validate(&s).map_err(serde::de::Error::custom)?;
+        Ok(Self(s))
     }
 }

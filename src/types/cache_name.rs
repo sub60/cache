@@ -1,6 +1,5 @@
 use core::fmt;
 use core::str::FromStr;
-use std::borrow::Cow;
 
 use smol_str::SmolStr;
 
@@ -8,7 +7,7 @@ use smol_str::SmolStr;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CacheName(SmolStr);
 
-/// The type of error that can occur when converting a string to a
+/// The type of error that can occur when parsing a string into a
 /// [`CacheName`].
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 pub enum CacheNameFromStrError {
@@ -40,18 +39,8 @@ pub enum CacheNameFromStrError {
 impl CacheName {
     /// The maximum length of a cache name, in bytes.
     pub const MAX_LEN: usize = 64;
-}
 
-impl fmt::Display for CacheName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl FromStr for CacheName {
-    type Err = CacheNameFromStrError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn validate(s: &str) -> Result<(), CacheNameFromStrError> {
         if s.is_empty() {
             return Err(CacheNameFromStrError::Empty);
         }
@@ -72,6 +61,21 @@ impl FromStr for CacheName {
             }
         }
 
+        Ok(())
+    }
+}
+
+impl fmt::Display for CacheName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl FromStr for CacheName {
+    type Err = CacheNameFromStrError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::validate(s)?;
         Ok(Self(SmolStr::new(s)))
     }
 }
@@ -81,8 +85,8 @@ impl<'de> serde::de::Deserialize<'de> for CacheName {
     where
         D: serde::de::Deserializer<'de>,
     {
-        <Cow<str>>::deserialize(deserializer)?
-            .parse::<Self>()
-            .map_err(serde::de::Error::custom)
+        let s = SmolStr::deserialize(deserializer)?;
+        Self::validate(&s).map_err(serde::de::Error::custom)?;
+        Ok(Self(s))
     }
 }

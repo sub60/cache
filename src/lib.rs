@@ -3,7 +3,7 @@
 mod context;
 mod router;
 mod routes;
-mod types;
+pub mod types;
 
 pub use context::Context;
 pub use router::router;
