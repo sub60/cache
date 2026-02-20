@@ -6,6 +6,7 @@ publish = false
 [workspace.dependencies]
 axum = "0.8"
 cauchy = { git = "https://github.com/nomad/cauchy.git" }
+compact_str = "0.9"
 derive_more = { version = "2", default-features = false }
 memchr = "2"
 serde = "1"
@@ -47,9 +48,13 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[features]
+cloudflare = []
+
 [dependencies]
 axum = { workspace = true }
 cauchy = { workspace = true }
+compact_str = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 memchr = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
