@@ -73,10 +73,12 @@ impl NixStoreName {
 
 /// The type of error that can occur when parsing a string into a
 /// [`NixStoreName`].
-#[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
+)]
 pub enum NixStoreNameFromStrError {
     /// The string was empty.
-    #[display("Nix store name can't be empty'")]
+    #[display("Nix store name can't be empty")]
     Empty,
 
     /// The string was longer than 211 characters.

@@ -9,9 +9,10 @@ pub struct NixStoreHash([u8; Self::LEN]);
 impl NixStoreHash {
     /// Nix's custom base32 alphabet for store-path hashes, which includes all
     /// digits and all lowercase letters except 'e', 'o', 't', and 'u'.
-    const ALPHABET: &[u8; 32] = b"0123456789abcdfghijklmnpqrsvwxyz";
+    pub const ALPHABET: &[u8; 32] = b"0123456789abcdfghijklmnpqrsvwxyz";
 
-    const LEN: usize = 32;
+    /// The length of a Nix store hash, in bytes.
+    pub const LEN: usize = 32;
 
     /// Returns the hash as a string slice.
     pub fn as_str(&self) -> &str {
@@ -60,7 +61,9 @@ impl NixStoreHash {
 
 /// The type of error that can occur when parsing a string into a
 /// [`NixStoreHash`].
-#[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
+)]
 pub enum NixStoreHashFromStrError {
     /// The string was not exactly 32 characters long.
     #[display(
@@ -78,7 +81,8 @@ pub enum NixStoreHashFromStrError {
         /// The invalid character.
         character: char,
 
-        /// The offset of the invalid character.
+        /// The offset of the first instance of the invalid character in the
+        /// string.
         offset: usize,
     },
 }
