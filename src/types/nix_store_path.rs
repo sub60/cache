@@ -10,6 +10,10 @@ use crate::types::{
     NixStoreNameFromStrError,
 };
 
+/// The type representing a Nix store path.
+///
+/// It consists of a prefix (usually `"/nix/store"`), a 32-character hash, and a
+/// name.
 #[derive(Clone, PartialEq, Eq)]
 pub struct NixStorePath<StorePrefix = NixStoreLiteral> {
     prefix: StorePrefix,

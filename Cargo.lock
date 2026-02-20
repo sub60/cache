@@ -82,6 +82,7 @@ dependencies = [
  "axum",
  "cauchy",
  "derive_more",
+ "memchr",
  "serde",
  "smol_str",
 ]
