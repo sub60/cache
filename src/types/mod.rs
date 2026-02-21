@@ -4,6 +4,7 @@ mod cache_name;
 mod content_address;
 mod nar_info;
 mod nix32_hash;
+mod nix_store_base_name;
 mod nix_store_literal;
 mod nix_store_name;
 mod nix_store_path;
@@ -24,6 +25,7 @@ pub use content_address::{
     ContentAddressMethod,
 };
 pub use nar_info::NarInfo;
+pub use nix_store_base_name::{NixStoreBaseName, NixStoreBaseNameFromStrError};
 pub use nix_store_literal::{NixStoreLiteral, NixStoreLiteralFromStrError};
 pub use nix_store_name::{NixStoreName, NixStoreNameFromStrError};
 pub use nix_store_path::{NixStorePath, NixStorePathFromStrError};

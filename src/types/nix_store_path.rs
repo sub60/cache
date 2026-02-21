@@ -3,11 +3,9 @@ use core::str::FromStr;
 use std::borrow::Cow;
 
 use crate::types::{
-    NixStoreHash,
-    NixStoreHashFromStrError,
+    NixStoreBaseName,
+    NixStoreBaseNameFromStrError,
     NixStoreLiteral,
-    NixStoreName,
-    NixStoreNameFromStrError,
 };
 
 /// The type representing a Nix store path.
@@ -17,8 +15,7 @@ use crate::types::{
 #[derive(Clone, PartialEq, Eq)]
 pub struct NixStorePath<StorePrefix = NixStoreLiteral> {
     prefix: StorePrefix,
-    hash: NixStoreHash,
-    name: NixStoreName,
+    basename: NixStoreBaseName,
 }
 
 /// The type of error that can occur when parsing a string into a
@@ -30,23 +27,17 @@ pub enum NixStorePathFromStrError<StorePrefix> {
     /// The path's prefix is invalid.
     Prefix(StorePrefix),
 
-    /// The path's hash is invalid.
-    Hash(NixStoreHashFromStrError),
-
-    /// The path's name is invalid.
-    Name(NixStoreNameFromStrError),
+    /// The path's basename is invalid.
+    BaseName(NixStoreBaseNameFromStrError),
 
     /// The string is missing a forward slash (`/`) after the prefix.
     MissingSlashAfterPrefix,
-
-    /// The string is missing a dash (`-`) after the store hash.
-    MissingDashAfterHash,
 }
 
 impl NixStorePath {
     /// Creates a new [`NixStorePath`] with the given hash and name.
-    pub fn new(hash: NixStoreHash, name: NixStoreName) -> Self {
-        Self { prefix: NixStoreLiteral, hash, name }
+    pub fn new(basename: NixStoreBaseName) -> Self {
+        Self { prefix: NixStoreLiteral, basename }
     }
 }
 
@@ -59,7 +50,7 @@ impl<StorePrefix> NixStorePath<StorePrefix> {
         self,
         new_prefix: NewPrefix,
     ) -> NixStorePath<NewPrefix> {
-        NixStorePath { prefix: new_prefix, hash: self.hash, name: self.name }
+        NixStorePath { prefix: new_prefix, basename: self.basename }
     }
 }
 
@@ -71,7 +62,7 @@ impl<StorePrefix: Display> fmt::Debug for NixStorePath<StorePrefix> {
 
 impl<StorePrefix: Display> fmt::Display for NixStorePath<StorePrefix> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}-{}", self.prefix, self.hash, self.name)
+        write!(f, "{}/{}", self.prefix, self.basename)
     }
 }
 
@@ -83,31 +74,16 @@ impl<StorePrefix: FromStr> FromStr for NixStorePath<StorePrefix> {
             return Err(NixStorePathFromStrError::MissingSlashAfterPrefix);
         };
 
-        let (prefix_str, rest) = s.split_at(prefix_len);
+        let (prefix_str, slash_and_basename) = s.split_at(prefix_len);
 
         let prefix =
             prefix_str.parse().map_err(NixStorePathFromStrError::Prefix)?;
 
-        if rest.len() < 1 + NixStoreHash::NUM_CHARACTERS {
-            return Err(NixStorePathFromStrError::Hash(
-                NixStoreHashFromStrError::InvalidLength,
-            ));
-        }
-
-        let (hash_str, dash_and_name) =
-            rest[1..].split_at(NixStoreHash::NUM_CHARACTERS);
-
-        let hash = hash_str.parse().map_err(NixStorePathFromStrError::Hash)?;
-
-        if !dash_and_name.starts_with('-') {
-            return Err(NixStorePathFromStrError::MissingDashAfterHash);
-        }
-
-        let name = dash_and_name[1..]
+        let basename = slash_and_basename[1..]
             .parse()
-            .map_err(NixStorePathFromStrError::Name)?;
+            .map_err(NixStorePathFromStrError::BaseName)?;
 
-        Ok(Self { prefix, hash, name })
+        Ok(Self { prefix, basename })
     }
 }
 
