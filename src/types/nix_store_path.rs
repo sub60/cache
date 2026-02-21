@@ -88,13 +88,14 @@ impl<StorePrefix: FromStr> FromStr for NixStorePath<StorePrefix> {
         let prefix =
             prefix_str.parse().map_err(NixStorePathFromStrError::Prefix)?;
 
-        if rest.len() < 1 + NixStoreHash::LEN {
+        if rest.len() < 1 + NixStoreHash::NUM_CHARACTERS {
             return Err(NixStorePathFromStrError::Hash(
                 NixStoreHashFromStrError::InvalidLength,
             ));
         }
 
-        let (hash_str, dash_and_name) = rest[1..].split_at(NixStoreHash::LEN);
+        let (hash_str, dash_and_name) =
+            rest[1..].split_at(NixStoreHash::NUM_CHARACTERS);
 
         let hash = hash_str.parse().map_err(NixStorePathFromStrError::Hash)?;
 

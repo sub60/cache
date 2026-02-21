@@ -1,5 +1,8 @@
 //! Sub60's cache library.
 
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+
 #[cfg(feature = "cloudflare")]
 pub mod cloudflare;
 mod context;

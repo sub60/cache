@@ -62,7 +62,7 @@ impl<Cdn: context::Cdn> IntoResponse for NarInfoResponse<Cdn> {
 
         builder
             .body(Body::new(self.nar_info.to_string()))
-            .expect("response is be valid")
+            .expect("headers and body are valid")
     }
 }
 
