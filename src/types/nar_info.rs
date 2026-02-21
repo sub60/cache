@@ -30,9 +30,9 @@ pub struct NarInfo {
     /// TODO: docs.
     references: SmallVec<[NixStoreBaseName; 2]>,
     /// TODO: docs.
-    deriver: Option<NixStoreBaseName>,
-    /// TODO: docs.
     signatures: SmallVec<[String; 1]>,
+    /// TODO: docs.
+    deriver: Option<NixStoreBaseName>,
     /// TODO: docs.
     content_address: Option<ContentAddress>,
 }
@@ -41,35 +41,24 @@ impl fmt::Display for NarInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "StorePath: {}", self.store_path)?;
         writeln!(f, "URL: {}", self.url)?;
-        writeln!(f, "Compression: {}", self.compression)?;
-        writeln!(f, "FileHash: {}", self.file_hash)?;
-        writeln!(f, "FileSize: {}", self.file_size)?;
-        writeln!(f, "NarHash: {}", self.nar_hash)?;
+        writeln!(f, "NarHash: sha256:{}", self.nar_hash)?;
         writeln!(f, "NarSize: {}", self.nar_size)?;
+        writeln!(f, "Compression: {}", self.compression)?;
+        writeln!(f, "FileHash: sha256:{}", self.file_hash)?;
+        writeln!(f, "FileSize: {}", self.file_size)?;
 
-        if !self.references.is_empty() {
-            write!(f, "References:")?;
-            for reference in &self.references {
-                write!(f, " {}", reference)?;
-            }
-            f.write_char('\n')?;
+        write!(f, "References:")?;
+        for reference in &self.references {
+            write!(f, " {}", reference)?;
         }
-
-        write!(f, "Deriver: ")?;
-
-        match &self.deriver {
-            Some(basename) => write!(f, "{}", basename)?,
-            None => f.write_str("unknown-deriver")?,
-        }
-
         f.write_char('\n')?;
 
-        if !self.signatures.is_empty() {
-            write!(f, "Sig:")?;
-            for signature in &self.signatures {
-                write!(f, " {}", signature)?;
-            }
-            f.write_char('\n')?;
+        for signature in &self.signatures {
+            writeln!(f, "Sig: {}", signature)?;
+        }
+
+        if let Some(deriver) = &self.deriver {
+            writeln!(f, "Deriver: {deriver}")?;
         }
 
         if let Some(content_address) = &self.content_address {
