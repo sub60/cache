@@ -1,6 +1,7 @@
 //! TODO: docs.
 
 mod cache_name;
+mod content_address;
 mod nar_info;
 mod nix32_hash;
 mod nix_store_literal;
@@ -16,6 +17,12 @@ pub type NixStoreHash = Nix32HashStr<20>;
 pub type NixStoreHashFromStrError = Nix32HashFromStrError<20>;
 
 pub use cache_name::{CacheName, CacheNameFromStrError};
+pub use content_address::{
+    ContentAddress,
+    ContentAddressFromStrError,
+    ContentAddressHash,
+    ContentAddressMethod,
+};
 pub use nar_info::NarInfo;
 pub use nix_store_literal::{NixStoreLiteral, NixStoreLiteralFromStrError};
 pub use nix_store_name::{NixStoreName, NixStoreNameFromStrError};
