@@ -10,6 +10,7 @@ compact_str = "0.9"
 derive_more = { version = "2", default-features = false }
 memchr = "2"
 serde = "1"
+smallvec = "1"
 smol_str = "0.3"
 
 [workspace.lints.clippy]
@@ -58,6 +59,7 @@ compact_str = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 memchr = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+smallvec = { workspace = true }
 smol_str = { workspace = true, features = ["serde"] }
 
 [lints]

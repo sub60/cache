@@ -85,6 +85,7 @@ dependencies = [
  "derive_more",
  "memchr",
  "serde",
+ "smallvec",
  "smol_str",
 ]
 
