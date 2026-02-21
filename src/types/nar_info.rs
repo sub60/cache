@@ -7,6 +7,7 @@ use crate::types::{
     CompressionAlgorithm,
     ContentAddress,
     Nix32HashStr,
+    NixSignature,
     NixStoreBaseName,
     NixStorePath,
 };
@@ -30,7 +31,7 @@ pub struct NarInfo {
     /// TODO: docs.
     references: SmallVec<[NixStoreBaseName; 2]>,
     /// TODO: docs.
-    signatures: SmallVec<[String; 1]>,
+    signatures: SmallVec<[NixSignature; 1]>,
     /// TODO: docs.
     deriver: Option<NixStoreBaseName>,
     /// TODO: docs.
