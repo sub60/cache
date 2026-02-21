@@ -1,10 +1,11 @@
 //! TODO: docs.
 
 mod cache_name;
+mod compression_algorithm;
 mod content_address;
 mod nar_info;
 mod nix32_hash;
-mod nix_store_base_name;
+mod nix_store_basename;
 mod nix_store_literal;
 mod nix_store_name;
 mod nix_store_path;
@@ -18,6 +19,10 @@ pub type NixStoreHash = Nix32HashStr<20>;
 pub type NixStoreHashFromStrError = Nix32HashFromStrError<20>;
 
 pub use cache_name::{CacheName, CacheNameFromStrError};
+pub use compression_algorithm::{
+    CompressionAlgorithm,
+    CompressionAlgorithmFromStrError,
+};
 pub use content_address::{
     ContentAddress,
     ContentAddressFromStrError,
@@ -25,7 +30,7 @@ pub use content_address::{
     ContentAddressMethod,
 };
 pub use nar_info::NarInfo;
-pub use nix_store_base_name::{NixStoreBaseName, NixStoreBaseNameFromStrError};
+pub use nix_store_basename::{NixStoreBaseName, NixStoreBaseNameFromStrError};
 pub use nix_store_literal::{NixStoreLiteral, NixStoreLiteralFromStrError};
 pub use nix_store_name::{NixStoreName, NixStoreNameFromStrError};
 pub use nix_store_path::{NixStorePath, NixStorePathFromStrError};
