@@ -27,6 +27,8 @@ pub use cache_name::{CacheName, CacheNameFromStrError};
 pub use compression_algorithm::{
     CompressionAlgorithm,
     CompressionAlgorithmFromStrError,
+    CompressionExtension,
+    CompressionExtensionFromStrError,
 };
 pub use content_address::{
     ContentAddress,
