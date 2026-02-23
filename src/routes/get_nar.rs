@@ -1,0 +1,66 @@
+//! TODO: docs.
+
+use axum::body::Body;
+use axum::extract::Path;
+use axum::http::{HeaderValue, StatusCode, header};
+use axum::response::IntoResponse;
+use axum::routing::{self, MethodRouter};
+
+use crate::context::Context;
+use crate::types::{CacheName, CompressionExtension, Nix32HashStr, UserName};
+
+pub(crate) const ROUTE: &str = "/{user}/{cache}/nar/{file_hash}.nar";
+pub(crate) const ROUTE_EXT: &str = "/{user}/{cache}/nar/{file_hash}.nar.{ext}";
+
+/// The response returned to GET requests to the NAR route.
+#[derive(Debug)]
+pub struct GetNarResponse {
+    nar_location: HeaderValue,
+}
+
+/// The type of error that can occur when handling a GET request to the NAR
+/// route.
+#[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
+pub enum GetNarRequestError {}
+
+#[derive(serde::Deserialize)]
+#[expect(dead_code)]
+struct GetNarPath {
+    user: UserName,
+    cache: CacheName,
+    file_hash: Nix32HashStr<32>,
+    ext: Option<CompressionExtension>,
+}
+
+pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
+    routing::put(async move |path| handler(path, &mut ctx).await)
+}
+
+async fn handler<Ctx: Context>(
+    Path(_path): Path<GetNarPath>,
+    _ctx: &mut Ctx,
+) -> Result<GetNarResponse, GetNarRequestError> {
+    todo!()
+}
+
+impl GetNarRequestError {
+    fn status_code(&self) -> StatusCode {
+        match *self {}
+    }
+}
+
+impl IntoResponse for GetNarResponse {
+    fn into_response(self) -> axum::response::Response {
+        axum::response::Response::builder()
+            .status(StatusCode::TEMPORARY_REDIRECT)
+            .header(header::LOCATION, self.nar_location)
+            .body(Body::empty())
+            .expect("valid response")
+    }
+}
+
+impl IntoResponse for GetNarRequestError {
+    fn into_response(self) -> axum::response::Response {
+        (self.status_code(), self.to_string()).into_response()
+    }
+}
