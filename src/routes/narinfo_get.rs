@@ -9,10 +9,10 @@ use axum::routing::{self, MethodRouter};
 use crate::context::{self, Context};
 use crate::types::{CacheName, NarInfo, NixStoreHash, UserName};
 
-pub(crate) const ROUTE: &str = "/{user}/{cache}/{hash}.narinfo";
+pub(crate) const ROUTE: &str = "/{user}/{cache}/{store_hash}.narinfo";
 
 /// The response returned to GET requests to the NARInfo route.
-pub struct GetNarInfoResponse<Cdn: context::Cdn> {
+struct NarInfoGetResponse<Cdn: context::Cdn> {
     nar_info: NarInfo,
     cache_headers: Cdn::NarInfoCacheHeaders,
 }
@@ -20,14 +20,14 @@ pub struct GetNarInfoResponse<Cdn: context::Cdn> {
 /// The type of error that can occur when handling a GET request to the NARInfo
 /// route.
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
-pub enum GetNarInfoResponseError {}
+enum NarInfoGetResponseError {}
 
 #[derive(serde::Deserialize)]
 #[expect(dead_code)]
-struct GetNarInfoPath {
+struct NarInfoGetPath {
     user: UserName,
     cache: CacheName,
-    hash: NixStoreHash,
+    store_hash: NixStoreHash,
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
@@ -35,24 +35,24 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    Path(_path): Path<GetNarInfoPath>,
+    Path(_path): Path<NarInfoGetPath>,
     _ctx: &mut Ctx,
-) -> Result<GetNarInfoResponse<Ctx::Cdn>, GetNarInfoResponseError> {
+) -> Result<NarInfoGetResponse<Ctx::Cdn>, NarInfoGetResponseError> {
     todo!()
 }
 
-impl<Cdn: context::Cdn> GetNarInfoResponse<Cdn> {
+impl<Cdn: context::Cdn> NarInfoGetResponse<Cdn> {
     const CONTENT_TYPE: HeaderValue =
         HeaderValue::from_static("text/x-nix-narinfo");
 }
 
-impl GetNarInfoResponseError {
+impl NarInfoGetResponseError {
     fn status_code(&self) -> StatusCode {
         match *self {}
     }
 }
 
-impl<Cdn: context::Cdn> IntoResponse for GetNarInfoResponse<Cdn> {
+impl<Cdn: context::Cdn> IntoResponse for NarInfoGetResponse<Cdn> {
     fn into_response(self) -> axum::response::Response {
         let mut builder = axum::response::Response::builder()
             .header(header::CONTENT_TYPE, Self::CONTENT_TYPE);
@@ -67,7 +67,7 @@ impl<Cdn: context::Cdn> IntoResponse for GetNarInfoResponse<Cdn> {
     }
 }
 
-impl IntoResponse for GetNarInfoResponseError {
+impl IntoResponse for NarInfoGetResponseError {
     fn into_response(self) -> axum::response::Response {
         (self.status_code(), self.to_string()).into_response()
     }

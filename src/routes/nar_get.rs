@@ -14,18 +14,18 @@ pub(crate) const ROUTE_EXT: &str = "/{user}/{cache}/nar/{file_hash}.nar.{ext}";
 
 /// The response returned to GET requests to the NAR route.
 #[derive(Debug)]
-pub struct GetNarResponse {
+struct NarGetResponse {
     nar_location: HeaderValue,
 }
 
 /// The type of error that can occur when handling a GET request to the NAR
 /// route.
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
-pub enum GetNarRequestError {}
+enum NarGetRequestError {}
 
 #[derive(serde::Deserialize)]
 #[expect(dead_code)]
-struct GetNarPath {
+struct NarGetPath {
     user: UserName,
     cache: CacheName,
     file_hash: Nix32HashStr<32>,
@@ -33,23 +33,23 @@ struct GetNarPath {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::put(async move |path| handler(path, &mut ctx).await)
+    routing::get(async move |path| handler(path, &mut ctx).await)
 }
 
 async fn handler<Ctx: Context>(
-    Path(_path): Path<GetNarPath>,
+    Path(_path): Path<NarGetPath>,
     _ctx: &mut Ctx,
-) -> Result<GetNarResponse, GetNarRequestError> {
+) -> Result<NarGetResponse, NarGetRequestError> {
     todo!()
 }
 
-impl GetNarRequestError {
+impl NarGetRequestError {
     fn status_code(&self) -> StatusCode {
         match *self {}
     }
 }
 
-impl IntoResponse for GetNarResponse {
+impl IntoResponse for NarGetResponse {
     fn into_response(self) -> axum::response::Response {
         axum::response::Response::builder()
             .status(StatusCode::TEMPORARY_REDIRECT)
@@ -59,7 +59,7 @@ impl IntoResponse for GetNarResponse {
     }
 }
 
-impl IntoResponse for GetNarRequestError {
+impl IntoResponse for NarGetRequestError {
     fn into_response(self) -> axum::response::Response {
         (self.status_code(), self.to_string()).into_response()
     }

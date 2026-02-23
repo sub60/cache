@@ -1,14 +1,15 @@
 use axum::Router;
 
 use crate::Context;
-use crate::routes::{get_nar, get_narinfo, put_nar};
+use crate::routes::{nar_get, nar_put, narinfo_get, narinfo_put};
 
 /// Returns the axum [`Router`] defining the cache server's API.
 pub fn router(ctx: impl Context) -> Router {
     Router::new()
-        .route(get_nar::ROUTE, get_nar::router(ctx.clone()))
-        .route(get_nar::ROUTE_EXT, get_nar::router(ctx.clone()))
-        .route(get_narinfo::ROUTE, get_narinfo::router(ctx.clone()))
-        .route(put_nar::ROUTE, put_nar::router(ctx.clone()))
-        .route(put_nar::ROUTE_EXT, put_nar::router(ctx.clone()))
+        .route(nar_get::ROUTE, nar_get::router(ctx.clone()))
+        .route(nar_get::ROUTE_EXT, nar_get::router(ctx.clone()))
+        .route(nar_put::ROUTE, nar_put::router(ctx.clone()))
+        .route(nar_put::ROUTE_EXT, nar_put::router(ctx.clone()))
+        .route(narinfo_get::ROUTE, narinfo_get::router(ctx.clone()))
+        .route(narinfo_put::ROUTE, narinfo_put::router(ctx.clone()))
 }

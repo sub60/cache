@@ -14,14 +14,14 @@ pub(crate) const ROUTE_EXT: &str = "/{user}/{cache}/nar/{file_hash}.nar.{ext}";
 
 /// The response returned to PUT requests to the NAR route.
 #[derive(Debug)]
-pub struct PutNarResponse {
+struct NarPutResponse {
     nar_location: HeaderValue,
 }
 
 /// The type of error that can occur when handling a PUT request to the NAR
 /// route.
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
-pub enum PutNarRequestError {}
+enum NarPutRequestError {}
 
 #[derive(serde::Deserialize)]
 #[expect(dead_code)]
@@ -39,17 +39,17 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 async fn handler<Ctx: Context>(
     Path(_path): Path<PutNarPath>,
     _ctx: &mut Ctx,
-) -> Result<PutNarResponse, PutNarRequestError> {
+) -> Result<NarPutResponse, NarPutRequestError> {
     todo!()
 }
 
-impl PutNarRequestError {
+impl NarPutRequestError {
     fn status_code(&self) -> StatusCode {
         match *self {}
     }
 }
 
-impl IntoResponse for PutNarResponse {
+impl IntoResponse for NarPutResponse {
     fn into_response(self) -> axum::response::Response {
         axum::response::Response::builder()
             .status(StatusCode::TEMPORARY_REDIRECT)
@@ -59,7 +59,7 @@ impl IntoResponse for PutNarResponse {
     }
 }
 
-impl IntoResponse for PutNarRequestError {
+impl IntoResponse for NarPutRequestError {
     fn into_response(self) -> axum::response::Response {
         (self.status_code(), self.to_string()).into_response()
     }
