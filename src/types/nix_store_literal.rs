@@ -14,7 +14,8 @@ pub struct NixStoreLiteral;
 pub struct NixStoreLiteralFromStrError;
 
 impl NixStoreLiteral {
-    const STR: &'static str = "/nix/store";
+    /// The string literal `"/nix/store"`.
+    pub const STR: &'static str = "/nix/store";
 }
 
 impl fmt::Debug for NixStoreLiteral {

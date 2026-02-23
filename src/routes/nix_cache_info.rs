@@ -2,34 +2,38 @@
 
 use core::time::Duration;
 
+use axum::Extension;
 use axum::body::Body;
 use axum::http::{HeaderValue, header};
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
+use smol_str::SmolStr;
 
+use crate::cache_ctx::CacheCtx;
 use crate::context::{self, Cdn, Context};
-use crate::types::{NixCacheInfo, NixStoreLiteral};
+use crate::types::NixCacheInfo;
 
 pub(crate) const ROUTE: &str = "/nix-cache-info";
 
 /// The response returned to GET requests to the Nix cache info route.
 struct NixCacheInfoResponse<Cdn: context::Cdn> {
-    nix_cache_info: NixCacheInfo,
+    nix_cache_info: NixCacheInfo<SmolStr>,
     cache_headers: Cdn::CacheHeaders,
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::get(async move |()| handler(&mut ctx).await)
+    routing::get(async move |cache_ctx| handler(cache_ctx, &mut ctx).await)
 }
 
 async fn handler<Ctx: Context>(
+    Extension(cache_ctx): Extension<CacheCtx>,
     ctx: &mut Ctx,
 ) -> NixCacheInfoResponse<Ctx::Cdn> {
     NixCacheInfoResponse {
         nix_cache_info: NixCacheInfo {
-            store_dir: NixStoreLiteral,
+            store_dir: cache_ctx.store_dir,
             want_mass_query: ctx.want_mass_query(),
-            priority: 40,
+            priority: cache_ctx.priority,
         },
         cache_headers: ctx.cdn().cache_headers(Duration::from_days(365)),
     }

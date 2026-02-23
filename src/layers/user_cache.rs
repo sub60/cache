@@ -2,7 +2,7 @@ use axum::extract::{Path, Request};
 use axum::http::StatusCode;
 use axum::middleware::{self, Next};
 use axum::response::IntoResponse;
-use either::Either;
+use smol_str::SmolStr;
 
 use crate::Context;
 use crate::cache_ctx::CacheCtx;
@@ -46,7 +46,7 @@ async fn handler<Ctx: Context>(
 
     let cache_priority = 40;
 
-    let cache_store_dir = Either::Left(NixStoreLiteral);
+    let cache_store_dir = SmolStr::new_static(NixStoreLiteral::STR);
 
     let cache_ctx = CacheCtx {
         name: path.cache,
