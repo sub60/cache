@@ -7,12 +7,8 @@ use std::borrow::Cow;
 const ALPHABET: &[u8; 32] = b"0123456789abcdfghijklmnpqrsvwxyz";
 
 /// TODO: docs.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Nix32Hash<const NUM_BYTES: usize>([u8; NUM_BYTES]);
-
-/// TODO: docs.
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Nix32HashStr<const NUM_BYTES: usize>(
+pub struct Nix32Hash<const NUM_BYTES: usize>(
     [u8; num_chars_of_bytes(NUM_BYTES)],
 )
 where
@@ -46,29 +42,7 @@ pub enum Nix32HashFromStrError<const NUM_BYTES: usize> {
     },
 }
 
-impl<const NUM_BYTES: usize> Nix32Hash<NUM_BYTES> {
-    /// Returns the hash's raw bytes.
-    pub const fn as_bytes(&self) -> &[u8; NUM_BYTES] {
-        &self.0
-    }
-
-    /// Creates a new hash from the given raw bytes.
-    pub const fn new(bytes: [u8; NUM_BYTES]) -> Self {
-        Self(bytes)
-    }
-
-    /// TODO: docs.
-    pub const fn to_str(&self) -> Nix32HashStr<NUM_BYTES>
-    where
-        [(); num_chars_of_bytes(NUM_BYTES)]:,
-    {
-        let mut chars = [0; _];
-        encode_bytes_into_chars(self.as_bytes(), &mut chars);
-        Nix32HashStr(chars)
-    }
-}
-
-impl<const NUM_BYTES: usize> Nix32HashStr<NUM_BYTES>
+impl<const NUM_BYTES: usize> Nix32Hash<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -82,14 +56,23 @@ where
     }
 
     /// TODO: docs.
-    pub const fn to_bytes(&self) -> Nix32Hash<NUM_BYTES>
+    pub const fn new(bytes: &[u8; NUM_BYTES]) -> Self
     where
         [(); num_chars_of_bytes(NUM_BYTES)]:,
     {
-        let chars = &self.0;
+        let mut chars = [0; _];
+        encode_bytes_into_chars(bytes, &mut chars);
+        Self(chars)
+    }
+
+    /// TODO: docs.
+    pub const fn to_bytes(&self) -> [u8; NUM_BYTES]
+    where
+        [(); num_chars_of_bytes(NUM_BYTES)]:,
+    {
         let mut bytes = [0; _];
-        decode_chars_into_bytes(chars, &mut bytes);
-        Nix32Hash(bytes)
+        decode_chars_into_bytes(&self.0, &mut bytes);
+        bytes
     }
 
     const fn is_byte_valid(byte: u8) -> bool {
@@ -130,45 +113,7 @@ where
     }
 }
 
-impl<const NUM_BYTES: usize> fmt::Display for Nix32Hash<NUM_BYTES>
-where
-    [(); num_chars_of_bytes(NUM_BYTES)]:,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.to_str().as_ref().fmt(f)
-    }
-}
-
-impl<const NUM_BYTES: usize> FromStr for Nix32Hash<NUM_BYTES>
-where
-    [(); num_chars_of_bytes(NUM_BYTES)]:,
-{
-    type Err = Nix32HashFromStrError<NUM_BYTES>;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Nix32HashStr::<NUM_BYTES>::validate(s)?;
-        let chars = s.as_bytes();
-        let mut bytes = [0; _];
-        decode_chars_into_bytes(chars, &mut bytes);
-        Ok(Self(bytes))
-    }
-}
-
-impl<'de, const NUM_BYTES: usize> serde::de::Deserialize<'de>
-    for Nix32Hash<NUM_BYTES>
-where
-    [(); num_chars_of_bytes(NUM_BYTES)]:,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        let s = Cow::<'de, str>::deserialize(deserializer)?;
-        Self::from_str(&s).map_err(serde::de::Error::custom)
-    }
-}
-
-impl<const NUM_BYTES: usize> fmt::Debug for Nix32HashStr<NUM_BYTES>
+impl<const NUM_BYTES: usize> fmt::Debug for Nix32Hash<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -177,7 +122,7 @@ where
     }
 }
 
-impl<const NUM_BYTES: usize> fmt::Display for Nix32HashStr<NUM_BYTES>
+impl<const NUM_BYTES: usize> fmt::Display for Nix32Hash<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -186,7 +131,7 @@ where
     }
 }
 
-impl<const NUM_BYTES: usize> AsRef<str> for Nix32HashStr<NUM_BYTES>
+impl<const NUM_BYTES: usize> AsRef<str> for Nix32Hash<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -195,7 +140,7 @@ where
     }
 }
 
-impl<const NUM_BYTES: usize> FromStr for Nix32HashStr<NUM_BYTES>
+impl<const NUM_BYTES: usize> FromStr for Nix32Hash<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -209,7 +154,7 @@ where
 }
 
 impl<'de, const NUM_BYTES: usize> serde::de::Deserialize<'de>
-    for Nix32HashStr<NUM_BYTES>
+    for Nix32Hash<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {

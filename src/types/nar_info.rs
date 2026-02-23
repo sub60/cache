@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 use crate::types::{
     CompressionAlgorithm,
     ContentAddress,
-    Nix32HashStr,
+    Nix32Hash,
     NixSignature,
     NixStoreBaseName,
     NixStorePath,
@@ -21,11 +21,11 @@ pub struct NarInfo {
     /// TODO: docs.
     compression: CompressionAlgorithm,
     /// SHA-256 hash of the compressed NAR file.
-    file_hash: Nix32HashStr<32>,
+    file_hash: Nix32Hash<32>,
     /// Byte size of the compressed NAR file.
     file_size: NonZeroU64,
     /// SHA-256 hash of the uncompressed NAR file.
-    nar_hash: Nix32HashStr<32>,
+    nar_hash: Nix32Hash<32>,
     /// Byte size of the uncompressed NAR file.
     nar_size: NonZeroU64,
     /// TODO: docs.

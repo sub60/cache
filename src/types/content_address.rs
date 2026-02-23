@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::types::Nix32HashStr;
+use crate::types::Nix32Hash;
 
 /// TODO: docs.
 #[derive(Debug)]
@@ -26,9 +26,9 @@ pub enum ContentAddressMethod {
 #[derive(Debug, Copy, Clone)]
 pub enum ContentAddressHash {
     /// The SHA-1 hash algorithm.
-    Sha1(Nix32HashStr<20>),
+    Sha1(Nix32Hash<20>),
     /// The SHA-256 hash algorithm.
-    Sha256(Nix32HashStr<32>),
+    Sha256(Nix32Hash<32>),
 }
 
 /// TODO: docs.

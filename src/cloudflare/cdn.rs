@@ -13,10 +13,7 @@ pub struct CloudflareCdn;
 impl Cdn for CloudflareCdn {
     type CacheHeaders = iter::Once<(HeaderName, HeaderValue)>;
 
-    fn cache_headers(
-        &self,
-        cache_duration: Duration,
-    ) -> Self::CacheHeaders {
+    fn cache_headers(&self, cache_duration: Duration) -> Self::CacheHeaders {
         iter::once((
             header::CACHE_CONTROL,
             HeaderValue::from_str(&format_compact!(

@@ -19,7 +19,7 @@ mod with_ref;
 pub type NixSignature = NixKeyOrSignature<ed25519_dalek::Signature>;
 
 /// The type representing the 32-character hash of a Nix store path.
-pub type NixStoreHash = Nix32HashStr<20>;
+pub type NixStoreHash = Nix32Hash<20>;
 
 /// The type of error that can occur when parsing a string into a
 /// [`NixStoreHash`].
@@ -46,6 +46,6 @@ pub use nix_store_basename::{NixStoreBaseName, NixStoreBaseNameFromStrError};
 pub use nix_store_literal::{NixStoreLiteral, NixStoreLiteralFromStrError};
 pub use nix_store_name::{NixStoreName, NixStoreNameFromStrError};
 pub use nix_store_path::{NixStorePath, NixStorePathFromStrError};
-pub use nix32_hash::{Nix32Hash, Nix32HashFromStrError, Nix32HashStr};
+pub use nix32_hash::{Nix32Hash, Nix32HashFromStrError};
 pub use user_name::{UserName, UserNameFromStrError};
 pub use with_ref::WithRef;

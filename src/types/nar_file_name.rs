@@ -4,15 +4,15 @@ use std::borrow::Cow;
 use crate::types::{
     CompressionExtension,
     CompressionExtensionFromStrError,
+    Nix32Hash,
     Nix32HashFromStrError,
-    Nix32HashStr,
 };
 
 /// A parsed NAR file name of the form `{file_hash}.nar` or
 /// `{file_hash}.nar.{ext}`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NarFileName {
-    file_hash: Nix32HashStr<32>,
+    file_hash: Nix32Hash<32>,
     ext: Option<CompressionExtension>,
 }
 
@@ -44,11 +44,11 @@ impl FromStr for NarFileName {
     type Err = NarFileNameFromStrError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() < Nix32HashStr::<32>::NUM_CHARACTERS {
+        if s.len() < Nix32Hash::<32>::NUM_CHARACTERS {
             return Err(Nix32HashFromStrError::InvalidLength.into());
         }
 
-        let (file_hash, rest) = s.split_at(Nix32HashStr::<32>::NUM_CHARACTERS);
+        let (file_hash, rest) = s.split_at(Nix32Hash::<32>::NUM_CHARACTERS);
 
         let Some(maybe_dot_and_ext) = rest.strip_prefix(".nar") else {
             return Err(NarFileNameFromStrError::MissingNarExtension);
