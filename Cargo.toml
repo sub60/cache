@@ -10,10 +10,13 @@ cauchy = { git = "https://github.com/nomad/cauchy.git" }
 compact_str = "0.9"
 derive_more = { version = "2", default-features = false }
 ed25519-dalek = "2"
+either = "1"
 memchr = "2"
 serde = "1"
 smallvec = "1"
 smol_str = "0.3"
+tower-layer = "0.3"
+tower-service = "0.3"
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"
@@ -61,10 +64,13 @@ cauchy = { workspace = true }
 compact_str = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 ed25519-dalek = { workspace = true }
+either = { workspace = true }
 memchr = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 smallvec = { workspace = true }
 smol_str = { workspace = true, features = ["serde"] }
+tower-layer = { workspace = true }
+tower-service = { workspace = true }
 
 [lints]
 workspace = true

@@ -7,9 +7,9 @@ use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
 use crate::context::{self, Context};
-use crate::types::{CacheName, NarInfo, NixStoreHash, UserName};
+use crate::types::{NarInfo, NixStoreHash};
 
-pub(crate) const ROUTE: &str = "/{user}/{cache}/{store_hash}.narinfo";
+pub(crate) const ROUTE: &str = "/{store_hash}.narinfo";
 
 /// The response returned to GET requests to the NARInfo route.
 struct NarInfoGetResponse<Cdn: context::Cdn> {
@@ -25,8 +25,6 @@ enum NarInfoGetResponseError {}
 #[derive(serde::Deserialize)]
 #[expect(dead_code)]
 struct NarInfoGetPath {
-    user: UserName,
-    cache: CacheName,
     store_hash: NixStoreHash,
 }
 

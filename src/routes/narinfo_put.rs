@@ -7,14 +7,14 @@ use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
 use crate::context::Context;
-use crate::types::{CacheName, NixStoreHash, UserName};
+use crate::types::NixStoreHash;
 
 pub(crate) const ROUTE: &str = crate::routes::narinfo_get::ROUTE;
 
 /// The response returned to PUT requests to the NARInfo route.
 #[derive(Debug, Copy, Clone)]
 #[expect(dead_code)]
-pub enum NarInfoPutResponse {
+enum NarInfoPutResponse {
     /// The NARInfo already existed in the user's cache, so the request was a
     /// no-op.
     AlreadyExisted,
@@ -25,13 +25,11 @@ pub enum NarInfoPutResponse {
 /// The type of error that can occur when handling a PUT request to the NARInfo
 /// route.
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
-pub enum NarInfoPutRequestError {}
+enum NarInfoPutRequestError {}
 
 #[derive(serde::Deserialize)]
 #[expect(dead_code)]
 struct NarInfoPutPath {
-    user: UserName,
-    cache: CacheName,
     store_hash: NixStoreHash,
 }
 

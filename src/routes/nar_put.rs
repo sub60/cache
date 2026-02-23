@@ -7,7 +7,7 @@ use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
 use crate::context::Context;
-use crate::types::{CacheName, CompressionExtension, Nix32HashStr, UserName};
+use crate::types::{CompressionExtension, Nix32HashStr};
 
 pub(crate) const ROUTE: &str = crate::routes::nar_get::ROUTE;
 pub(crate) const ROUTE_EXT: &str = crate::routes::nar_get::ROUTE_EXT;
@@ -26,8 +26,6 @@ enum NarPutRequestError {}
 #[derive(serde::Deserialize)]
 #[expect(dead_code)]
 struct PutNarPath {
-    user: UserName,
-    cache: CacheName,
     file_hash: Nix32HashStr<32>,
     ext: Option<CompressionExtension>,
 }
