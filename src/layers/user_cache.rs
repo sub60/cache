@@ -12,23 +12,18 @@ use crate::user_ctx::UserCtx;
 
 pub(crate) const ROUTE: &str = "/{user}/{cache}";
 
-#[derive(serde::Deserialize)]
-struct UserCachePath {
-    user: UserName,
-    cache: CacheName,
-}
-
 /// The type of error that can occur when handling a PUT request to the NARInfo
 /// route.
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum UserCacheError {}
 
 pub(crate) fn layer(ctx: impl Context) -> impl RouteLayer {
-    middleware::from_fn::<_, (Path<UserCachePath>, Request)>(
-        move |Path(path), mut req: Request, next: Next| {
+    middleware::from_fn::<_, (Path<(UserName, CacheName)>, Request)>(
+        move |Path((user, cache)), mut req: Request, next: Next| {
             let mut ctx = ctx.clone();
             async move {
-                let (user_ctx, cache_ctx) = handler(path, &mut ctx).await?;
+                let (user_ctx, cache_ctx) =
+                    handler(user, cache, &mut ctx).await?;
                 let extensions = req.extensions_mut();
                 extensions.insert(user_ctx);
                 extensions.insert(cache_ctx);
@@ -39,17 +34,18 @@ pub(crate) fn layer(ctx: impl Context) -> impl RouteLayer {
 }
 
 async fn handler<Ctx: Context>(
-    path: UserCachePath,
+    user_name: UserName,
+    cache_name: CacheName,
     _ctx: &mut Ctx,
 ) -> Result<(UserCtx, CacheCtx), UserCacheError> {
-    let user_ctx = UserCtx { name: path.user };
+    let user_ctx = UserCtx { name: user_name };
 
     let cache_priority = 40;
 
     let cache_store_dir = SmolStr::new_static(NixStoreLiteral::STR);
 
     let cache_ctx = CacheCtx {
-        name: path.cache,
+        name: cache_name,
         priority: cache_priority,
         store_dir: cache_store_dir,
     };
