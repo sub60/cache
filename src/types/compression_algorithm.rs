@@ -106,20 +106,20 @@ impl CompressionExtension {
     /// extension.
     pub fn algorithm(self) -> CompressionAlgorithm {
         match self {
+            Self::Zstd => CompressionAlgorithm::Zstd,
             Self::Bzip2 => CompressionAlgorithm::Bzip2,
             Self::Gzip => CompressionAlgorithm::Gzip,
             Self::Xz => CompressionAlgorithm::Xz,
-            Self::Zstd => CompressionAlgorithm::Zstd,
         }
     }
 
     /// Returns the file extension as a string slice.
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Zstd => Self::ZSTD,
             Self::Bzip2 => Self::BZIP2,
             Self::Gzip => Self::GZIP,
             Self::Xz => Self::XZ,
-            Self::Zstd => Self::ZSTD,
         }
     }
 
@@ -139,11 +139,11 @@ impl FromStr for CompressionAlgorithm {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            Self::ZSTD => Ok(Self::Zstd),
             Self::BZIP2 => Ok(Self::Bzip2),
             Self::GZIP => Ok(Self::Gzip),
             Self::NONE => Ok(Self::None),
             Self::XZ => Ok(Self::Xz),
-            Self::ZSTD => Ok(Self::Zstd),
             _ => Err(CompressionAlgorithmFromStrError::InvalidAlgorithm),
         }
     }
@@ -160,10 +160,10 @@ impl FromStr for CompressionExtension {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            Self::ZSTD => Ok(Self::Zstd),
             Self::BZIP2 => Ok(Self::Bzip2),
             Self::GZIP => Ok(Self::Gzip),
             Self::XZ => Ok(Self::Xz),
-            Self::ZSTD => Ok(Self::Zstd),
             _ => Err(CompressionExtensionFromStrError::InvalidExtension),
         }
     }

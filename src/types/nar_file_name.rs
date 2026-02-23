@@ -18,15 +18,22 @@ pub struct NarFileName {
 
 /// The type of error that can occur when parsing a string into a
 /// [`NarFileName`].
-#[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
+#[derive(
+    Debug, PartialEq, Eq, derive_more::Display, cauchy::Error, cauchy::From,
+)]
 pub enum NarFileNameFromStrError {
+    /// The character immediately following the `.nar` extension is invalid
+    /// (i.e. not a dot).
+    #[display("invalid character '{_0}' following '.nar' extension")]
+    InvalidCharacterAfterNarExtension(char),
+
     /// The compression extension after `.nar.` is invalid.
     #[display("{_0}")]
-    InvalidCompressionExtension(CompressionExtensionFromStrError),
+    InvalidCompressionExtension(#[from] CompressionExtensionFromStrError),
 
     /// The file hash part is invalid.
     #[display("{_0}")]
-    InvalidFileHash(Nix32HashFromStrError<32>),
+    InvalidFileHash(#[from] Nix32HashFromStrError<32>),
 
     /// The string doesn't end with `.nar` or `.nar.{ext}`.
     #[display("missing '.nar' extension")]
@@ -37,30 +44,28 @@ impl FromStr for NarFileName {
     type Err = NarFileNameFromStrError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Try to match `{hash}.nar.{ext}` first, then `{hash}.nar`.
-        let (hash_str, ext) = if let Some((before, ext_str)) =
-            s.strip_suffix(".nar").map(|h| (h, None)).or_else(|| {
-                let (rest, ext_str) = s.rsplit_once('.')?;
-                let hash_str = rest.strip_suffix(".nar")?;
-                Some((hash_str, Some(ext_str)))
-            }) {
-            let ext = ext_str
-                .map(|e| {
-                    e.parse::<CompressionExtension>().map_err(
-                        NarFileNameFromStrError::InvalidCompressionExtension,
-                    )
-                })
-                .transpose()?;
-            (before, ext)
-        } else {
+        if s.len() < Nix32HashStr::<32>::NUM_CHARACTERS {
+            return Err(Nix32HashFromStrError::InvalidLength.into());
+        }
+
+        let (file_hash, rest) = s.split_at(Nix32HashStr::<32>::NUM_CHARACTERS);
+
+        let Some(maybe_dot_and_ext) = rest.strip_prefix(".nar") else {
             return Err(NarFileNameFromStrError::MissingNarExtension);
         };
 
-        let file_hash = hash_str
-            .parse::<Nix32HashStr<32>>()
-            .map_err(NarFileNameFromStrError::InvalidFileHash)?;
+        let compression_ext =
+            match maybe_dot_and_ext.chars().next() {
+                Some('.') => maybe_dot_and_ext[1..].parse().map(Some)?,
+                Some(other) => return Err(
+                    NarFileNameFromStrError::InvalidCharacterAfterNarExtension(
+                        other,
+                    ),
+                ),
+                None => None,
+            };
 
-        Ok(Self { file_hash, ext })
+        Ok(Self { file_hash: file_hash.parse()?, ext: compression_ext })
     }
 }
 
