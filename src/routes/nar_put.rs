@@ -7,10 +7,9 @@ use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
 use crate::context::Context;
-use crate::types::{CompressionExtension, Nix32HashStr};
+use crate::types::NarFileName;
 
 pub(crate) const ROUTE: &str = crate::routes::nar_get::ROUTE;
-pub(crate) const ROUTE_EXT: &str = crate::routes::nar_get::ROUTE_EXT;
 
 /// The response returned to PUT requests to the NAR route.
 #[derive(Debug)]
@@ -23,19 +22,12 @@ struct NarPutResponse {
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarPutRequestError {}
 
-#[derive(serde::Deserialize)]
-#[expect(dead_code)]
-struct PutNarPath {
-    file_hash: Nix32HashStr<32>,
-    ext: Option<CompressionExtension>,
-}
-
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
     routing::put(async move |path| handler(path, &mut ctx).await)
 }
 
 async fn handler<Ctx: Context>(
-    Path(_path): Path<PutNarPath>,
+    Path(_path): Path<NarFileName>,
     _ctx: &mut Ctx,
 ) -> Result<NarPutResponse, NarPutRequestError> {
     todo!()

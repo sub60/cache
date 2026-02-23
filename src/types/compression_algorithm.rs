@@ -174,8 +174,8 @@ impl<'de> serde::de::Deserialize<'de> for CompressionExtension {
     where
         D: serde::de::Deserializer<'de>,
     {
-        <Cow<'de, str>>::deserialize(deserializer)?
-            .parse::<Self>()
+        Cow::<'de, str>::deserialize(deserializer)?
+            .parse()
             .map_err(serde::de::Error::custom)
     }
 }

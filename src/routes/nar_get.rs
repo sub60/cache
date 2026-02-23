@@ -7,10 +7,9 @@ use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
 use crate::context::Context;
-use crate::types::{CompressionExtension, Nix32HashStr};
+use crate::types::NarFileName;
 
-pub(crate) const ROUTE: &str = "/nar/{file_hash}.nar";
-pub(crate) const ROUTE_EXT: &str = "/nar/{file_hash}.nar.{ext}";
+pub(crate) const ROUTE: &str = "/nar/{nar_file_name}";
 
 /// The response returned to GET requests to the NAR route.
 #[derive(Debug)]
@@ -23,19 +22,12 @@ struct NarGetResponse {
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarGetRequestError {}
 
-#[derive(serde::Deserialize)]
-#[expect(dead_code)]
-struct NarGetPath {
-    file_hash: Nix32HashStr<32>,
-    ext: Option<CompressionExtension>,
-}
-
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
     routing::get(async move |path| handler(path, &mut ctx).await)
 }
 
 async fn handler<Ctx: Context>(
-    Path(_path): Path<NarGetPath>,
+    Path(_path): Path<NarFileName>,
     _ctx: &mut Ctx,
 ) -> Result<NarGetResponse, NarGetRequestError> {
     todo!()

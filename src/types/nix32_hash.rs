@@ -109,7 +109,7 @@ where
     }
 
     fn validate(s: &str) -> Result<(), Nix32HashFromStrError<NUM_BYTES>> {
-        if s.len() != NUM_BYTES {
+        if s.len() != Self::NUM_CHARACTERS {
             return Err(Nix32HashFromStrError::InvalidLength);
         }
 

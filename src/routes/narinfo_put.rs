@@ -27,18 +27,12 @@ enum NarInfoPutResponse {
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarInfoPutRequestError {}
 
-#[derive(serde::Deserialize)]
-#[expect(dead_code)]
-struct NarInfoPutPath {
-    store_hash: NixStoreHash,
-}
-
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
     routing::put(async move |path| handler(path, &mut ctx).await)
 }
 
 async fn handler<Ctx: Context>(
-    Path(_path): Path<NarInfoPutPath>,
+    Path(_store_hash): Path<NixStoreHash>,
     _ctx: &mut Ctx,
 ) -> Result<NarInfoPutResponse, NarInfoPutRequestError> {
     todo!()

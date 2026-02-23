@@ -22,18 +22,12 @@ struct NarInfoGetResponse<Cdn: context::Cdn> {
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarInfoGetResponseError {}
 
-#[derive(serde::Deserialize)]
-#[expect(dead_code)]
-struct NarInfoGetPath {
-    store_hash: NixStoreHash,
-}
-
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
     routing::get(async move |path| handler(path, &mut ctx).await)
 }
 
 async fn handler<Ctx: Context>(
-    Path(_path): Path<NarInfoGetPath>,
+    Path(_store_hash): Path<NixStoreHash>,
     _ctx: &mut Ctx,
 ) -> Result<NarInfoGetResponse<Ctx::Cdn>, NarInfoGetResponseError> {
     todo!()

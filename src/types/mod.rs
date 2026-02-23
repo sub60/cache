@@ -3,6 +3,7 @@
 mod cache_name;
 mod compression_algorithm;
 mod content_address;
+mod nar_file_name;
 mod nar_info;
 mod nix32_hash;
 mod nix_cache_info;
@@ -37,6 +38,7 @@ pub use content_address::{
     ContentAddressHash,
     ContentAddressMethod,
 };
+pub use nar_file_name::{NarFileName, NarFileNameFromStrError};
 pub use nar_info::NarInfo;
 pub use nix_cache_info::NixCacheInfo;
 pub use nix_key_or_signature::{NixKeyOrSignature, NixKeyOrSignatureName};

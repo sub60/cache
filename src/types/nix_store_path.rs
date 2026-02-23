@@ -95,7 +95,7 @@ where
         D: serde::de::Deserializer<'de>,
     {
         Cow::<'de, str>::deserialize(deserializer)?
-            .parse::<Self>()
+            .parse()
             .map_err(serde::de::Error::custom)
     }
 }
