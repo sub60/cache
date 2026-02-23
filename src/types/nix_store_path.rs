@@ -10,11 +10,11 @@ use crate::types::{
 
 /// The type representing a Nix store path.
 ///
-/// It consists of a prefix (usually `"/nix/store"`), a 32-character hash, and a
-/// name.
+/// It consists of a store directory (usually `"/nix/store"`), a 32-character
+/// hash, and a name.
 #[derive(Clone, PartialEq, Eq)]
-pub struct NixStorePath<StorePrefix = NixStoreLiteral> {
-    prefix: StorePrefix,
+pub struct NixStorePath<StoreDir = NixStoreLiteral> {
+    store_dir: StoreDir,
     basename: NixStoreBaseName,
 }
 
@@ -23,73 +23,72 @@ pub struct NixStorePath<StorePrefix = NixStoreLiteral> {
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
 )]
-pub enum NixStorePathFromStrError<StorePrefix> {
-    /// The path's prefix is invalid.
-    Prefix(StorePrefix),
+pub enum NixStorePathFromStrError<StoreDir> {
+    /// The path's store directory is invalid.
+    StoreDir(StoreDir),
 
     /// The path's basename is invalid.
     BaseName(NixStoreBaseNameFromStrError),
 
-    /// The string is missing a forward slash (`/`) after the prefix.
-    MissingSlashAfterPrefix,
+    /// The string is missing a forward slash (`/`) after the store directory.
+    MissingSlashAfterStoreDir,
 }
 
 impl NixStorePath {
     /// Creates a new [`NixStorePath`] with the given hash and name.
     pub fn new(basename: NixStoreBaseName) -> Self {
-        Self { prefix: NixStoreLiteral, basename }
+        Self { store_dir: NixStoreLiteral, basename }
     }
 }
 
-impl<StorePrefix> NixStorePath<StorePrefix> {
-    /// Converts this [`NixStorePath`] to a new one with the given store prefix.
+impl<StoreDir> NixStorePath<StoreDir> {
+    /// Converts this [`NixStorePath`] to a new one with the given store
+    /// directory.
     ///
     /// This together with [`NixStorePath::new`] allows to create a
-    /// [`NixStorePath`] with different store prefix than `"/nix/store"`.
-    pub fn with_prefix<NewPrefix>(
-        self,
-        new_prefix: NewPrefix,
-    ) -> NixStorePath<NewPrefix> {
-        NixStorePath { prefix: new_prefix, basename: self.basename }
+    /// [`NixStorePath`] with different store directory than `"/nix/store"`.
+    pub fn with_dir<NewDir>(self, new_dir: NewDir) -> NixStorePath<NewDir> {
+        NixStorePath { store_dir: new_dir, basename: self.basename }
     }
 }
 
-impl<StorePrefix: Display> fmt::Debug for NixStorePath<StorePrefix> {
+impl<StoreDir: Display> fmt::Debug for NixStorePath<StoreDir> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "\"{self}\"")
     }
 }
 
-impl<StorePrefix: Display> fmt::Display for NixStorePath<StorePrefix> {
+impl<StoreDir: Display> fmt::Display for NixStorePath<StoreDir> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}", self.prefix, self.basename)
+        write!(f, "{}/{}", self.store_dir, self.basename)
     }
 }
 
-impl<StorePrefix: FromStr> FromStr for NixStorePath<StorePrefix> {
-    type Err = NixStorePathFromStrError<StorePrefix::Err>;
+impl<StoreDir: FromStr> FromStr for NixStorePath<StoreDir> {
+    type Err = NixStorePathFromStrError<StoreDir::Err>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let Some(prefix_len) = memchr::memrchr(b'/', s.as_bytes()) else {
-            return Err(NixStorePathFromStrError::MissingSlashAfterPrefix);
+        let Some(store_dir_len) = memchr::memrchr(b'/', s.as_bytes()) else {
+            return Err(NixStorePathFromStrError::MissingSlashAfterStoreDir);
         };
 
-        let (prefix_str, slash_and_basename) = s.split_at(prefix_len);
+        let (store_dir_str, slash_and_basename) = s.split_at(store_dir_len);
 
-        let prefix =
-            prefix_str.parse().map_err(NixStorePathFromStrError::Prefix)?;
+        let store_dir = store_dir_str
+            .parse()
+            .map_err(NixStorePathFromStrError::StoreDir)?;
 
         let basename = slash_and_basename[1..]
             .parse()
             .map_err(NixStorePathFromStrError::BaseName)?;
 
-        Ok(Self { prefix, basename })
+        Ok(Self { store_dir, basename })
     }
 }
 
-impl<'de, StorePrefix> serde::de::Deserialize<'de> for NixStorePath<StorePrefix>
+impl<'de, StoreDir> serde::de::Deserialize<'de> for NixStorePath<StoreDir>
 where
-    StorePrefix: FromStr<Err: fmt::Display>,
+    StoreDir: FromStr<Err: fmt::Display>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

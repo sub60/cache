@@ -14,7 +14,7 @@ pub(crate) const ROUTE: &str = "/{user}/{cache}/{store_hash}.narinfo";
 /// The response returned to GET requests to the NARInfo route.
 struct NarInfoGetResponse<Cdn: context::Cdn> {
     nar_info: NarInfo,
-    cache_headers: Cdn::NarInfoCacheHeaders,
+    cache_headers: Cdn::CacheHeaders,
 }
 
 /// The type of error that can occur when handling a GET request to the NARInfo

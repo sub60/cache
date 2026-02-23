@@ -10,18 +10,19 @@ pub trait Context: Clone + Send + Sync + 'static {
 
     /// Returns a reference to the CDN.
     fn cdn(&self) -> &Self::Cdn;
+
+    /// TODO: docs.
+    fn want_mass_query(&self) -> bool {
+        true
+    }
 }
 
 /// TODO: docs.
 pub trait Cdn {
     /// TODO: docs.
-    type NarInfoCacheHeaders: IntoIterator<Item = (HeaderName, HeaderValue)>;
+    type CacheHeaders: IntoIterator<Item = (HeaderName, HeaderValue)>;
 
-    /// Returns the headers that should be included in a 200 OK response to the
-    /// [`narinfo`](crate::routes::narinfo) route, given the specified cache
-    /// duration.
-    fn narinfo_cache_headers(
-        &self,
-        cache_duration: Duration,
-    ) -> Self::NarInfoCacheHeaders;
+    /// Returns the headers to be included in a 200 OK response to make the CDN
+    /// cache it for the specified duration.
+    fn cache_headers(&self, cache_duration: Duration) -> Self::CacheHeaders;
 }

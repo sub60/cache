@@ -2,6 +2,7 @@
 
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
+#![feature(duration_constructors)]
 
 #[cfg(feature = "cloudflare")]
 pub mod cloudflare;

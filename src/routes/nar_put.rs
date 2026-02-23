@@ -9,8 +9,8 @@ use axum::routing::{self, MethodRouter};
 use crate::context::Context;
 use crate::types::{CacheName, CompressionExtension, Nix32HashStr, UserName};
 
-pub(crate) const ROUTE: &str = "/{user}/{cache}/nar/{file_hash}.nar";
-pub(crate) const ROUTE_EXT: &str = "/{user}/{cache}/nar/{file_hash}.nar.{ext}";
+pub(crate) const ROUTE: &str = crate::routes::nar_get::ROUTE;
+pub(crate) const ROUTE_EXT: &str = crate::routes::nar_get::ROUTE_EXT;
 
 /// The response returned to PUT requests to the NAR route.
 #[derive(Debug)]

@@ -9,7 +9,7 @@ use axum::routing::{self, MethodRouter};
 use crate::context::Context;
 use crate::types::{CacheName, NixStoreHash, UserName};
 
-pub(crate) const ROUTE: &str = "/{user}/{cache}/{store_hash}.nar";
+pub(crate) const ROUTE: &str = crate::routes::narinfo_get::ROUTE;
 
 /// The response returned to PUT requests to the NARInfo route.
 #[derive(Debug, Copy, Clone)]

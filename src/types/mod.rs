@@ -5,6 +5,7 @@ mod compression_algorithm;
 mod content_address;
 mod nar_info;
 mod nix32_hash;
+mod nix_cache_info;
 mod nix_key_or_signature;
 mod nix_store_basename;
 mod nix_store_literal;
@@ -37,6 +38,7 @@ pub use content_address::{
     ContentAddressMethod,
 };
 pub use nar_info::NarInfo;
+pub use nix_cache_info::NixCacheInfo;
 pub use nix_key_or_signature::{NixKeyOrSignature, NixKeyOrSignatureName};
 pub use nix_store_basename::{NixStoreBaseName, NixStoreBaseNameFromStrError};
 pub use nix_store_literal::{NixStoreLiteral, NixStoreLiteralFromStrError};

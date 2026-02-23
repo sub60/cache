@@ -11,12 +11,12 @@ use crate::context::Cdn;
 pub struct CloudflareCdn;
 
 impl Cdn for CloudflareCdn {
-    type NarInfoCacheHeaders = iter::Once<(HeaderName, HeaderValue)>;
+    type CacheHeaders = iter::Once<(HeaderName, HeaderValue)>;
 
-    fn narinfo_cache_headers(
+    fn cache_headers(
         &self,
         cache_duration: Duration,
-    ) -> Self::NarInfoCacheHeaders {
+    ) -> Self::CacheHeaders {
         iter::once((
             header::CACHE_CONTROL,
             HeaderValue::from_str(&format_compact!(
