@@ -10,13 +10,13 @@ use axum::routing::{self, MethodRouter};
 use smol_str::SmolStr;
 
 use crate::cache_ctx::CacheCtx;
-use crate::context::{self, Cdn, Context};
 use crate::types::NixCacheInfo;
+use crate::{Cdn as _, Context};
 
 pub(crate) const ROUTE: &str = "/nix-cache-info";
 
 /// The response returned to GET requests to the Nix cache info route.
-struct NixCacheInfoResponse<Cdn: context::Cdn> {
+struct NixCacheInfoResponse<Cdn: crate::Cdn> {
     nix_cache_info: NixCacheInfo<SmolStr>,
     cache_headers: Cdn::CacheHeaders,
 }
@@ -39,12 +39,12 @@ async fn handler<Ctx: Context>(
     }
 }
 
-impl<Cdn: context::Cdn> NixCacheInfoResponse<Cdn> {
+impl<Cdn: crate::Cdn> NixCacheInfoResponse<Cdn> {
     const CONTENT_TYPE: HeaderValue =
         HeaderValue::from_static("text/x-nix-cache-info");
 }
 
-impl<Cdn: context::Cdn> IntoResponse for NixCacheInfoResponse<Cdn> {
+impl<Cdn: crate::Cdn> IntoResponse for NixCacheInfoResponse<Cdn> {
     fn into_response(self) -> axum::response::Response {
         let mut builder = axum::response::Response::builder()
             .header(header::CONTENT_TYPE, Self::CONTENT_TYPE);

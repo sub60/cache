@@ -6,13 +6,13 @@ use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
-use crate::context::{self, Context};
+use crate::Context;
 use crate::types::{NarInfo, NixStoreHash};
 
 pub(crate) const ROUTE: &str = "/{store_hash}.narinfo";
 
 /// The response returned to GET requests to the NARInfo route.
-struct NarInfoGetResponse<Cdn: context::Cdn> {
+struct NarInfoGetResponse<Cdn: crate::Cdn> {
     nar_info: NarInfo,
     cache_headers: Cdn::CacheHeaders,
 }
@@ -33,7 +33,7 @@ async fn handler<Ctx: Context>(
     todo!()
 }
 
-impl<Cdn: context::Cdn> NarInfoGetResponse<Cdn> {
+impl<Cdn: crate::Cdn> NarInfoGetResponse<Cdn> {
     const CONTENT_TYPE: HeaderValue =
         HeaderValue::from_static("text/x-nix-narinfo");
 }
@@ -44,7 +44,7 @@ impl NarInfoGetResponseError {
     }
 }
 
-impl<Cdn: context::Cdn> IntoResponse for NarInfoGetResponse<Cdn> {
+impl<Cdn: crate::Cdn> IntoResponse for NarInfoGetResponse<Cdn> {
     fn into_response(self) -> axum::response::Response {
         let mut builder = axum::response::Response::builder()
             .header(header::CONTENT_TYPE, Self::CONTENT_TYPE);

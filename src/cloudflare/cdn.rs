@@ -4,7 +4,7 @@ use core::time::Duration;
 use axum::http::{HeaderName, HeaderValue, header};
 use compact_str::format_compact;
 
-use crate::context::Cdn;
+use crate::Cdn;
 
 /// The [`Cdn`] implementation for Cloudflare.
 #[derive(Debug)]

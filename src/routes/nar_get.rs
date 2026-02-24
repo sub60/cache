@@ -27,7 +27,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    Path(_path): Path<NarFileName>,
+    Path(_nar_file_name): Path<NarFileName>,
     _ctx: &mut Ctx,
 ) -> Result<NarGetResponse, NarGetRequestError> {
     todo!()

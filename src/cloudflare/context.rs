@@ -1,4 +1,4 @@
-use crate::cloudflare::CloudflareCdn;
+use crate::cloudflare::{CloudflareCdn, CloudflareObjectStorage};
 use crate::context::Context;
 
 /// The [`Context`] implementation for Cloudflare.
@@ -7,8 +7,13 @@ pub struct CloudflareContext;
 
 impl Context for CloudflareContext {
     type Cdn = CloudflareCdn;
+    type ObjectStorage = CloudflareObjectStorage;
 
     fn cdn(&self) -> &Self::Cdn {
         &CloudflareCdn
+    }
+
+    fn object_storage(&self) -> &Self::ObjectStorage {
+        &CloudflareObjectStorage
     }
 }
