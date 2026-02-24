@@ -34,7 +34,8 @@ enum NarInfoGetResponseError<ObjectStorageError> {
     GetNarInfo(ObjectStorageError),
 
     /// The NARInfo was not found in the object storage.
-    NarInfoNotFound,
+    #[display("NARInfo at '{_0}.narinfo' not found")]
+    NarInfoNotFound(NixStoreHash),
 
     /// The NARInfo bytes retrieved from the object storage were not valid
     /// UTF-8. This should basically never happen unless there's some kind of
@@ -43,8 +44,8 @@ enum NarInfoGetResponseError<ObjectStorageError> {
     NarInfoNotUtf8(str::Utf8Error),
 
     /// The NARInfo string retrieved from the object storage did not parse back
-    /// into a valid NARInfo struct. Like the [`NarInfoNotUtf8`] error, this
-    /// should also never happen unless the data is corrupted in some way.
+    /// into a valid [`NarInfo`]. Like the [`NarInfoNotUtf8`] error, this should
+    /// also never happen unless the data is corrupted in some way.
     ParseNarInfo(#[from] NarInfoFromStrError<<EmptyString as FromStr>::Err>),
 }
 
@@ -74,7 +75,7 @@ async fn handler<Ctx: Context>(
         .get(&object_storage_key)
         .await
         .map_err(NarInfoGetResponseError::GetNarInfo)?
-        .ok_or(NarInfoGetResponseError::NarInfoNotFound)?;
+        .ok_or(NarInfoGetResponseError::NarInfoNotFound(store_hash))?;
 
     let nar_info_without_url = str::from_utf8(nar_info_bytes.as_ref())
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?
@@ -106,7 +107,7 @@ async fn handler<Ctx: Context>(
 impl<ObjectStorageError> NarInfoGetResponseError<ObjectStorageError> {
     fn status_code(&self) -> StatusCode {
         match self {
-            Self::NarInfoNotFound => StatusCode::NOT_FOUND,
+            Self::NarInfoNotFound(_) => StatusCode::NOT_FOUND,
             Self::GetNarInfo(_)
             | Self::NarInfoNotUtf8(_)
             | Self::ParseNarInfo(_) => StatusCode::INTERNAL_SERVER_ERROR,

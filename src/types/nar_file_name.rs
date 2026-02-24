@@ -1,3 +1,4 @@
+use core::fmt;
 use core::str::FromStr;
 use std::borrow::Cow;
 
@@ -38,6 +39,16 @@ pub enum NarFileNameFromStrError {
     /// The string doesn't end with `.nar` or `.nar.{ext}`.
     #[display("missing '.nar' extension")]
     MissingNarExtension,
+}
+
+impl fmt::Display for NarFileName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.nar", self.file_hash.as_str())?;
+        if let Some(ext) = self.ext {
+            write!(f, ".{ext}")?;
+        }
+        Ok(())
+    }
 }
 
 impl FromStr for NarFileName {
