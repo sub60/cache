@@ -33,6 +33,10 @@ impl ObjectStorage for CloudflareObjectStorage {
         todo!()
     }
 
+    fn object_url(&self, _key: Self::Key<'_>) -> http::Uri {
+        todo!()
+    }
+
     fn presign(
         &self,
         _presign_request: PresignRequest<Self::Key<'_>>,

@@ -1,17 +1,15 @@
 //! TODO: docs.
 
 use core::fmt;
-use core::time::Duration;
 
 use axum::body::Body;
 use axum::extract::Path;
-use axum::http::{self, HeaderValue, StatusCode, header};
+use axum::http::{self, StatusCode, header};
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
-use crate::routes::NAR_CONTENT_TYPE;
 use crate::types::NarFileName;
-use crate::{Context, ObjectStorage, PresignRequest};
+use crate::{Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = crate::routes::nar_get::ROUTE;
 
@@ -19,7 +17,7 @@ pub(crate) const ROUTE: &str = crate::routes::nar_get::ROUTE;
 #[derive(Debug)]
 enum NarPutResponse {
     AlreadyExists,
-    Redirect { nar_location: HeaderValue },
+    Redirect { nar_location: http::Uri },
 }
 
 /// The type of error that can occur when handling a PUT request to the NAR
@@ -42,9 +40,9 @@ async fn handler<Ctx: Context>(
 > {
     // TODO: validate that the user has write permissions for that cache.
 
-    let object_storage_key = (&nar_file_name).into();
-
     let object_storage = ctx.object_storage();
+
+    let object_storage_key = (&nar_file_name).into();
 
     if object_storage
         .contains_key(object_storage_key)
@@ -53,13 +51,7 @@ async fn handler<Ctx: Context>(
     {
         Ok(NarPutResponse::AlreadyExists)
     } else {
-        let request = PresignRequest {
-            key: object_storage_key,
-            method: http::Method::PUT,
-            content_type: Some(NAR_CONTENT_TYPE),
-            ttl: Some(Duration::from_mins(5)),
-        };
-        let nar_location = object_storage.presign(request).into();
+        let nar_location = object_storage.object_url(object_storage_key);
         Ok(NarPutResponse::Redirect { nar_location })
     }
 }
@@ -81,7 +73,13 @@ impl IntoResponse for NarPutResponse {
             Self::Redirect { nar_location } => {
                 axum::response::Response::builder()
                     .status(StatusCode::TEMPORARY_REDIRECT)
-                    .header(header::LOCATION, nar_location)
+                    .header(
+                        header::LOCATION,
+                        header::HeaderValue::from_str(
+                            &nar_location.to_string(),
+                        )
+                        .expect("URIs are valid header values"),
+                    )
                     .body(Body::empty())
                     .expect("valid response")
             },

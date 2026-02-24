@@ -17,9 +17,3 @@ pub(crate) enum CacheVisibility {
     Public,
     Private,
 }
-
-impl CacheVisibility {
-    pub(crate) fn is_public(self) -> bool {
-        matches!(self, Self::Public)
-    }
-}

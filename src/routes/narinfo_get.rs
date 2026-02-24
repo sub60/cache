@@ -5,22 +5,23 @@ use core::time::Duration;
 use core::{fmt, str};
 
 use axum::body::Body;
-use axum::extract::{Extension, Path};
-use axum::http::{StatusCode, header};
+use axum::extract::Path;
+use axum::http::{self, HeaderValue, StatusCode, header};
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 use compact_str::{CompactString, format_compact};
 
-use crate::cache_ctx::CacheCtx;
-use crate::routes::NAR_INFO_CONTENT_TYPE;
 use crate::types::{NarInfo, NarInfoFromStrError, NixStoreHash};
 use crate::{Cdn, Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/{store_hash}.narinfo";
 
+const NAR_INFO_CONTENT_TYPE: HeaderValue =
+    HeaderValue::from_static("text/x-nix-narinfo");
+
 /// The response returned to GET requests to the NARInfo route.
 struct NarInfoGetResponse<Cdn: crate::Cdn> {
-    nar_info: NarInfo<String>,
+    nar_info: NarInfo<http::Uri>,
     cache_headers: Cdn::CacheHeaders,
 }
 
@@ -52,21 +53,16 @@ enum NarInfoGetResponseError<ObjectStorageError> {
 struct EmptyString;
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::get(async move |cache_ctx, path| {
-        handler(cache_ctx, path, &mut ctx).await
-    })
+    routing::get(async move |path| handler(path, &mut ctx).await)
 }
 
 async fn handler<Ctx: Context>(
-    Extension(cache_ctx): Extension<CacheCtx>,
     Path(store_hash): Path<NixStoreHash>,
     ctx: &mut Ctx,
 ) -> Result<
     NarInfoGetResponse<Ctx::Cdn>,
     NarInfoGetResponseError<<Ctx::ObjectStorage as ObjectStorage>::Error>,
 > {
-    // TODO: validate that the user has read permissions for that cache.
-
     let object_storage = ctx.object_storage();
 
     let object_storage_key = (&store_hash).into();
@@ -81,26 +77,13 @@ async fn handler<Ctx: Context>(
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?
         .parse::<NarInfo<EmptyString>>()?;
 
-    let nar_url = if cache_ctx.visibility.is_public() {
-        todo!()
-    } else {
-        String::from("todo!")
-    };
-
-    // We only cache the response if the cache is public. If the cache is
-    // private, the NARInfo's URL will be a time-limited pre-signed URL which we
-    // don't want the CDN to cache.
-    let cache_headers = if cache_ctx.visibility.is_public() {
-        // The NAR is purely content-addressed, so we can cache it for a long
-        // time.
-        ctx.cdn().cache_headers(Duration::from_days(365))
-    } else {
-        ctx.cdn().cache_headers_no_cache()
-    };
+    let nar_url = ctx.object_storage().object_url(object_storage_key);
 
     Ok(NarInfoGetResponse {
         nar_info: nar_info_without_url.with_url(nar_url),
-        cache_headers,
+        // The NAR is purely content-addressed, so we can cache it for a long
+        // time.
+        cache_headers: ctx.cdn().cache_headers(Duration::from_days(365)),
     })
 }
 

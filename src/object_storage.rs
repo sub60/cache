@@ -26,6 +26,10 @@ pub trait ObjectStorage: Sync {
         key: Self::Key<'_>,
     ) -> impl Future<Output = Result<Option<impl AsRef<[u8]>>, Self::Error>> + Send;
 
+    /// Returns the URL at which the object corresponding to the given key can
+    /// be accessed, if it exists.
+    fn object_url(&self, key: Self::Key<'_>) -> http::Uri;
+
     /// Generates a presigned URL for the given [`PresignRequest`], returning an
     /// opaque type containing the path and query parameters for the presigned
     /// URL.
