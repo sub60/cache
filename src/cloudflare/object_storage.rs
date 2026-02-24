@@ -2,8 +2,8 @@ use core::convert::Infallible;
 
 use axum::http;
 
+use crate::ObjectStorage;
 use crate::types::{NarFileName, NixStoreHash};
-use crate::{ObjectStorage, PresignRequest};
 
 /// The [`ObjectStorage`] implementation for Cloudflare.
 #[derive(Debug)]
@@ -34,13 +34,6 @@ impl ObjectStorage for CloudflareObjectStorage {
     }
 
     fn object_url(&self, _key: Self::Key<'_>) -> http::Uri {
-        todo!()
-    }
-
-    fn presign(
-        &self,
-        _presign_request: PresignRequest<Self::Key<'_>>,
-    ) -> http::HeaderValue {
         todo!()
     }
 

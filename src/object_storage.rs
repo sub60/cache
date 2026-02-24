@@ -35,8 +35,18 @@ pub trait ObjectStorage: Sync {
     /// URL.
     fn presign(
         &self,
-        presign_request: PresignRequest<Self::Key<'_>>,
-    ) -> impl fmt::Debug + Into<http::HeaderValue>;
+        _presign_request: PresignRequest<Self::Key<'_>>,
+    ) -> impl fmt::Debug + Into<http::HeaderValue> {
+        fn cast<T>(panic_msg: impl fmt::Display) -> T {
+            unimplemented!("{panic_msg}")
+        }
+        cast::<http::HeaderValue>(
+            "probably not usable since it buckets are either public or private
+             (without granularity), and private buckets mean we can't use a \
+             CDN, while for public buckets presigned URLs are a security \
+             theater",
+        )
+    }
 
     /// TODO: docs.
     fn set(
