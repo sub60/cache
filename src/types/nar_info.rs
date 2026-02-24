@@ -1,5 +1,6 @@
 use core::fmt::{self, Write};
 use core::num::NonZeroU64;
+use core::str::FromStr;
 
 use smallvec::SmallVec;
 
@@ -13,11 +14,11 @@ use crate::types::{
 };
 
 /// TODO: docs.
-pub struct NarInfo {
+pub struct NarInfo<NarUrl> {
     /// TODO: docs.
     store_path: NixStorePath,
     /// TODO: docs.
-    url: String,
+    url: NarUrl,
     /// TODO: docs.
     compression: CompressionAlgorithm,
     /// SHA-256 hash of the compressed NAR file.
@@ -38,7 +39,41 @@ pub struct NarInfo {
     content_address: Option<ContentAddress>,
 }
 
-impl fmt::Display for NarInfo {
+/// The type of error that can occur when parsing a string into a
+/// [`NarInfo`].
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
+)]
+pub enum NarInfoFromStrError<NarUrlFromStrError> {
+    /// The URL field did not parse successfully.
+    #[display("{_0}")]
+    InvalidUrl(NarUrlFromStrError),
+
+    /// The given required NARInfo field was missing from the input string.
+    #[display("missing required field: {_0}")]
+    MissingRequiredField(&'static str),
+}
+
+impl<NarUrl> NarInfo<NarUrl> {
+    /// TODO: docs.
+    pub fn with_url<NewUrl>(self, new_nar_url: NewUrl) -> NarInfo<NewUrl> {
+        NarInfo {
+            store_path: self.store_path,
+            url: new_nar_url,
+            compression: self.compression,
+            file_hash: self.file_hash,
+            file_size: self.file_size,
+            nar_hash: self.nar_hash,
+            nar_size: self.nar_size,
+            references: self.references,
+            deriver: self.deriver,
+            signatures: self.signatures,
+            content_address: self.content_address,
+        }
+    }
+}
+
+impl<NarUrl: fmt::Display> fmt::Display for NarInfo<NarUrl> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "StorePath: {}", self.store_path)?;
         writeln!(f, "URL: {}", self.url)?;
@@ -67,5 +102,16 @@ impl fmt::Display for NarInfo {
         }
 
         Ok(())
+    }
+}
+
+impl<NarUrl> FromStr for NarInfo<NarUrl>
+where
+    NarUrl: FromStr,
+{
+    type Err = NarInfoFromStrError<NarUrl::Err>;
+
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
+        todo!()
     }
 }

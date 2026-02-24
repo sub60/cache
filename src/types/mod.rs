@@ -39,7 +39,7 @@ pub use content_address::{
     ContentAddressMethod,
 };
 pub use nar_file_name::{NarFileName, NarFileNameFromStrError};
-pub use nar_info::NarInfo;
+pub use nar_info::{NarInfo, NarInfoFromStrError};
 pub use nix_cache_info::NixCacheInfo;
 pub use nix_key_or_signature::{NixKeyOrSignature, NixKeyOrSignatureName};
 pub use nix_store_basename::{NixStoreBaseName, NixStoreBaseNameFromStrError};

@@ -5,7 +5,7 @@ use axum::response::IntoResponse;
 use smol_str::SmolStr;
 
 use crate::Context;
-use crate::cache_ctx::CacheCtx;
+use crate::cache_ctx::{CacheCtx, CacheVisibility};
 use crate::layers::RouteLayer;
 use crate::types::{CacheName, NixStoreLiteral, UserName};
 use crate::user_ctx::UserCtx;
@@ -44,10 +44,13 @@ async fn handler<Ctx: Context>(
 
     let cache_store_dir = SmolStr::new_static(NixStoreLiteral::STR);
 
+    let cache_visibility = CacheVisibility::Public;
+
     let cache_ctx = CacheCtx {
         name: cache_name,
         priority: cache_priority,
         store_dir: cache_store_dir,
+        visibility: cache_visibility,
     };
 
     Ok((user_ctx, cache_ctx))

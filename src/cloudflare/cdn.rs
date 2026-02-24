@@ -23,4 +23,11 @@ impl Cdn for CloudflareCdn {
             .expect("valid header value"),
         ))
     }
+
+    fn cache_headers_no_cache(&self) -> Self::CacheHeaders {
+        iter::once((
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("no-store"),
+        ))
+    }
 }

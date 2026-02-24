@@ -15,7 +15,7 @@ where
     [(); num_chars_of_bytes(NUM_BYTES)]:;
 
 /// The type of error that can occur when parsing a string into a
-/// [`NixStoreHash`].
+/// [`Nix32Hash`].
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
 )]

@@ -26,6 +26,13 @@ impl ObjectStorage for CloudflareObjectStorage {
         todo!()
     }
 
+    async fn get(
+        &self,
+        _key: &Self::Key,
+    ) -> Result<Option<Vec<u8>>, Self::Error> {
+        todo!()
+    }
+
     fn presign(
         &self,
         _presign_request: PresignRequest<Self::Key>,

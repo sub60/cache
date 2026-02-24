@@ -20,6 +20,12 @@ pub trait ObjectStorage: Sync {
         key: &Self::Key,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
+    /// Returns whether the object storage contains the given key.
+    fn get(
+        &self,
+        key: &Self::Key,
+    ) -> impl Future<Output = Result<Option<impl AsRef<[u8]>>, Self::Error>> + Send;
+
     /// Generates a presigned URL for the given [`PresignRequest`], returning an
     /// opaque type containing the path and query parameters for the presigned
     /// URL.
