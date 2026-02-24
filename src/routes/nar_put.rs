@@ -42,12 +42,12 @@ async fn handler<Ctx: Context>(
 > {
     // TODO: validate that the user has write permissions for that cache.
 
-    let object_storage_key = nar_file_name.into();
+    let object_storage_key = (&nar_file_name).into();
 
     let object_storage = ctx.object_storage();
 
     if object_storage
-        .contains_key(&object_storage_key)
+        .contains_key(object_storage_key)
         .await
         .map_err(NarPutRequestError::ObjectStorage)?
     {

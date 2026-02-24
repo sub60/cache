@@ -13,8 +13,10 @@ use crate::types::{
 /// `{file_hash}.nar.{ext}`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NarFileName {
-    file_hash: Nix32Hash<32>,
-    ext: Option<CompressionExtension>,
+    /// The SHA-256 hash of the (possibly compressed) NAR file.
+    pub file_hash: Nix32Hash<32>,
+    /// The extension of the NAR file, if any.
+    pub extension: Option<CompressionExtension>,
 }
 
 /// The type of error that can occur when parsing a string into a
@@ -44,7 +46,7 @@ pub enum NarFileNameFromStrError {
 impl fmt::Display for NarFileName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}.nar", self.file_hash.as_str())?;
-        if let Some(ext) = self.ext {
+        if let Some(ext) = self.extension {
             write!(f, ".{ext}")?;
         }
         Ok(())
@@ -76,7 +78,7 @@ impl FromStr for NarFileName {
                 None => None,
             };
 
-        Ok(Self { file_hash: file_hash.parse()?, ext: compression_ext })
+        Ok(Self { file_hash: file_hash.parse()?, extension: compression_ext })
     }
 }
 

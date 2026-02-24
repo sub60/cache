@@ -1,16 +1,14 @@
 //! TODO: docs.
 
-use core::fmt;
 use core::str::FromStr;
+use core::{fmt, str};
 
-use axum::body::Body;
+use axum::body::{Body, Bytes};
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
-use crate::ObjectStorage;
-use crate::context::Context;
 use crate::types::{
     CompressionAlgorithm,
     NarFileName,
@@ -20,12 +18,12 @@ use crate::types::{
     Nix32Hash,
     NixStoreHash,
 };
+use crate::{Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = crate::routes::narinfo_get::ROUTE;
 
 /// The response returned to PUT requests to the NARInfo route.
 #[derive(Debug, Copy, Clone)]
-#[expect(dead_code)]
 enum NarInfoPutResponse {
     /// The NARInfo already exists in the user's cache, so the request was a
     /// no-op.
@@ -74,6 +72,10 @@ enum NarInfoPutRequestError<ObjectStorageError> {
         inferred_file_hash: Nix32Hash<32>,
     },
 
+    /// The NARInfo in the body of the request was not valid UTF-8.
+    #[display("NARInfo in request body is not valid UTF-8: {_0}")]
+    NarInfoNotUtf8(str::Utf8Error),
+
     /// The NARInfo store hash declared by the client in the URL of the request
     /// did not match the hash in the `StorePath` field of the NARInfo.
     #[display(
@@ -94,6 +96,9 @@ enum NarInfoPutRequestError<ObjectStorageError> {
     /// The NARInfo we got from the client did not parse into a valid
     /// [`NarInfo`].
     ParseNarInfo(#[from] NarInfoFromStrError<<NarPutUrl as FromStr>::Err>),
+
+    /// The object storage returned an error when storing the NARInfo.
+    StoreNarInfo(ObjectStorageError),
 }
 
 /// A struct whose [`FromStr`] implementation parses strings of the form
@@ -115,17 +120,75 @@ enum NarPutUrlFromStrError {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::put(async move |path| handler(path, &mut ctx).await)
+    routing::put(async move |path, body| handler(path, body, &mut ctx).await)
 }
 
 async fn handler<Ctx: Context>(
-    Path(_store_hash): Path<NixStoreHash>,
-    _ctx: &mut Ctx,
+    Path(store_hash): Path<NixStoreHash>,
+    body: Bytes,
+    ctx: &mut Ctx,
 ) -> Result<
     NarInfoPutResponse,
     NarInfoPutRequestError<<Ctx::ObjectStorage as ObjectStorage>::Error>,
 > {
-    todo!()
+    // TODO: validate that the user has write permissions for that cache.
+
+    let nar_info = str::from_utf8(&body)
+        .map_err(NarInfoPutRequestError::NarInfoNotUtf8)?
+        .parse::<NarInfo<NarPutUrl>>()?;
+
+    if &store_hash != nar_info.store_path.hash() {
+        return Err(NarInfoPutRequestError::NarInfoStoreHashMismatch {
+            declared_store_hash: store_hash,
+            inferred_store_hash: nar_info.store_path.into_hash(),
+        });
+    }
+
+    let inferred_compression = nar_info
+        .url
+        .nar_file_name
+        .extension
+        .map(|ext| ext.algorithm())
+        .unwrap_or(CompressionAlgorithm::None);
+
+    if nar_info.compression != inferred_compression {
+        return Err(NarInfoPutRequestError::NarCompressionMismatch {
+            declared_compression: nar_info.compression,
+            inferred_compression,
+        });
+    }
+
+    if nar_info.file_hash != nar_info.url.nar_file_name.file_hash {
+        return Err(NarInfoPutRequestError::NarFileHashMismatch {
+            declared_file_hash: nar_info.file_hash,
+            inferred_file_hash: nar_info.url.nar_file_name.file_hash,
+        });
+    }
+
+    let object_storage = ctx.object_storage();
+
+    if !object_storage
+        .contains_key((&nar_info.url.nar_file_name).into())
+        .await
+        .map_err(NarInfoPutRequestError::CheckNarExistence)?
+    {
+        return Err(NarInfoPutRequestError::NarNotFound(
+            nar_info.url.nar_file_name,
+        ));
+    }
+
+    let stored_nar_info = nar_info.with_url("");
+
+    let nar_info_was_inserted = object_storage
+        .set((&store_hash).into(), stored_nar_info.to_string().as_bytes())
+        .await
+        .map_err(NarInfoPutRequestError::StoreNarInfo)?;
+
+    if nar_info_was_inserted {
+        Ok(NarInfoPutResponse::Created)
+    } else {
+        Ok(NarInfoPutResponse::AlreadyExists)
+    }
 }
 
 impl NarInfoPutResponse {
@@ -139,13 +202,16 @@ impl NarInfoPutResponse {
 
 impl<ObjectStorageError> NarInfoPutRequestError<ObjectStorageError> {
     fn status_code(&self) -> StatusCode {
-        match *self {
+        match self {
             Self::NarCompressionMismatch { .. }
             | Self::NarFileHashMismatch { .. }
+            | Self::NarInfoNotUtf8(_)
             | Self::NarInfoStoreHashMismatch { .. }
             | Self::NarNotFound(_)
             | Self::ParseNarInfo(_) => StatusCode::BAD_REQUEST,
-            Self::CheckNarExistence(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::CheckNarExistence(_) | Self::StoreNarInfo(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            },
         }
     }
 }

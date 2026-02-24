@@ -9,7 +9,7 @@ use crate::types::{NarFileName, NixStoreHash};
 /// TODO: docs.
 pub trait ObjectStorage: Sync {
     /// TODO: docs.
-    type Key: From<NarFileName> + From<NixStoreHash> + Send;
+    type Key<'a>: From<&'a NarFileName> + From<&'a NixStoreHash> + Copy + Send;
 
     /// TODO: docs.
     type Error: Error + Send;
@@ -17,13 +17,13 @@ pub trait ObjectStorage: Sync {
     /// Returns whether the object storage contains the given key.
     fn contains_key(
         &self,
-        key: &Self::Key,
+        key: Self::Key<'_>,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
-    /// Returns whether the object storage contains the given key.
+    /// TODO: docs.
     fn get(
         &self,
-        key: &Self::Key,
+        key: Self::Key<'_>,
     ) -> impl Future<Output = Result<Option<impl AsRef<[u8]>>, Self::Error>> + Send;
 
     /// Generates a presigned URL for the given [`PresignRequest`], returning an
@@ -31,8 +31,15 @@ pub trait ObjectStorage: Sync {
     /// URL.
     fn presign(
         &self,
-        presign_request: PresignRequest<Self::Key>,
+        presign_request: PresignRequest<Self::Key<'_>>,
     ) -> impl fmt::Debug + Into<http::HeaderValue>;
+
+    /// TODO: docs.
+    fn set(
+        &self,
+        key: Self::Key<'_>,
+        bytes: &[u8],
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 }
 
 /// TODO: docs.

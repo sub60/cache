@@ -16,27 +16,27 @@ use crate::types::{
 /// TODO: docs.
 pub struct NarInfo<NarUrl> {
     /// TODO: docs.
-    store_path: NixStorePath,
+    pub store_path: NixStorePath,
     /// TODO: docs.
-    url: NarUrl,
+    pub url: NarUrl,
     /// TODO: docs.
-    compression: CompressionAlgorithm,
+    pub compression: CompressionAlgorithm,
     /// SHA-256 hash of the compressed NAR file.
-    file_hash: Nix32Hash<32>,
+    pub file_hash: Nix32Hash<32>,
     /// Byte size of the compressed NAR file.
-    file_size: NonZeroU64,
+    pub file_size: NonZeroU64,
     /// SHA-256 hash of the uncompressed NAR file.
-    nar_hash: Nix32Hash<32>,
+    pub nar_hash: Nix32Hash<32>,
     /// Byte size of the uncompressed NAR file.
-    nar_size: NonZeroU64,
+    pub nar_size: NonZeroU64,
     /// TODO: docs.
-    references: SmallVec<[NixStoreBaseName; 2]>,
+    pub references: SmallVec<[NixStoreBaseName; 2]>,
     /// TODO: docs.
-    deriver: Option<NixStoreBaseName>,
+    pub deriver: Option<NixStoreBaseName>,
     /// TODO: docs.
-    signatures: SmallVec<[NixSignature; 1]>,
+    pub signatures: SmallVec<[NixSignature; 1]>,
     /// TODO: docs.
-    content_address: Option<ContentAddress>,
+    pub content_address: Option<ContentAddress>,
 }
 
 /// The type of error that can occur when parsing a string into a

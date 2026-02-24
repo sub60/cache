@@ -12,8 +12,11 @@ use crate::types::{
 /// TODO: docs.
 #[derive(Clone, PartialEq, Eq)]
 pub struct NixStoreBaseName {
-    hash: NixStoreHash,
-    name: NixStoreName,
+    /// TODO: docs.
+    pub hash: NixStoreHash,
+
+    /// TODO: docs.
+    pub name: NixStoreName,
 }
 
 /// The type of error that can occur when parsing a string into a
@@ -30,13 +33,6 @@ pub enum NixStoreBaseNameFromStrError {
 
     /// The string is missing a dash (`-`) after the store hash.
     MissingDashAfterHash,
-}
-
-impl NixStoreBaseName {
-    /// Creates a new [`NixStorePath`] with the given hash and name.
-    pub fn new(hash: NixStoreHash, name: NixStoreName) -> Self {
-        Self { hash, name }
-    }
 }
 
 impl fmt::Debug for NixStoreBaseName {

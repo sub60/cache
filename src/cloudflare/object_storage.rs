@@ -9,46 +9,54 @@ use crate::{ObjectStorage, PresignRequest};
 #[derive(Debug)]
 pub struct CloudflareObjectStorage;
 
-#[derive(Debug)]
-pub enum CloudflareObjectStorageKey {
-    Nar(NarFileName),
-    NarInfo(NixStoreHash),
+#[derive(Debug, Copy, Clone)]
+pub enum CloudflareObjectStorageKey<'a> {
+    Nar(&'a NarFileName),
+    NarInfo(&'a NixStoreHash),
 }
 
 impl ObjectStorage for CloudflareObjectStorage {
-    type Key = CloudflareObjectStorageKey;
+    type Key<'a> = CloudflareObjectStorageKey<'a>;
     type Error = Infallible;
 
     async fn contains_key(
         &self,
-        _key: &Self::Key,
+        _key: Self::Key<'_>,
     ) -> Result<bool, Self::Error> {
         todo!()
     }
 
     async fn get(
         &self,
-        _key: &Self::Key,
+        _key: Self::Key<'_>,
     ) -> Result<Option<Vec<u8>>, Self::Error> {
         todo!()
     }
 
     fn presign(
         &self,
-        _presign_request: PresignRequest<Self::Key>,
+        _presign_request: PresignRequest<Self::Key<'_>>,
     ) -> http::HeaderValue {
+        todo!()
+    }
+
+    async fn set(
+        &self,
+        _key: Self::Key<'_>,
+        _bytes: &[u8],
+    ) -> Result<bool, Self::Error> {
         todo!()
     }
 }
 
-impl From<NarFileName> for CloudflareObjectStorageKey {
-    fn from(nar_file_name: NarFileName) -> Self {
+impl<'a> From<&'a NarFileName> for CloudflareObjectStorageKey<'a> {
+    fn from(nar_file_name: &'a NarFileName) -> Self {
         Self::Nar(nar_file_name)
     }
 }
 
-impl From<NixStoreHash> for CloudflareObjectStorageKey {
-    fn from(store_hash: NixStoreHash) -> Self {
+impl<'a> From<&'a NixStoreHash> for CloudflareObjectStorageKey<'a> {
+    fn from(store_hash: &'a NixStoreHash) -> Self {
         Self::NarInfo(store_hash)
     }
 }

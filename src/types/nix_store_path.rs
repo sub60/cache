@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use crate::types::{
     NixStoreBaseName,
     NixStoreBaseNameFromStrError,
+    NixStoreHash,
     NixStoreLiteral,
 };
 
@@ -35,6 +36,16 @@ pub enum NixStorePathFromStrError<StoreDir> {
 }
 
 impl NixStorePath {
+    /// Returns the hash component of this [`NixStorePath`].
+    pub fn hash(&self) -> &NixStoreHash {
+        &self.basename.hash
+    }
+
+    /// Returns the hash component of this [`NixStorePath`], consuming `self`.
+    pub fn into_hash(self) -> NixStoreHash {
+        self.basename.hash
+    }
+
     /// Creates a new [`NixStorePath`] with the given hash and name.
     pub fn new(basename: NixStoreBaseName) -> Self {
         Self { store_dir: NixStoreLiteral, basename }
