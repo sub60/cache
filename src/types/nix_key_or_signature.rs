@@ -1,4 +1,5 @@
 use core::fmt;
+use core::str::FromStr;
 
 use smol_str::SmolStr;
 
@@ -38,6 +39,17 @@ impl<KeyOrSig: WithRef<[u8]>> fmt::Display for NixKeyOrSignature<KeyOrSig> {
             );
             write!(f, "{}:{}", self.name, base64_bytes)
         })
+    }
+}
+
+impl<KeyOrSig, E> FromStr for NixKeyOrSignature<KeyOrSig>
+where
+    KeyOrSig: for<'a> TryFrom<&'a [u8], Error = E>,
+{
+    type Err = E;
+
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
+        todo!()
     }
 }
 

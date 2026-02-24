@@ -32,7 +32,9 @@ pub enum CompressionExtension {
 
 /// The type of error that can occur when parsing a string into a
 /// [`CompressionAlgorithm`].
-#[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
+)]
 pub enum CompressionAlgorithmFromStrError {
     /// The string did not match any of the names of the support compression
     /// algorithms.

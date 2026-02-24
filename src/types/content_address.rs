@@ -1,4 +1,5 @@
 use core::fmt;
+use core::str::FromStr;
 
 use crate::types::Nix32Hash;
 
@@ -32,6 +33,7 @@ pub enum ContentAddressHash {
 }
 
 /// TODO: docs.
+#[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 pub struct ContentAddressFromStrError;
 
 impl ContentAddressMethod {
@@ -48,6 +50,14 @@ impl ContentAddressMethod {
 impl fmt::Display for ContentAddress {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}", self.method, self.hash)
+    }
+}
+
+impl FromStr for ContentAddress {
+    type Err = ContentAddressFromStrError;
+
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
+        todo!()
     }
 }
 
