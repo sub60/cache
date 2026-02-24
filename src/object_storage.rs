@@ -30,6 +30,13 @@ pub trait ObjectStorage: Sync {
     /// be accessed, if it exists.
     fn object_url(&self, key: Self::Key<'_>) -> http::Uri;
 
+    /// TODO: docs.
+    fn set(
+        &self,
+        key: Self::Key<'_>,
+        bytes: &[u8],
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
+
     /// Generates a presigned URL for the given [`PresignRequest`], returning an
     /// opaque type containing the path and query parameters for the presigned
     /// URL.
@@ -47,13 +54,6 @@ pub trait ObjectStorage: Sync {
              theater",
         )
     }
-
-    /// TODO: docs.
-    fn set(
-        &self,
-        key: Self::Key<'_>,
-        bytes: &[u8],
-    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 }
 
 /// TODO: docs.

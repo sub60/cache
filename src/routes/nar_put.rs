@@ -11,7 +11,7 @@ use axum::routing::{self, MethodRouter};
 use crate::types::NarFileName;
 use crate::{Context, ObjectStorage};
 
-pub(crate) const ROUTE: &str = crate::routes::nar_get::ROUTE;
+pub(crate) const ROUTE: &str = "/nar/{nar_file_name}";
 
 /// The response returned to PUT requests to the NAR route.
 #[derive(Debug)]

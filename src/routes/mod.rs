@@ -1,6 +1,5 @@
 //! TODO: docs.
 
-pub(crate) mod nar_get;
 pub(crate) mod nar_put;
 pub(crate) mod narinfo_get;
 pub(crate) mod narinfo_put;
