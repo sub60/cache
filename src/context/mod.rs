@@ -7,17 +7,18 @@ pub use composed::ComposedContext;
 use crate::object_gateway::ObjectGateway;
 use crate::{Cdn, ObjectStorage};
 
+/// TODO: docs.
+pub type ObjectStorageError<Ctx> =
+    <<<Ctx as Context>::ObjectGateway as ObjectGateway>::Storage as ObjectStorage>::Error;
+
 /// A trait whose associated types abstract over all the aspects of the cache
 /// server for which we want to have mockable implementations in tests.
 pub trait Context: Clone + Send + Sync + 'static {
     /// The CDN that sits in front of the cache server.
     type Cdn: Cdn;
 
-    /// The object storage that holds the NARs and NARInfos.
-    type ObjectGateway: ObjectGateway<Self::ObjectStorage>;
-
-    /// The object storage that holds the NARs and NARInfos.
-    type ObjectStorage: ObjectStorage;
+    /// The gateway to the object storage that holds the NARs and NARInfos.
+    type ObjectGateway: ObjectGateway;
 
     /// Returns a reference to the CDN.
     fn cdn(&self) -> &Self::Cdn;
@@ -26,7 +27,9 @@ pub trait Context: Clone + Send + Sync + 'static {
     fn object_gateway(&self) -> &Self::ObjectGateway;
 
     /// Returns a reference to the object storage.
-    fn object_storage(&self) -> &Self::ObjectStorage {
+    fn object_storage(
+        &self,
+    ) -> &<Self::ObjectGateway as ObjectGateway>::Storage {
         self.object_gateway().storage()
     }
 

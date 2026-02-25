@@ -9,6 +9,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
+use crate::context::ObjectStorageError;
 use crate::types::{
     CompressionAlgorithm,
     NarFileName,
@@ -127,10 +128,8 @@ async fn handler<Ctx: Context>(
     Path(store_hash): Path<NixStoreHash>,
     body: Bytes,
     ctx: &mut Ctx,
-) -> Result<
-    NarInfoPutResponse,
-    NarInfoPutRequestError<<Ctx::ObjectStorage as ObjectStorage>::Error>,
-> {
+) -> Result<NarInfoPutResponse, NarInfoPutRequestError<ObjectStorageError<Ctx>>>
+{
     // TODO: validate that the user has write permissions for that cache.
 
     let nar_info = str::from_utf8(&body)

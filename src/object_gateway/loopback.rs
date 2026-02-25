@@ -30,11 +30,13 @@ impl<ObjStorage> LoopbackObjectGateway<ObjStorage> {
     }
 }
 
-impl<ObjStorage: ObjectStorage> ObjectGateway<ObjStorage>
+impl<ObjStorage: ObjectStorage> ObjectGateway
     for LoopbackObjectGateway<ObjStorage>
 where
     for<'a> ObjStorage::Key<'a>: fmt::Display,
 {
+    type Storage = ObjStorage;
+
     #[track_caller]
     fn object_url(&self, key: ObjStorage::Key<'_>) -> http::Uri {
         let Some(port) = self.port else {

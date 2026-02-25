@@ -8,6 +8,7 @@ use axum::http::{self, StatusCode, header};
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
+use crate::context::ObjectStorageError;
 use crate::object_gateway::ObjectGateway;
 use crate::types::NarFileName;
 use crate::{Context, ObjectStorage};
@@ -35,10 +36,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 async fn handler<Ctx: Context>(
     Path(nar_file_name): Path<NarFileName>,
     ctx: &mut Ctx,
-) -> Result<
-    NarPutResponse,
-    NarPutRequestError<<Ctx::ObjectStorage as ObjectStorage>::Error>,
-> {
+) -> Result<NarPutResponse, NarPutRequestError<ObjectStorageError<Ctx>>> {
     // TODO: validate that the user has write permissions for that cache.
 
     let object_storage = ctx.object_storage();

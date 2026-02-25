@@ -1,62 +1,42 @@
-use core::marker::PhantomData;
-
-use crate::{Context, ObjectGateway, ObjectStorage};
+use crate::{Context, ObjectGateway};
 
 /// A composable [`Context`] implementation that simply holds the various
 /// associated types as fields.
 #[derive(Clone)]
-pub struct ComposedContext<Cdn, ObjGateway, ObjStorage> {
+pub struct ComposedContext<Cdn, ObjGateway> {
     cdn: Cdn,
     object_gateway: ObjGateway,
-    object_storage: PhantomData<ObjStorage>,
     want_mass_query: bool,
 }
 
-impl ComposedContext<(), (), ()> {
+impl ComposedContext<(), ()> {
     /// Creates a new [`ComposedContext`].
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl<Cdn, ObjGateway, ObjStorage> ComposedContext<Cdn, ObjGateway, ObjStorage> {
+impl<Cdn, ObjGateway> ComposedContext<Cdn, ObjGateway> {
     /// TODO: docs.
     pub fn with_cdn<NewCdn: crate::Cdn>(
         self,
         cdn: NewCdn,
-    ) -> ComposedContext<NewCdn, ObjGateway, ObjStorage> {
+    ) -> ComposedContext<NewCdn, ObjGateway> {
         ComposedContext {
             cdn,
             object_gateway: self.object_gateway,
-            object_storage: self.object_storage,
             want_mass_query: self.want_mass_query,
         }
     }
 
     /// TODO: docs.
-    pub fn with_object_gateway<NewObjGateway: ObjectGateway<ObjStorage>>(
+    pub fn with_object_gateway<NewObjGateway>(
         self,
         object_gateway: NewObjGateway,
-    ) -> ComposedContext<Cdn, NewObjGateway, ObjStorage>
-    where
-        ObjStorage: ObjectStorage,
-    {
+    ) -> ComposedContext<Cdn, NewObjGateway> {
         ComposedContext {
             cdn: self.cdn,
             object_gateway,
-            object_storage: self.object_storage,
-            want_mass_query: self.want_mass_query,
-        }
-    }
-
-    /// TODO: docs.
-    pub fn with_object_storage<NewObjStorage: ObjectStorage>(
-        self,
-    ) -> ComposedContext<Cdn, ObjGateway, NewObjStorage> {
-        ComposedContext {
-            cdn: self.cdn,
-            object_gateway: self.object_gateway,
-            object_storage: PhantomData,
             want_mass_query: self.want_mass_query,
         }
     }
@@ -68,27 +48,19 @@ impl<Cdn, ObjGateway, ObjStorage> ComposedContext<Cdn, ObjGateway, ObjStorage> {
     }
 }
 
-impl Default for ComposedContext<(), (), ()> {
+impl Default for ComposedContext<(), ()> {
     fn default() -> Self {
-        Self {
-            cdn: (),
-            object_gateway: (),
-            object_storage: PhantomData,
-            want_mass_query: true,
-        }
+        Self { cdn: (), object_gateway: (), want_mass_query: true }
     }
 }
 
-impl<Cdn, ObjGateway, ObjStorage> Context
-    for ComposedContext<Cdn, ObjGateway, ObjStorage>
+impl<Cdn, ObjGateway> Context for ComposedContext<Cdn, ObjGateway>
 where
     Cdn: crate::Cdn + Clone + Send + Sync + 'static,
-    ObjGateway: ObjectGateway<ObjStorage> + Clone + Send + Sync + 'static,
-    ObjStorage: ObjectStorage + Clone + Send + Sync + 'static,
+    ObjGateway: ObjectGateway + Clone + Send + Sync + 'static,
 {
     type Cdn = Cdn;
     type ObjectGateway = ObjGateway;
-    type ObjectStorage = ObjStorage;
 
     fn cdn(&self) -> &Self::Cdn {
         &self.cdn

@@ -11,6 +11,7 @@ use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 use compact_str::{CompactString, format_compact};
 
+use crate::context::ObjectStorageError;
 use crate::object_gateway::ObjectGateway;
 use crate::types::{NarInfo, NarInfoFromStrError, NixStoreHash};
 use crate::{Cdn, Context, ObjectStorage};
@@ -62,7 +63,7 @@ async fn handler<Ctx: Context>(
     ctx: &mut Ctx,
 ) -> Result<
     NarInfoGetResponse<Ctx::Cdn>,
-    NarInfoGetResponseError<<Ctx::ObjectStorage as ObjectStorage>::Error>,
+    NarInfoGetResponseError<ObjectStorageError<Ctx>>,
 > {
     let object_storage = ctx.object_storage();
 

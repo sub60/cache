@@ -12,21 +12,28 @@ pub use loopback::LoopbackObjectGateway;
 use crate::ObjectStorage;
 
 /// TODO: docs.
-pub trait ObjectGateway<Storage: ObjectStorage> {
-    /// Returns the URL at which the object corresponding to the given key can
-    /// be accessed, if it exists.
-    fn object_url(&self, key: Storage::Key<'_>) -> http::Uri;
+pub trait ObjectGateway {
+    /// TODO: docs.
+    type Storage: ObjectStorage;
 
     /// Returns the URL at which the object corresponding to the given key can
     /// be accessed, if it exists.
-    fn storage(&self) -> &Storage;
+    fn object_url(
+        &self,
+        key: <Self::Storage as ObjectStorage>::Key<'_>,
+    ) -> http::Uri;
+
+    /// TODO: docs.
+    fn storage(&self) -> &Self::Storage;
 
     /// Generates a presigned URL for the given [`PresignRequest`], returning an
     /// opaque type containing the path and query parameters for the presigned
     /// URL.
     fn presign(
         &self,
-        _presign_request: PresignRequest<Storage::Key<'_>>,
+        _presign_request: PresignRequest<
+            <Self::Storage as ObjectStorage>::Key<'_>,
+        >,
     ) -> impl fmt::Debug + Into<http::HeaderValue> {
         fn cast<T>(panic_msg: impl fmt::Display) -> T {
             unimplemented!("{panic_msg}")
