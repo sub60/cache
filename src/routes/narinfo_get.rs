@@ -11,6 +11,7 @@ use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 use compact_str::{CompactString, format_compact};
 
+use crate::object_gateway::ObjectGateway;
 use crate::types::{NarInfo, NarInfoFromStrError, NixStoreHash};
 use crate::{Cdn, Context, ObjectStorage};
 
@@ -77,7 +78,7 @@ async fn handler<Ctx: Context>(
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?
         .parse::<NarInfo<EmptyString>>()?;
 
-    let nar_url = ctx.object_storage().object_url(object_storage_key);
+    let nar_url = ctx.object_gateway().object_url(object_storage_key);
 
     Ok(NarInfoGetResponse {
         nar_info: nar_info_without_url.with_url(nar_url),

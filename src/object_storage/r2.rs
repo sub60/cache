@@ -1,7 +1,5 @@
 use core::convert::Infallible;
 
-use axum::http;
-
 use crate::ObjectStorage;
 use crate::types::{NarFileName, NixStoreHash};
 
@@ -30,10 +28,6 @@ impl ObjectStorage for R2ObjectStorage {
         &self,
         _key: Self::Key<'_>,
     ) -> Result<Option<Vec<u8>>, Self::Error> {
-        todo!()
-    }
-
-    fn object_url(&self, _key: Self::Key<'_>) -> http::Uri {
         todo!()
     }
 

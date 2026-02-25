@@ -8,6 +8,7 @@ use axum::http::{self, StatusCode, header};
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
+use crate::object_gateway::ObjectGateway;
 use crate::types::NarFileName;
 use crate::{Context, ObjectStorage};
 
@@ -51,7 +52,7 @@ async fn handler<Ctx: Context>(
     {
         Ok(NarPutResponse::AlreadyExists)
     } else {
-        let nar_location = object_storage.object_url(object_storage_key);
+        let nar_location = ctx.object_gateway().object_url(object_storage_key);
         Ok(NarPutResponse::Redirect { nar_location })
     }
 }
