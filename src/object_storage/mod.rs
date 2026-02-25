@@ -1,5 +1,6 @@
 //! TODO: docs.
 
+mod local;
 mod r2;
 
 use core::error::Error;
