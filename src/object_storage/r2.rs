@@ -5,18 +5,18 @@ use axum::http;
 use crate::ObjectStorage;
 use crate::types::{NarFileName, NixStoreHash};
 
-/// The [`ObjectStorage`] implementation for Cloudflare.
+/// The [`ObjectStorage`] implementation for R2.
 #[derive(Debug)]
-pub struct CloudflareObjectStorage;
+pub struct R2ObjectStorage;
 
 #[derive(Debug, Copy, Clone)]
-pub enum CloudflareObjectStorageKey<'a> {
+pub enum R2ObjectStorageKey<'a> {
     Nar(&'a NarFileName),
     NarInfo(&'a NixStoreHash),
 }
 
-impl ObjectStorage for CloudflareObjectStorage {
-    type Key<'a> = CloudflareObjectStorageKey<'a>;
+impl ObjectStorage for R2ObjectStorage {
+    type Key<'a> = R2ObjectStorageKey<'a>;
     type Error = Infallible;
 
     async fn contains_key(
@@ -46,13 +46,13 @@ impl ObjectStorage for CloudflareObjectStorage {
     }
 }
 
-impl<'a> From<&'a NarFileName> for CloudflareObjectStorageKey<'a> {
+impl<'a> From<&'a NarFileName> for R2ObjectStorageKey<'a> {
     fn from(nar_file_name: &'a NarFileName) -> Self {
         Self::Nar(nar_file_name)
     }
 }
 
-impl<'a> From<&'a NixStoreHash> for CloudflareObjectStorageKey<'a> {
+impl<'a> From<&'a NixStoreHash> for R2ObjectStorageKey<'a> {
     fn from(store_hash: &'a NixStoreHash) -> Self {
         Self::NarInfo(store_hash)
     }

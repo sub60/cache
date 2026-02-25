@@ -1,8 +1,13 @@
+//! TODO: docs.
+
+mod r2;
+
 use core::error::Error;
 use core::fmt;
 use core::time::Duration;
 
 use axum::http;
+pub use r2::R2ObjectStorage;
 
 use crate::types::{NarFileName, NixStoreHash};
 

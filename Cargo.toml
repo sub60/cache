@@ -54,9 +54,6 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
-[features]
-cloudflare = []
-
 [dependencies]
 axum = { workspace = true }
 base64 = { workspace = true }

@@ -1,3 +1,5 @@
+//! TODO: docs.
+
 use crate::{Cdn, ObjectStorage};
 
 /// A trait whose associated types abstract over all the aspects of the cache
