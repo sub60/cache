@@ -1,11 +1,13 @@
 //! TODO: docs.
 
 mod cloudflare;
+mod noop;
 
 use core::time::Duration;
 
 use axum::http::{HeaderName, HeaderValue};
 pub use cloudflare::CloudflareCdn;
+pub use noop::NoOpCdn;
 
 /// TODO: docs.
 pub trait Cdn {
