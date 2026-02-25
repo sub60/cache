@@ -70,7 +70,7 @@ async fn handler<Ctx: Context>(
     let object_storage_key = (&store_hash).into();
 
     let nar_info_bytes = object_storage
-        .get(object_storage_key)
+        .get(&object_storage_key)
         .await
         .map_err(NarInfoGetResponseError::GetNarInfo)?
         .ok_or(NarInfoGetResponseError::NarInfoNotFound(store_hash))?;

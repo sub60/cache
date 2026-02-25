@@ -167,7 +167,7 @@ async fn handler<Ctx: Context>(
     let object_storage = ctx.object_storage();
 
     if !object_storage
-        .contains_key((&nar_info.url.nar_file_name).into())
+        .contains_key(&(&nar_info.url.nar_file_name).into())
         .await
         .map_err(NarInfoPutRequestError::CheckNarExistence)?
     {

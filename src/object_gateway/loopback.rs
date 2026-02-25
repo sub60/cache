@@ -57,7 +57,7 @@ impl<ObjStorage> LoopbackObjectGateway<ObjStorage> {
                     return (StatusCode::BAD_REQUEST, msg).into_response();
                 },
             };
-            match object_storage.get(object_key).await {
+            match object_storage.get(&object_key).await {
                 Ok(Some(object)) => {
                     Response::new(object.as_ref().to_owned().into())
                 },

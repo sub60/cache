@@ -19,14 +19,14 @@ impl ObjectStorage for R2ObjectStorage {
 
     async fn contains_key(
         &self,
-        _key: Self::Key<'_>,
+        _key: &Self::Key<'_>,
     ) -> Result<bool, Self::Error> {
         todo!()
     }
 
     async fn get(
         &self,
-        _key: Self::Key<'_>,
+        _key: &Self::Key<'_>,
     ) -> Result<Option<Vec<u8>>, Self::Error> {
         todo!()
     }

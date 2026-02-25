@@ -44,7 +44,7 @@ async fn handler<Ctx: Context>(
     let object_storage_key = (&nar_file_name).into();
 
     if object_storage
-        .contains_key(object_storage_key)
+        .contains_key(&object_storage_key)
         .await
         .map_err(NarPutRequestError::ObjectStorage)?
     {
