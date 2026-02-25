@@ -1,5 +1,6 @@
 //! TODO: docs.
 
+#[cfg(feature = "loopback-object-gateway")]
 mod loopback;
 mod r2;
 
@@ -7,6 +8,7 @@ use core::fmt;
 use core::time::Duration;
 
 use axum::http;
+#[cfg(feature = "loopback-object-gateway")]
 pub use loopback::LoopbackObjectGateway;
 
 use crate::ObjectStorage;

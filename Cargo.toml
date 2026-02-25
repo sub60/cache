@@ -15,6 +15,7 @@ memchr = "2"
 serde = "1"
 smallvec = "1"
 smol_str = "0.3"
+tokio = { version = "1", default-features = false }
 tower-layer = "0.3"
 tower-service = "0.3"
 
@@ -54,6 +55,9 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[features]
+loopback-object-gateway = ["dep:tokio", "tokio/net"]
+
 [dependencies]
 axum = { workspace = true }
 base64 = { workspace = true }
@@ -68,6 +72,8 @@ smallvec = { workspace = true }
 smol_str = { workspace = true, features = ["serde"] }
 tower-layer = { workspace = true }
 tower-service = { workspace = true }
+
+tokio = { workspace = true, optional = true }
 
 [lints]
 workspace = true

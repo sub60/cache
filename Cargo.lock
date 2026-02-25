@@ -111,6 +111,7 @@ dependencies = [
  "serde",
  "smallvec",
  "smol_str",
+ "tokio",
  "tower-layer",
  "tower-service",
 ]
