@@ -1,13 +1,15 @@
 //! TODO: docs.
 
+mod loopback;
+mod r2;
+
 use core::fmt;
 use core::time::Duration;
 
 use axum::http;
+pub use loopback::LoopbackObjectGateway;
 
 use crate::ObjectStorage;
-
-mod r2;
 
 /// TODO: docs.
 pub trait ObjectGateway<Storage: ObjectStorage> {
