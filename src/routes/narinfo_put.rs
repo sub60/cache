@@ -15,7 +15,7 @@ use crate::types::{
     NarFileNameFromStrError,
     NarInfo,
     NarInfoFromStrError,
-    Nix32Hash,
+    Nix32Digest,
     NixStoreHash,
 };
 use crate::{Context, ObjectStorage};
@@ -67,9 +67,9 @@ enum NarInfoPutRequestError<ObjectStorageError> {
     )]
     NarFileHashMismatch {
         /// The file hash the `FileHash` field.
-        declared_file_hash: Nix32Hash<32>,
+        declared_file_hash: Nix32Digest<32>,
         /// The file hash inferred from `URL` field.
-        inferred_file_hash: Nix32Hash<32>,
+        inferred_file_hash: Nix32Digest<32>,
     },
 
     /// The NARInfo in the body of the request was not valid UTF-8.

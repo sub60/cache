@@ -2,34 +2,34 @@ use core::fmt;
 use core::str::FromStr;
 use std::borrow::Cow;
 
-/// Nix's custom base32 alphabet for hashes, which includes all digits and
+/// Nix's custom base32 alphabet for digests, which includes all digits and
 /// all lowercase letters except 'e', 'o', 't', and 'u'.
 const ALPHABET: &[u8; 32] = b"0123456789abcdfghijklmnpqrsvwxyz";
 
 /// TODO: docs.
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Nix32Hash<const NUM_BYTES: usize>(
+pub struct Nix32Digest<const NUM_BYTES: usize>(
     [u8; num_chars_of_bytes(NUM_BYTES)],
 )
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:;
 
 /// The type of error that can occur when parsing a string into a
-/// [`Nix32Hash`].
+/// [`Nix32Digest`].
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
 )]
-pub enum Nix32HashFromStrError<const NUM_BYTES: usize> {
+pub enum Nix32DigestFromStrError<const NUM_BYTES: usize> {
     /// The string was not exactly 32 characters long.
     #[display(
-        "Nix store hash must be exactly {} characters long",
+        "String must be exactly {} characters long",
         num_chars_of_bytes(NUM_BYTES)
     )]
     InvalidLength,
 
-    /// The hash contains an invalid character at the given offset.
+    /// The string contains an invalid character at the given offset.
     #[display(
-        "Nix store hash contains an invalid character at offset {offset}: \
+        "String contains an invalid character at offset {offset}: \
          '{character}'"
     )]
     InvalidCharacter {
@@ -42,7 +42,7 @@ pub enum Nix32HashFromStrError<const NUM_BYTES: usize> {
     },
 }
 
-impl<const NUM_BYTES: usize> Nix32Hash<NUM_BYTES>
+impl<const NUM_BYTES: usize> Nix32Digest<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -91,9 +91,9 @@ where
         VALID_BYTES[byte as usize]
     }
 
-    fn validate(s: &str) -> Result<(), Nix32HashFromStrError<NUM_BYTES>> {
+    fn validate(s: &str) -> Result<(), Nix32DigestFromStrError<NUM_BYTES>> {
         if s.len() != Self::NUM_CHARACTERS {
-            return Err(Nix32HashFromStrError::InvalidLength);
+            return Err(Nix32DigestFromStrError::InvalidLength);
         }
 
         for (offset, byte) in s.bytes().enumerate() {
@@ -102,7 +102,7 @@ where
                     .chars()
                     .next()
                     .expect("offset must be less that string length");
-                return Err(Nix32HashFromStrError::InvalidCharacter {
+                return Err(Nix32DigestFromStrError::InvalidCharacter {
                     character,
                     offset,
                 });
@@ -113,7 +113,7 @@ where
     }
 }
 
-impl<const NUM_BYTES: usize> fmt::Debug for Nix32Hash<NUM_BYTES>
+impl<const NUM_BYTES: usize> fmt::Debug for Nix32Digest<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -122,7 +122,7 @@ where
     }
 }
 
-impl<const NUM_BYTES: usize> fmt::Display for Nix32Hash<NUM_BYTES>
+impl<const NUM_BYTES: usize> fmt::Display for Nix32Digest<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -131,7 +131,7 @@ where
     }
 }
 
-impl<const NUM_BYTES: usize> AsRef<str> for Nix32Hash<NUM_BYTES>
+impl<const NUM_BYTES: usize> AsRef<str> for Nix32Digest<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -140,11 +140,11 @@ where
     }
 }
 
-impl<const NUM_BYTES: usize> FromStr for Nix32Hash<NUM_BYTES>
+impl<const NUM_BYTES: usize> FromStr for Nix32Digest<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
-    type Err = Nix32HashFromStrError<NUM_BYTES>;
+    type Err = Nix32DigestFromStrError<NUM_BYTES>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::validate(s)?;
@@ -154,7 +154,7 @@ where
 }
 
 impl<'de, const NUM_BYTES: usize> serde::de::Deserialize<'de>
-    for Nix32Hash<NUM_BYTES>
+    for Nix32Digest<NUM_BYTES>
 where
     [(); num_chars_of_bytes(NUM_BYTES)]:,
 {
@@ -221,5 +221,5 @@ const fn decode_digit(byte: u8) -> u8 {
         idx += 1;
     }
 
-    panic!("Nix32HashStr is always validated")
+    panic!("Nix32Digest is always validated")
 }

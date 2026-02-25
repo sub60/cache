@@ -5,8 +5,8 @@ use std::borrow::Cow;
 use crate::types::{
     CompressionExtension,
     CompressionExtensionFromStrError,
-    Nix32Hash,
-    Nix32HashFromStrError,
+    Nix32Digest,
+    Nix32DigestFromStrError,
 };
 
 /// A parsed NAR file name of the form `{file_hash}.nar` or
@@ -14,7 +14,7 @@ use crate::types::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NarFileName {
     /// The SHA-256 hash of the (possibly compressed) NAR file.
-    pub file_hash: Nix32Hash<32>,
+    pub file_hash: Nix32Digest<32>,
     /// The extension of the NAR file, if any.
     pub extension: Option<CompressionExtension>,
 }
@@ -36,7 +36,7 @@ pub enum NarFileNameFromStrError {
 
     /// The file hash part is invalid.
     #[display("{_0}")]
-    InvalidFileHash(#[from] Nix32HashFromStrError<32>),
+    InvalidFileHash(#[from] Nix32DigestFromStrError<32>),
 
     /// The string doesn't end with `.nar` or `.nar.{ext}`.
     #[display("missing '.nar' extension")]
@@ -57,11 +57,11 @@ impl FromStr for NarFileName {
     type Err = NarFileNameFromStrError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() < Nix32Hash::<32>::NUM_CHARACTERS {
-            return Err(Nix32HashFromStrError::InvalidLength.into());
+        if s.len() < Nix32Digest::<32>::NUM_CHARACTERS {
+            return Err(Nix32DigestFromStrError::InvalidLength.into());
         }
 
-        let (file_hash, rest) = s.split_at(Nix32Hash::<32>::NUM_CHARACTERS);
+        let (file_hash, rest) = s.split_at(Nix32Digest::<32>::NUM_CHARACTERS);
 
         let Some(maybe_dot_and_ext) = rest.strip_prefix(".nar") else {
             return Err(NarFileNameFromStrError::MissingNarExtension);

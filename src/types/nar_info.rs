@@ -8,7 +8,8 @@ use smol_str::SmolStr;
 use crate::types::{
     CompressionAlgorithm,
     ContentAddress,
-    Nix32Hash,
+    Nix32Digest,
+    NixHash,
     NixSignature,
     NixStoreBaseName,
     NixStorePath,
@@ -35,11 +36,11 @@ pub struct NarInfo<NarUrl> {
     /// TODO: docs.
     pub compression: CompressionAlgorithm,
     /// SHA-256 hash of the compressed NAR file.
-    pub file_hash: Nix32Hash<32>,
+    pub file_hash: Nix32Digest<32>,
     /// Byte size of the compressed NAR file.
     pub file_size: NonZeroU64,
     /// SHA-256 hash of the uncompressed NAR file.
-    pub nar_hash: Nix32Hash<32>,
+    pub nar_hash: Nix32Digest<32>,
     /// Byte size of the uncompressed NAR file.
     pub nar_size: NonZeroU64,
     /// TODO: docs.
@@ -75,6 +76,14 @@ pub enum NarInfoFromStrError<NarUrlFromStrError> {
     #[display("missing required field: {_0:?}")]
     MissingRequiredField(&'static str),
 
+    /// The `FileHash` field used a hash algorithm that was not SHA-256.
+    #[display("expected '{FILE_HASH_FIELD_NAME}' to be a SHA-256 hash")]
+    FileHashNotSha256,
+
+    /// The `NarHash` field used a hash algorithm that was not SHA-256.
+    #[display("expected '{NAR_HASH_FIELD_NAME}' to be a SHA-256 hash")]
+    NarHashNotSha256,
+
     /// The `StorePath` field did not parse successfully.
     #[display("invalid '{STORE_PATH_FIELD_NAME}': {_0}")]
     StorePath(<NixStorePath as FromStr>::Err),
@@ -89,7 +98,7 @@ pub enum NarInfoFromStrError<NarUrlFromStrError> {
 
     /// The `FileHash` field did not parse successfully.
     #[display("invalid '{FILE_HASH_FIELD_NAME}': {_0}")]
-    FileHash(<Nix32Hash<32> as FromStr>::Err),
+    FileHash(<NixHash as FromStr>::Err),
 
     /// The `FileSize` field did not parse successfully.
     #[display("invalid '{FILE_SIZE_FIELD_NAME}': {_0}")]
@@ -97,7 +106,7 @@ pub enum NarInfoFromStrError<NarUrlFromStrError> {
 
     /// The `NarHash` field did not parse successfully.
     #[display("invalid '{NAR_HASH_FIELD_NAME}': {_0}")]
-    NarHash(<Nix32Hash<32> as FromStr>::Err),
+    NarHash(<NixHash as FromStr>::Err),
 
     /// The `NarSize` field did not parse successfully.
     #[display("invalid '{NAR_SIZE_FIELD_NAME}': {_0}")]
@@ -220,11 +229,12 @@ where
                     compression.replace(parsed_compression).is_some()
                 },
                 FILE_HASH_FIELD_NAME => {
-                    let parsed_file_hash = field_value
-                        .strip_prefix("sha256:")
-                        .ok_or_else(|| todo!())?
-                        .parse()
-                        .map_err(NarInfoFromStrError::FileHash)?;
+                    let NixHash::Sha256(parsed_file_hash) = field_value
+                        .parse::<NixHash>()
+                        .map_err(NarInfoFromStrError::FileHash)?
+                    else {
+                        return Err(NarInfoFromStrError::FileHashNotSha256);
+                    };
                     file_hash.replace(parsed_file_hash).is_some()
                 },
                 FILE_SIZE_FIELD_NAME => {
@@ -234,11 +244,12 @@ where
                     file_size.replace(parsed_file_size).is_some()
                 },
                 NAR_HASH_FIELD_NAME => {
-                    let parsed_nar_hash = field_value
-                        .strip_prefix("sha256:")
-                        .ok_or_else(|| todo!())?
-                        .parse()
-                        .map_err(NarInfoFromStrError::NarHash)?;
+                    let NixHash::Sha256(parsed_nar_hash) = field_value
+                        .parse::<NixHash>()
+                        .map_err(NarInfoFromStrError::NarHash)?
+                    else {
+                        return Err(NarInfoFromStrError::NarHashNotSha256);
+                    };
                     nar_hash.replace(parsed_nar_hash).is_some()
                 },
                 NAR_SIZE_FIELD_NAME => {
