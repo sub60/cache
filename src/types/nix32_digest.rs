@@ -153,19 +153,26 @@ where
     }
 }
 
-impl<'de, const NUM_BYTES: usize> serde::de::Deserialize<'de>
-    for Nix32Digest<NUM_BYTES>
-where
-    [(); num_chars_of_bytes(NUM_BYTES)]:,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        let s = Cow::<'de, str>::deserialize(deserializer)?;
-        Self::from_str(&s).map_err(serde::de::Error::custom)
-    }
+// We can't have a generic `Deserialize` impl for all `NUM_BYTES` because rustc
+// seems to choke on it (`generic_const_exprs` is an unstable feature after
+// all), so we need to implement it for the particular values of `NUM_BYTES`
+// that we care about.
+macro_rules! impl_deserialize_for_nix32_digest {
+    ($num_bytes:literal) => {
+        impl<'de> serde::de::Deserialize<'de> for Nix32Digest<$num_bytes> {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::de::Deserializer<'de>,
+            {
+                let s = Cow::<'de, str>::deserialize(deserializer)?;
+                Self::from_str(&s).map_err(serde::de::Error::custom)
+            }
+        }
+    };
 }
+
+impl_deserialize_for_nix32_digest!(20);
+impl_deserialize_for_nix32_digest!(32);
 
 #[doc(hidden)]
 pub const fn num_chars_of_bytes(num_bytes: usize) -> usize {
