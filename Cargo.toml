@@ -56,6 +56,8 @@ edition.workspace = true
 publish.workspace = true
 
 [features]
+default = ["local-server"]
+local-server = ["dep:tokio", "tokio/net", "tokio/rt-multi-thread"]
 loopback-object-gateway = ["dep:tokio", "tokio/net"]
 
 [dependencies]
@@ -77,3 +79,7 @@ tokio = { workspace = true, optional = true }
 
 [lints]
 workspace = true
+
+[[bin]]
+name = "local"
+required-features = ["local-server"]

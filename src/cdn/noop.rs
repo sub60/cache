@@ -2,12 +2,13 @@ use core::iter;
 use core::time::Duration;
 
 use axum::http::{HeaderName, HeaderValue};
+use cauchy::Debug;
 
 use crate::Cdn;
 
 /// A [`Cdn`] implementation that does nothing.
-#[derive(Debug)]
-pub struct NoOpCdn;
+#[derive(Debug, Copy, Clone, Default)]
+pub struct NoOpCdn {}
 
 impl Cdn for NoOpCdn {
     type CacheHeaders = iter::Empty<(HeaderName, HeaderValue)>;

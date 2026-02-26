@@ -1,3 +1,5 @@
+use core::fmt;
+use core::str::FromStr;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -6,6 +8,7 @@ use crate::types::{NarFileName, NixStoreHash};
 
 /// An [`ObjectStorage`] trait that stores the object in memory using a
 /// `HashMap`.
+#[derive(Clone, Default)]
 pub struct InMemoryObjectStorage {
     objects: Arc<Mutex<HashMap<InMemoryObjectStorageKey, Vec<u8>>>>,
 }
@@ -43,13 +46,34 @@ impl ObjectStorage for InMemoryObjectStorage {
 }
 
 impl From<&NarFileName> for InMemoryObjectStorageKey {
-    fn from(value: &NarFileName) -> Self {
-        Self(value.to_string())
+    fn from(nar_file_name: &NarFileName) -> Self {
+        Self(format!("nar-{nar_file_name}"))
     }
 }
 
 impl From<&NixStoreHash> for InMemoryObjectStorageKey {
-    fn from(value: &NixStoreHash) -> Self {
-        Self(value.to_string())
+    fn from(store_hash: &NixStoreHash) -> Self {
+        Self(format!("narinfo-{store_hash}"))
+    }
+}
+
+impl fmt::Display for InMemoryObjectStorageKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl FromStr for InMemoryObjectStorageKey {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (key_kind, _key) = s
+            .split_once('-')
+            .ok_or_else(|| format!("invalid key format: {s}"))?;
+
+        match key_kind {
+            "nar" | "narinfo" => Ok(Self(s.to_owned())),
+            _ => Err(format!("invalid key kind: {key_kind}")),
+        }
     }
 }
