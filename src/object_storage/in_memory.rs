@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::ObjectStorage;
-use crate::types::{NarFileName, Nix32Digest};
+use crate::types::{NarFileName, NixStoreHash};
 
 /// An [`ObjectStorage`] trait that stores the object in memory using a
 /// `HashMap`.
@@ -48,8 +48,8 @@ impl From<&NarFileName> for InMemoryObjectStorageKey {
     }
 }
 
-impl From<&Nix32Digest<20>> for InMemoryObjectStorageKey {
-    fn from(value: &Nix32Digest<20>) -> Self {
+impl From<&NixStoreHash> for InMemoryObjectStorageKey {
+    fn from(value: &NixStoreHash) -> Self {
         Self(value.to_string())
     }
 }

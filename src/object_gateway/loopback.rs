@@ -1,21 +1,18 @@
 use core::fmt;
 use core::net::Ipv4Addr;
-use core::str::FromStr;
 use core::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use axum::extract::Path;
-use axum::http::{self, Response, StatusCode};
-use axum::response::IntoResponse;
-use axum::routing::get;
+use axum::http;
 
+use crate::object_gateway::IntoRouterObjectGateway;
 use crate::{ObjectGateway, ObjectStorage};
 
 /// TODO: docs.
 pub struct LoopbackObjectGateway<ObjStorage> {
+    inner: IntoRouterObjectGateway<ObjStorage>,
     is_running: Arc<AtomicBool>,
     port: Option<u16>,
-    storage: ObjStorage,
 }
 
 struct RunningGuard(Arc<AtomicBool>);
@@ -24,9 +21,9 @@ impl<ObjStorage> LoopbackObjectGateway<ObjStorage> {
     /// Creates a new [`LoopbackObjectGateway`] over the given object storage.
     pub fn new(storage: ObjStorage) -> Self {
         Self {
+            inner: IntoRouterObjectGateway::new("/", storage),
             is_running: Arc::new(AtomicBool::new(false)),
             port: None,
-            storage,
         }
     }
 
@@ -37,9 +34,8 @@ impl<ObjStorage> LoopbackObjectGateway<ObjStorage> {
         port: u16,
     ) -> impl Future<Output = ()> + Send + use<ObjStorage>
     where
-        ObjStorage: ObjectStorage + Clone + Send + 'static,
-        ObjStorage::Error: fmt::Display,
-        for<'a> ObjStorage::Key<'a>: FromStr<Err: fmt::Display>,
+        ObjStorage: Clone,
+        IntoRouterObjectGateway<ObjStorage>: Into<axum::Router>,
     {
         if self.is_running.swap(true, Ordering::SeqCst) {
             panic!("LoopbackObjectGateway is already running");
@@ -47,31 +43,9 @@ impl<ObjStorage> LoopbackObjectGateway<ObjStorage> {
 
         self.port = Some(port);
 
-        let object_storage = self.storage.clone();
-
-        let handler = async move |Path::<String>(key)| {
-            let object_key = match ObjStorage::Key::from_str(&key) {
-                Ok(key) => key,
-                Err(err) => {
-                    let msg = err.to_string();
-                    return (StatusCode::BAD_REQUEST, msg).into_response();
-                },
-            };
-            match object_storage.get(&object_key).await {
-                Ok(Some(object)) => {
-                    Response::new(object.as_ref().to_owned().into())
-                },
-                Ok(None) => StatusCode::NOT_FOUND.into_response(),
-                Err(err) => {
-                    let msg = err.to_string();
-                    (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response()
-                },
-            }
-        };
-
-        let router = axum::Router::new().route("/{key}", get(handler));
-
         let is_running = Arc::clone(&self.is_running);
+
+        let router = self.inner.clone().into();
 
         async move {
             let _running_guard = RunningGuard(is_running);
@@ -106,11 +80,14 @@ where
             )
         }
         let port = self.port.expect("gateway is running, so port must be set");
-        format!("http://localhost:{port}/{}", key).parse().expect("valid URI")
+        let relative_uri = self.inner.object_url(key);
+        format!("http://localhost:{port}/{relative_uri}")
+            .parse()
+            .expect("valid absolute URI")
     }
 
     fn storage(&self) -> &ObjStorage {
-        &self.storage
+        self.inner.storage()
     }
 }
 
