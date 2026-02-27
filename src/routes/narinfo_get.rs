@@ -18,6 +18,11 @@ use crate::{Cdn, Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/{narinfo_file_name}";
 
+#[derive(serde::Deserialize)]
+struct NarInfoGetPath {
+    narinfo_file_name: NarInfoFileName,
+}
+
 const NARINFO_CONTENT_TYPE: HeaderValue =
     HeaderValue::from_static("text/x-nix-narinfo");
 
@@ -59,7 +64,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    Path(narinfo_file_name): Path<NarInfoFileName>,
+    Path(NarInfoGetPath { narinfo_file_name }): Path<NarInfoGetPath>,
     ctx: &mut Ctx,
 ) -> Result<
     NarInfoGetResponse<Ctx::Cdn>,

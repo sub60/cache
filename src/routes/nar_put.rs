@@ -15,6 +15,11 @@ use crate::{Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/nar/{nar_file_name}";
 
+#[derive(serde::Deserialize)]
+struct NarPutPath {
+    nar_file_name: NarFileName,
+}
+
 /// The response returned to PUT requests to the NAR route.
 #[derive(Debug)]
 enum NarPutResponse {
@@ -34,7 +39,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    Path(nar_file_name): Path<NarFileName>,
+    Path(NarPutPath { nar_file_name }): Path<NarPutPath>,
     ctx: &mut Ctx,
 ) -> Result<NarPutResponse, NarPutRequestError<ObjectStorageError<Ctx>>> {
     // TODO: validate that the user has write permissions for that cache.

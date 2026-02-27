@@ -12,18 +12,24 @@ use crate::user_ctx::UserCtx;
 
 pub(crate) const ROUTE: &str = "/{user}/{cache}";
 
+#[derive(serde::Deserialize)]
+struct UserCachePath {
+    user: UserName,
+    cache: CacheName,
+}
+
 /// The type of error that can occur when handling a PUT request to the NARInfo
 /// route.
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum UserCacheError {}
 
 pub(crate) fn layer(ctx: impl Context) -> impl RouteLayer {
-    middleware::from_fn::<_, (Path<(UserName, CacheName)>, Request)>(
-        move |Path((user, cache)), mut req: Request, next: Next| {
+    middleware::from_fn(
+        move |Path(path): Path<UserCachePath>, mut req: Request, next: Next| {
             let mut ctx = ctx.clone();
             async move {
                 let (user_ctx, cache_ctx) =
-                    handler(user, cache, &mut ctx).await?;
+                    handler(path.user, path.cache, &mut ctx).await?;
                 let extensions = req.extensions_mut();
                 extensions.insert(user_ctx);
                 extensions.insert(cache_ctx);

@@ -25,6 +25,11 @@ use crate::{Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = crate::routes::narinfo_get::ROUTE;
 
+#[derive(serde::Deserialize)]
+struct NarInfoPutPath {
+    narinfo_file_name: NarInfoFileName,
+}
+
 /// The response returned to PUT requests to the NARInfo route.
 #[derive(Debug, Copy, Clone)]
 enum NarInfoPutResponse {
@@ -131,7 +136,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    Path(narinfo_file_name): Path<NarInfoFileName>,
+    Path(NarInfoPutPath { narinfo_file_name }): Path<NarInfoPutPath>,
     body: Bytes,
     ctx: &mut Ctx,
 ) -> Result<NarInfoPutResponse, NarInfoPutRequestError<ObjectStorageError<Ctx>>>
@@ -185,10 +190,7 @@ async fn handler<Ctx: Context>(
     let stored_narinfo = narinfo.with_url("");
 
     let narinfo_was_inserted = object_storage
-        .set(
-            (&narinfo_file_name).into(),
-            stored_narinfo.to_string().as_bytes(),
-        )
+        .set((&narinfo_file_name).into(), stored_narinfo.to_string().as_bytes())
         .await
         .map_err(NarInfoPutRequestError::StoreNarInfo)?;
 

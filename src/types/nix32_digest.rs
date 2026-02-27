@@ -152,7 +152,8 @@ macro_rules! impl_from_str_for_nix32_digest {
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 Self::validate(s)?;
-                let chars = s.as_bytes().try_into().expect("string has been validated");
+                let chars =
+                    s.as_bytes().try_into().expect("string has been validated");
                 Ok(Self(chars))
             }
         }
