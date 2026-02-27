@@ -3,17 +3,18 @@ use core::str::FromStr;
 use std::borrow::Cow;
 
 use axum::Router;
+use axum::body::Bytes;
 use axum::extract::Path;
 use axum::http::{self, Response, StatusCode};
 use axum::response::IntoResponse;
-use axum::routing::get;
+use axum::routing::{get, put};
 
 use crate::{ObjectGateway, ObjectStorage};
 
 /// TODO: docs.
 #[derive(Clone)]
 pub struct IntoRouterObjectGateway<ObjStorage> {
-    route_path: Cow<'static, str>,
+    base_route: Cow<'static, str>,
     storage: ObjStorage,
 }
 
@@ -34,12 +35,12 @@ impl<ObjStorage> IntoRouterObjectGateway<ObjStorage> {
             !base_route.contains('{') && !base_route.contains('}'),
             "base route must not contain path captures (`{{...}}`)"
         );
-        let route_path = if base_route == "/" {
-            Cow::Borrowed("/{key}")
+        let base_route = if base_route == "/" {
+            Cow::Borrowed("")
         } else {
-            Cow::Owned(format!("{}/{{key}}", base_route.trim_end_matches('/')))
+            Cow::Owned(base_route.trim_end_matches('/').to_owned())
         };
-        Self { route_path, storage }
+        Self { base_route, storage }
     }
 }
 
@@ -51,7 +52,9 @@ where
     for<'a> ObjStorage::Key<'a>: FromStr<Err: fmt::Display>,
 {
     fn from(gateway: IntoRouterObjectGateway<ObjStorage>) -> Self {
-        let handler = async move |Path::<String>(key)| {
+        let storage = gateway.storage.clone();
+
+        let get_handler = async move |Path::<String>(key)| {
             let object_key = match ObjStorage::Key::from_str(&key) {
                 Ok(key) => key,
                 Err(err) => {
@@ -59,7 +62,7 @@ where
                     return (StatusCode::BAD_REQUEST, msg).into_response();
                 },
             };
-            match gateway.storage.get(&object_key).await {
+            match storage.get(&object_key).await {
                 Ok(Some(object)) => {
                     Response::new(object.as_ref().to_owned().into())
                 },
@@ -71,7 +74,38 @@ where
             }
         };
 
-        Self::new().route(&gateway.route_path, get(handler))
+        let put_handler = async move |Path::<String>(key), object: Bytes| {
+            let object_key = match ObjStorage::Key::from_str(&key) {
+                Ok(key) => key,
+                Err(err) => {
+                    let msg = err.to_string();
+                    return (StatusCode::BAD_REQUEST, msg).into_response();
+                },
+            };
+            match gateway.storage.set(object_key, &object).await {
+                Ok(was_inserted) => {
+                    if was_inserted {
+                        StatusCode::CREATED.into_response()
+                    } else {
+                        StatusCode::NO_CONTENT.into_response()
+                    }
+                },
+                Err(err) => {
+                    let msg = err.to_string();
+                    (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response()
+                },
+            }
+        };
+
+        let route_path = if gateway.base_route.is_empty() {
+            Cow::Borrowed("/{key}")
+        } else {
+            Cow::Owned(format!("{}/{{key}}", gateway.base_route))
+        };
+
+        Self::new()
+            .route(&route_path, get(get_handler))
+            .route(&route_path, put(put_handler))
     }
 }
 
@@ -83,9 +117,13 @@ where
     type Storage = ObjStorage;
 
     fn object_url(&self, key: ObjStorage::Key<'_>) -> http::Uri {
-        format!("{}/{}", self.route_path, key)
-            .parse()
-            .expect("valid relative URI")
+        if self.base_route.is_empty() {
+            format!("/{key}")
+        } else {
+            format!("{}/{key}", self.base_route)
+        }
+        .parse()
+        .expect("valid relative URI")
     }
 
     fn storage(&self) -> &ObjStorage {
