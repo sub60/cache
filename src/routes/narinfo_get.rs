@@ -13,10 +13,10 @@ use compact_str::{CompactString, format_compact};
 
 use crate::context::ObjectStorageError;
 use crate::object_gateway::ObjectGateway;
-use crate::types::{NarInfo, NarInfoFromStrError, NixStoreHash};
+use crate::types::{NarInfo, NarInfoFileName, NarInfoFromStrError};
 use crate::{Cdn, Context, ObjectStorage};
 
-pub(crate) const ROUTE: &str = "/{store_hash}.narinfo";
+pub(crate) const ROUTE: &str = "/{narinfo_file_name}";
 
 const NAR_INFO_CONTENT_TYPE: HeaderValue =
     HeaderValue::from_static("text/x-nix-narinfo");
@@ -37,8 +37,8 @@ enum NarInfoGetResponseError<ObjectStorageError> {
     GetNarInfo(ObjectStorageError),
 
     /// The NARInfo was not found in the object storage.
-    #[display("NARInfo at '{_0}.narinfo' not found")]
-    NarInfoNotFound(NixStoreHash),
+    #[display("NARInfo at '{_0}' not found")]
+    NarInfoNotFound(NarInfoFileName),
 
     /// The NARInfo bytes retrieved from the object storage were not valid
     /// UTF-8. This should basically never happen unless there's some kind of
@@ -59,7 +59,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    Path(store_hash): Path<NixStoreHash>,
+    Path(narinfo_file_name): Path<NarInfoFileName>,
     ctx: &mut Ctx,
 ) -> Result<
     NarInfoGetResponse<Ctx::Cdn>,
@@ -67,13 +67,18 @@ async fn handler<Ctx: Context>(
 > {
     let object_storage = ctx.object_storage();
 
-    let object_storage_key = (&store_hash).into();
+    let object_storage_key = (&narinfo_file_name).into();
 
-    let nar_info_bytes = object_storage
+    let Some(nar_info_bytes) = object_storage
         .get(&object_storage_key)
         .await
         .map_err(NarInfoGetResponseError::GetNarInfo)?
-        .ok_or(NarInfoGetResponseError::NarInfoNotFound(store_hash))?;
+    else {
+        drop(object_storage_key);
+        return Err(NarInfoGetResponseError::NarInfoNotFound(
+            narinfo_file_name,
+        ));
+    };
 
     let nar_info_without_url = str::from_utf8(nar_info_bytes.as_ref())
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?

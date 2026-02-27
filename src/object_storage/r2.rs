@@ -1,7 +1,7 @@
 use core::convert::Infallible;
 
 use crate::ObjectStorage;
-use crate::types::{NarFileName, NixStoreHash};
+use crate::types::{NarFileName, NarInfoFileName};
 
 /// The [`ObjectStorage`] implementation for R2.
 #[derive(Debug)]
@@ -10,7 +10,7 @@ pub struct R2ObjectStorage;
 #[derive(Debug, Copy, Clone)]
 pub enum R2ObjectStorageKey<'a> {
     Nar(&'a NarFileName),
-    NarInfo(&'a NixStoreHash),
+    NarInfo(&'a NarInfoFileName),
 }
 
 impl ObjectStorage for R2ObjectStorage {
@@ -46,8 +46,8 @@ impl<'a> From<&'a NarFileName> for R2ObjectStorageKey<'a> {
     }
 }
 
-impl<'a> From<&'a NixStoreHash> for R2ObjectStorageKey<'a> {
-    fn from(store_hash: &'a NixStoreHash) -> Self {
-        Self::NarInfo(store_hash)
+impl<'a> From<&'a NarInfoFileName> for R2ObjectStorageKey<'a> {
+    fn from(nar_info_file_name: &'a NarInfoFileName) -> Self {
+        Self::NarInfo(nar_info_file_name)
     }
 }

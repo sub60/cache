@@ -8,12 +8,12 @@ use core::error::Error;
 pub use in_memory::{InMemoryObjectStorage, InMemoryObjectStorageKey};
 pub use r2::R2ObjectStorage;
 
-use crate::types::{NarFileName, NixStoreHash};
+use crate::types::{NarFileName, NarInfoFileName};
 
 /// TODO: docs.
 pub trait ObjectStorage: Sync {
     /// TODO: docs.
-    type Key<'a>: From<&'a NarFileName> + From<&'a NixStoreHash> + Send;
+    type Key<'a>: From<&'a NarFileName> + From<&'a NarInfoFileName> + Send;
 
     /// TODO: docs.
     type Error: Error + Send;

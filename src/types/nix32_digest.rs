@@ -153,10 +153,10 @@ where
     }
 }
 
-// We can't have a generic `Deserialize` impl for all `NUM_BYTES` because rustc
-// seems to choke on it (`generic_const_exprs` is an unstable feature after
-// all), so we need to implement it for the particular values of `NUM_BYTES`
-// that we care about.
+// We can't have a generic Deserialize impl for all NUM_BYTES because rustc
+// seems to choke on it (generic_const_exprs is an unstable feature after all),
+// so we need to implement it for the particular values of NUM_BYTES that we
+// care about.
 macro_rules! impl_deserialize_for_nix32_digest {
     ($num_bytes:literal) => {
         impl<'de> serde::de::Deserialize<'de> for Nix32Digest<$num_bytes> {

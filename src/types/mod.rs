@@ -5,6 +5,7 @@ mod compression_algorithm;
 mod content_address;
 mod nar_file_name;
 mod nar_info;
+mod nar_info_file_name;
 mod nix32_digest;
 mod nix_cache_info;
 mod nix_hash;
@@ -41,6 +42,7 @@ pub use content_address::{
 };
 pub use nar_file_name::{NarFileName, NarFileNameFromStrError};
 pub use nar_info::{NarInfo, NarInfoFromStrError};
+pub use nar_info_file_name::{NarInfoFileName, NarInfoFileNameFromStrError};
 pub use nix_cache_info::NixCacheInfo;
 pub use nix_hash::{NixHash, NixHashFromStrError};
 pub use nix_key_or_signature::{NixKeyOrSignature, NixKeyOrSignatureName};

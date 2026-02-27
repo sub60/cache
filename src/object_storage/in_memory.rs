@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::ObjectStorage;
-use crate::types::{NarFileName, NixStoreHash};
+use crate::types::{NarFileName, NarInfoFileName};
 
 /// An [`ObjectStorage`] trait that stores the object in memory using a
 /// `HashMap`.
@@ -51,9 +51,9 @@ impl From<&NarFileName> for InMemoryObjectStorageKey {
     }
 }
 
-impl From<&NixStoreHash> for InMemoryObjectStorageKey {
-    fn from(store_hash: &NixStoreHash) -> Self {
-        Self(format!("narinfo-{store_hash}"))
+impl From<&NarInfoFileName> for InMemoryObjectStorageKey {
+    fn from(narinfo_file_name: &NarInfoFileName) -> Self {
+        Self(format!("narinfo-{narinfo_file_name}"))
     }
 }
 

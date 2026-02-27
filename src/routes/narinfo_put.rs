@@ -15,6 +15,8 @@ use crate::types::{
     NarFileName,
     NarFileNameFromStrError,
     NarInfo,
+    NarInfoFileName,
+    NarInfoFileNameFromStrError,
     NarInfoFromStrError,
     Nix32Digest,
     NixStoreHash,
@@ -39,6 +41,10 @@ enum NarInfoPutResponse {
     Debug, PartialEq, Eq, derive_more::Display, cauchy::Error, cauchy::From,
 )]
 enum NarInfoPutRequestError<ObjectStorageError> {
+    /// The requested NARInfo file name in the path was invalid.
+    #[display("{_0}")]
+    InvalidNarInfoFileName(#[from] NarInfoFileNameFromStrError),
+
     /// The object storage returned an error when checking for the existence of
     /// the NAR file.
     #[display("error checking for existence of NAR: {_0}")]
@@ -125,7 +131,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    Path(store_hash): Path<NixStoreHash>,
+    Path(narinfo_file_name): Path<NarInfoFileName>,
     body: Bytes,
     ctx: &mut Ctx,
 ) -> Result<NarInfoPutResponse, NarInfoPutRequestError<ObjectStorageError<Ctx>>>
@@ -136,9 +142,9 @@ async fn handler<Ctx: Context>(
         .map_err(NarInfoPutRequestError::NarInfoNotUtf8)?
         .parse::<NarInfo<NarPutUrl>>()?;
 
-    if &store_hash != nar_info.store_path.hash() {
+    if &narinfo_file_name.store_hash != nar_info.store_path.hash() {
         return Err(NarInfoPutRequestError::NarInfoStoreHashMismatch {
-            declared_store_hash: store_hash,
+            declared_store_hash: narinfo_file_name.store_hash,
             inferred_store_hash: nar_info.store_path.into_hash(),
         });
     }
@@ -179,7 +185,10 @@ async fn handler<Ctx: Context>(
     let stored_nar_info = nar_info.with_url("");
 
     let nar_info_was_inserted = object_storage
-        .set((&store_hash).into(), stored_nar_info.to_string().as_bytes())
+        .set(
+            (&narinfo_file_name).into(),
+            stored_nar_info.to_string().as_bytes(),
+        )
         .await
         .map_err(NarInfoPutRequestError::StoreNarInfo)?;
 
@@ -202,7 +211,8 @@ impl NarInfoPutResponse {
 impl<ObjectStorageError> NarInfoPutRequestError<ObjectStorageError> {
     fn status_code(&self) -> StatusCode {
         match self {
-            Self::NarCompressionMismatch { .. }
+            Self::InvalidNarInfoFileName(_)
+            | Self::NarCompressionMismatch { .. }
             | Self::NarFileHashMismatch { .. }
             | Self::NarInfoNotUtf8(_)
             | Self::NarInfoStoreHashMismatch { .. }
