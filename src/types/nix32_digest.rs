@@ -140,23 +140,25 @@ where
     }
 }
 
-impl<const NUM_BYTES: usize> FromStr for Nix32Digest<NUM_BYTES>
-where
-    [(); num_chars_of_bytes(NUM_BYTES)]:,
-{
-    type Err = Nix32DigestFromStrError<NUM_BYTES>;
+// We can't have generic impls for FromStr and Deserialize over all NUM_BYTES
+// because rustc seems to choke on it (generic_const_exprs is an unstable
+// feature after all), so we need to implement them for the particular values of
+// NUM_BYTES that we care about.
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::validate(s)?;
-        let chars = s.as_bytes().try_into().expect("string has been validated");
-        Ok(Self(chars))
-    }
+macro_rules! impl_from_str_for_nix32_digest {
+    ($num_bytes:literal) => {
+        impl FromStr for Nix32Digest<$num_bytes> {
+            type Err = Nix32DigestFromStrError<$num_bytes>;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                Self::validate(s)?;
+                let chars = s.as_bytes().try_into().expect("string has been validated");
+                Ok(Self(chars))
+            }
+        }
+    };
 }
 
-// We can't have a generic Deserialize impl for all NUM_BYTES because rustc
-// seems to choke on it (generic_const_exprs is an unstable feature after all),
-// so we need to implement it for the particular values of NUM_BYTES that we
-// care about.
 macro_rules! impl_deserialize_for_nix32_digest {
     ($num_bytes:literal) => {
         impl<'de> serde::de::Deserialize<'de> for Nix32Digest<$num_bytes> {
@@ -170,6 +172,9 @@ macro_rules! impl_deserialize_for_nix32_digest {
         }
     };
 }
+
+impl_from_str_for_nix32_digest!(20);
+impl_from_str_for_nix32_digest!(32);
 
 impl_deserialize_for_nix32_digest!(20);
 impl_deserialize_for_nix32_digest!(32);

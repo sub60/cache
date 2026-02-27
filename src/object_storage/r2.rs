@@ -47,7 +47,7 @@ impl<'a> From<&'a NarFileName> for R2ObjectStorageKey<'a> {
 }
 
 impl<'a> From<&'a NarInfoFileName> for R2ObjectStorageKey<'a> {
-    fn from(nar_info_file_name: &'a NarInfoFileName) -> Self {
-        Self::NarInfo(nar_info_file_name)
+    fn from(narinfo_file_name: &'a NarInfoFileName) -> Self {
+        Self::NarInfo(narinfo_file_name)
     }
 }

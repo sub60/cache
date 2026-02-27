@@ -138,61 +138,61 @@ async fn handler<Ctx: Context>(
 {
     // TODO: validate that the user has write permissions for that cache.
 
-    let nar_info = str::from_utf8(&body)
+    let narinfo = str::from_utf8(&body)
         .map_err(NarInfoPutRequestError::NarInfoNotUtf8)?
         .parse::<NarInfo<NarPutUrl>>()?;
 
-    if &narinfo_file_name.store_hash != nar_info.store_path.hash() {
+    if &narinfo_file_name.store_hash != narinfo.store_path.hash() {
         return Err(NarInfoPutRequestError::NarInfoStoreHashMismatch {
             declared_store_hash: narinfo_file_name.store_hash,
-            inferred_store_hash: nar_info.store_path.into_hash(),
+            inferred_store_hash: narinfo.store_path.into_hash(),
         });
     }
 
-    let inferred_compression = nar_info
+    let inferred_compression = narinfo
         .url
         .nar_file_name
         .extension
         .map(|ext| ext.algorithm())
         .unwrap_or(CompressionAlgorithm::None);
 
-    if nar_info.compression != inferred_compression {
+    if narinfo.compression != inferred_compression {
         return Err(NarInfoPutRequestError::NarCompressionMismatch {
-            declared_compression: nar_info.compression,
+            declared_compression: narinfo.compression,
             inferred_compression,
         });
     }
 
-    if nar_info.file_hash != nar_info.url.nar_file_name.file_hash {
+    if narinfo.file_hash != narinfo.url.nar_file_name.file_hash {
         return Err(NarInfoPutRequestError::NarFileHashMismatch {
-            declared_file_hash: nar_info.file_hash,
-            inferred_file_hash: nar_info.url.nar_file_name.file_hash,
+            declared_file_hash: narinfo.file_hash,
+            inferred_file_hash: narinfo.url.nar_file_name.file_hash,
         });
     }
 
     let object_storage = ctx.object_storage();
 
     if !object_storage
-        .contains_key(&(&nar_info.url.nar_file_name).into())
+        .contains_key(&(&narinfo.url.nar_file_name).into())
         .await
         .map_err(NarInfoPutRequestError::CheckNarExistence)?
     {
         return Err(NarInfoPutRequestError::NarNotFound(
-            nar_info.url.nar_file_name,
+            narinfo.url.nar_file_name,
         ));
     }
 
-    let stored_nar_info = nar_info.with_url("");
+    let stored_narinfo = narinfo.with_url("");
 
-    let nar_info_was_inserted = object_storage
+    let narinfo_was_inserted = object_storage
         .set(
             (&narinfo_file_name).into(),
-            stored_nar_info.to_string().as_bytes(),
+            stored_narinfo.to_string().as_bytes(),
         )
         .await
         .map_err(NarInfoPutRequestError::StoreNarInfo)?;
 
-    if nar_info_was_inserted {
+    if narinfo_was_inserted {
         Ok(NarInfoPutResponse::Created)
     } else {
         Ok(NarInfoPutResponse::AlreadyExists)

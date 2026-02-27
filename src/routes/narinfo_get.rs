@@ -18,12 +18,12 @@ use crate::{Cdn, Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/{narinfo_file_name}";
 
-const NAR_INFO_CONTENT_TYPE: HeaderValue =
+const NARINFO_CONTENT_TYPE: HeaderValue =
     HeaderValue::from_static("text/x-nix-narinfo");
 
 /// The response returned to GET requests to the NARInfo route.
 struct NarInfoGetResponse<Cdn: crate::Cdn> {
-    nar_info: NarInfo<http::Uri>,
+    narinfo: NarInfo<http::Uri>,
     cache_headers: Cdn::CacheHeaders,
 }
 
@@ -69,7 +69,7 @@ async fn handler<Ctx: Context>(
 
     let object_storage_key = (&narinfo_file_name).into();
 
-    let Some(nar_info_bytes) = object_storage
+    let Some(narinfo_bytes) = object_storage
         .get(&object_storage_key)
         .await
         .map_err(NarInfoGetResponseError::GetNarInfo)?
@@ -80,14 +80,14 @@ async fn handler<Ctx: Context>(
         ));
     };
 
-    let nar_info_without_url = str::from_utf8(nar_info_bytes.as_ref())
+    let narinfo_without_url = str::from_utf8(narinfo_bytes.as_ref())
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?
         .parse::<NarInfo<EmptyString>>()?;
 
     let nar_url = ctx.object_gateway().object_url(object_storage_key);
 
     Ok(NarInfoGetResponse {
-        nar_info: nar_info_without_url.with_url(nar_url),
+        narinfo: narinfo_without_url.with_url(nar_url),
         // The NAR is purely content-addressed, so we can cache it for a long
         // time.
         cache_headers: ctx.cdn().cache_headers(Duration::from_days(365)),
@@ -108,14 +108,14 @@ impl<ObjectStorageError> NarInfoGetResponseError<ObjectStorageError> {
 impl<Cdn: crate::Cdn> IntoResponse for NarInfoGetResponse<Cdn> {
     fn into_response(self) -> axum::response::Response {
         let mut builder = axum::response::Response::builder()
-            .header(header::CONTENT_TYPE, NAR_INFO_CONTENT_TYPE);
+            .header(header::CONTENT_TYPE, NARINFO_CONTENT_TYPE);
 
         for (name, value) in self.cache_headers.into_iter() {
             builder = builder.header(name, value);
         }
 
         builder
-            .body(Body::new(self.nar_info.to_string()))
+            .body(Body::new(self.narinfo.to_string()))
             .expect("headers and body are valid")
     }
 }
