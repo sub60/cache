@@ -1,5 +1,8 @@
 //! TODO: docs.
 
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+
 use core::net::Ipv4Addr;
 
 use cache::cdn::NoOpCdn;
