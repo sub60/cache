@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use axum::body::Bytes;
+
 use crate::ObjectStorage;
 use crate::object_storage::ObjectStorageKey;
 use crate::types::{NarFileName, NarInfoFileName};
@@ -9,13 +11,8 @@ use crate::types::{NarFileName, NarInfoFileName};
 /// `HashMap`.
 #[derive(Clone, Default)]
 pub struct InMemoryObjectStorage {
-    objects: Arc<Mutex<HashMap<InMemoryObjectStorageKey, Vec<u8>>>>,
-}
-
-#[derive(PartialEq, Eq, Hash)]
-enum InMemoryObjectStorageKey {
-    Nar(NarFileName),
-    NarInfo(NarInfoFileName),
+    nars: Arc<Mutex<HashMap<NarFileName, Bytes>>>,
+    nar_infos: Arc<Mutex<HashMap<NarInfoFileName, Bytes>>>,
 }
 
 #[expect(clippy::unwrap_used)]
@@ -26,14 +23,28 @@ impl ObjectStorage for InMemoryObjectStorage {
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<bool, Self::Error> {
-        Ok(self.objects.lock().unwrap().contains_key(&(key.into().into())))
+        Ok(match key.into() {
+            ObjectStorageKey::Nar(nar_file_name) => {
+                self.nars.lock().unwrap().contains_key(nar_file_name)
+            },
+            ObjectStorageKey::NarInfo(narinfo_file_name) => {
+                self.nar_infos.lock().unwrap().contains_key(narinfo_file_name)
+            },
+        })
     }
 
     async fn get<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
-    ) -> Result<Option<Vec<u8>>, Self::Error> {
-        Ok(self.objects.lock().unwrap().get(&(key.into().into())).cloned())
+    ) -> Result<Option<Bytes>, Self::Error> {
+        Ok(match key.into() {
+            ObjectStorageKey::Nar(nar_file_name) => {
+                self.nars.lock().unwrap().get(nar_file_name).cloned()
+            },
+            ObjectStorageKey::NarInfo(narinfo_file_name) => {
+                self.nar_infos.lock().unwrap().get(narinfo_file_name).cloned()
+            },
+        })
     }
 
     async fn set<'a>(
@@ -41,34 +52,20 @@ impl ObjectStorage for InMemoryObjectStorage {
         key: impl Into<ObjectStorageKey<'a>>,
         bytes: &[u8],
     ) -> Result<bool, Self::Error> {
-        Ok(self
-            .objects
-            .lock()
-            .unwrap()
-            .insert(key.into().into(), bytes.to_vec())
-            .is_none())
-    }
-}
+        Ok(match key.into() {
+            ObjectStorageKey::Nar(nar_file_name) => self
+                .nars
+                .lock()
+                .unwrap()
+                .insert(nar_file_name.clone(), bytes.to_owned().into())
+                .is_none(),
 
-impl From<&NarFileName> for InMemoryObjectStorageKey {
-    fn from(nar_file_name: &NarFileName) -> Self {
-        Self::Nar(nar_file_name.clone())
-    }
-}
-
-impl From<&NarInfoFileName> for InMemoryObjectStorageKey {
-    fn from(narinfo_file_name: &NarInfoFileName) -> Self {
-        Self::NarInfo(narinfo_file_name.clone())
-    }
-}
-
-impl From<ObjectStorageKey<'_>> for InMemoryObjectStorageKey {
-    fn from(key: ObjectStorageKey<'_>) -> Self {
-        match key {
-            ObjectStorageKey::Nar(nar_file_name) => Self::from(nar_file_name),
-            ObjectStorageKey::NarInfo(narinfo_file_name) => {
-                Self::from(narinfo_file_name)
-            },
-        }
+            ObjectStorageKey::NarInfo(narinfo_file_name) => self
+                .nar_infos
+                .lock()
+                .unwrap()
+                .insert(narinfo_file_name.clone(), bytes.to_owned().into())
+                .is_none(),
+        })
     }
 }
