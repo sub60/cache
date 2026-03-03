@@ -17,6 +17,16 @@ impl ComposedContext<(), ()> {
 }
 
 impl<Cdn, ObjGateway> ComposedContext<Cdn, ObjGateway> {
+    /// Returns a reference to the CDN.
+    pub fn cdn(&self) -> &Cdn {
+        &self.cdn
+    }
+
+    /// Returns a reference to the object gateway.
+    pub fn object_gateway(&self) -> &ObjGateway {
+        &self.object_gateway
+    }
+
     /// TODO: docs.
     pub fn with_cdn<NewCdn: crate::Cdn>(
         self,
@@ -56,8 +66,9 @@ impl Default for ComposedContext<(), ()> {
 
 impl<Cdn, ObjGateway> Context for ComposedContext<Cdn, ObjGateway>
 where
-    Cdn: crate::Cdn + Clone + Send + Sync + 'static,
-    ObjGateway: ObjectGateway + Clone + Send + Sync + 'static,
+    Cdn: crate::Cdn,
+    ObjGateway: ObjectGateway,
+    Self: Clone + Send + Sync + 'static,
 {
     type Cdn = Cdn;
     type ObjectGateway = ObjGateway;
