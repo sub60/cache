@@ -80,6 +80,14 @@ impl FromStr for CacheName {
     }
 }
 
+impl TryFrom<&str> for CacheName {
+    type Error = <Self as FromStr>::Err;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
 impl<'de> serde::de::Deserialize<'de> for CacheName {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

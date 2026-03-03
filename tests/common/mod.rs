@@ -1,3 +1,5 @@
+#![expect(unused_imports)]
+
 mod mock_nix_client;
 mod nix_client;
 mod real_nix_client;

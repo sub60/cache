@@ -1,10 +1,11 @@
 use core::error::Error;
 use core::fmt;
+use core::pin::Pin;
 
 use cache::types::{CacheName, UserName};
 
 /// TODO: docs.
-pub trait NixClient {
+pub trait NixClient: Sized {
     /// TODO: docs.
     type CacheHost;
 
@@ -29,49 +30,52 @@ pub trait NixClient {
         CopyFutureBuilder {
             client: self,
             installables: installables.into_iter().map(Into::into).collect(),
-            opts: CopyOptions { from: None, to: None },
+            opts: CopyOptions {
+                cache_uri: None,
+                direction: CopyDirection::From,
+            },
         }
     }
 }
 
 /// TODO: docs.
-pub struct CopyOptions<const TO_XOR_FROM: bool, Client: NixClient> {
-    /// TODO: docs.
-    pub from: Option<(Client::CacheHost, UserName, CacheName)>,
-    /// TODO: docs.
-    pub to: Option<(Client::CacheHost, UserName, CacheName)>,
+pub struct CopyOptions<const HAS_CACHE_URI: bool, Client: NixClient> {
+    pub cache_uri:
+        Option<(<Client as NixClient>::CacheHost, UserName, CacheName)>,
+    pub direction: CopyDirection,
+}
+
+pub enum CopyDirection {
+    From,
+    To,
 }
 
 /// TODO: docs.
 pub struct CopyFutureBuilder<
     'client,
-    const TO_XOR_FROM: bool,
+    const HAS_CACHE_URI: bool,
     Client: NixClient,
 > {
     client: &'client Client,
     installables: Vec<Client::Installable>,
-    opts: CopyOptions<TO_XOR_FROM, Client>,
+    opts: CopyOptions<HAS_CACHE_URI, Client>,
 }
 
 impl<'client, Client: NixClient> CopyFutureBuilder<'client, false, Client> {
     /// TODO: docs.
     #[track_caller]
+    #[expect(dead_code)]
     pub fn from(
         mut self,
         cache_host: impl Into<Client::CacheHost>,
         user_name: impl TryInto<UserName, Error: fmt::Debug>,
         cache_name: impl TryInto<CacheName, Error: fmt::Debug>,
     ) -> CopyFutureBuilder<'client, true, Client> {
-        let user_name = user_name.try_into().expect("invalid user name");
-        let cache_name = cache_name.try_into().expect("invalid cache name");
-        let opts = CopyOptions {
-            from: Some((cache_host.into(), user_name, cache_name)),
-            to: None,
-        };
+        self.opts.direction = CopyDirection::From;
         CopyFutureBuilder {
             client: self.client,
             installables: self.installables,
-            opts,
+            opts: self.opts.with_cache_uri(cache_host, user_name, cache_name),
         }
     }
 
@@ -83,17 +87,36 @@ impl<'client, Client: NixClient> CopyFutureBuilder<'client, false, Client> {
         user_name: impl TryInto<UserName, Error: fmt::Debug>,
         cache_name: impl TryInto<CacheName, Error: fmt::Debug>,
     ) -> CopyFutureBuilder<'client, true, Client> {
-        let user_name = user_name.try_into().expect("invalid user name");
-        let cache_name = cache_name.try_into().expect("invalid cache name");
-        let opts = CopyOptions {
-            from: None,
-            to: Some((cache_host.into(), user_name, cache_name)),
-        };
+        self.opts.direction = CopyDirection::To;
         CopyFutureBuilder {
             client: self.client,
             installables: self.installables,
-            opts,
+            opts: self.opts.with_cache_uri(cache_host, user_name, cache_name),
         }
+    }
+}
+
+impl<Client: NixClient> CopyOptions<false, Client> {
+    fn with_cache_uri(
+        self,
+        cache_host: impl Into<Client::CacheHost>,
+        user_name: impl TryInto<UserName, Error: fmt::Debug>,
+        cache_name: impl TryInto<CacheName, Error: fmt::Debug>,
+    ) -> CopyOptions<true, Client> {
+        let user_name = user_name.try_into().expect("invalid user name");
+        let cache_name = cache_name.try_into().expect("invalid cache name");
+        CopyOptions {
+            cache_uri: Some((cache_host.into(), user_name, cache_name)),
+            direction: CopyDirection::From,
+        }
+    }
+}
+
+impl<Client: NixClient> CopyOptions<true, Client> {
+    pub fn cache_uri(
+        self,
+    ) -> (<Client as NixClient>::CacheHost, UserName, CacheName) {
+        self.cache_uri.expect("cache URI is set")
     }
 }
 
@@ -101,9 +124,9 @@ impl<'client, Client: NixClient> IntoFuture
     for CopyFutureBuilder<'client, true, Client>
 {
     type Output = Result<(), Client::CopyError>;
-    type IntoFuture = Box<dyn Future<Output = Self::Output> + Send + 'client>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + 'client>>;
 
     fn into_future(self) -> Self::IntoFuture {
-        Box::new(self.client.copy_impl(self.installables, self.opts))
+        Box::pin(self.client.copy_impl(self.installables, self.opts))
     }
 }

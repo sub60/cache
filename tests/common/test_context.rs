@@ -3,7 +3,7 @@ use cache::cdn::{self, NoOpCdn};
 use cache::context::ComposedContext;
 use cache::object_gateway::IntoRouterObjectGateway;
 use cache::object_storage::InMemoryObjectStorage;
-use cache::{Context, ObjectStorage};
+use cache::{Context, ObjectGateway, ObjectStorage};
 
 const OBJECT_GATEWAY_PATH: &str = "/objects";
 
@@ -18,9 +18,7 @@ pub struct TestContext<Cdn = NoOpCdn, ObjStorage = InMemoryObjectStorage> {
     inner: ComposedContext<Cdn, IntoRouterObjectGateway<ObjStorage>>,
 }
 
-impl<Cdn: cdn::Cdn + Default, ObjStorage: Default> Default
-    for TestContext<Cdn, ObjStorage>
-{
+impl Default for TestContext {
     fn default() -> Self {
         Self {
             inner: ComposedContext::new()
@@ -37,7 +35,9 @@ impl<Cdn, ObjStorage> From<TestContext<Cdn, ObjStorage>> for Router
 where
     Cdn: cdn::Cdn,
     ObjStorage: Clone,
-    IntoRouterObjectGateway<ObjStorage>: Into<Router>,
+    IntoRouterObjectGateway<ObjStorage>: Into<Self>,
+    ComposedContext<Cdn, IntoRouterObjectGateway<ObjStorage>>:
+        Context<Cdn = Cdn, ObjectGateway = IntoRouterObjectGateway<ObjStorage>>,
 {
     fn from(ctx: TestContext<Cdn, ObjStorage>) -> Self {
         let object_gateway = ctx.inner.object_gateway().clone();
@@ -47,6 +47,9 @@ where
 
 impl<Cdn, ObjStorage> Context for TestContext<Cdn, ObjStorage>
 where
+    Cdn: cdn::Cdn + Clone,
+    ObjStorage: ObjectStorage + Clone,
+    IntoRouterObjectGateway<ObjStorage>: ObjectGateway + Clone,
     ComposedContext<Cdn, IntoRouterObjectGateway<ObjStorage>>:
         Context<Cdn = Cdn, ObjectGateway = IntoRouterObjectGateway<ObjStorage>>,
 {

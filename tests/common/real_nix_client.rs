@@ -1,7 +1,6 @@
+use core::convert::Infallible;
 use core::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use core::str::FromStr;
-
-use axum::Error;
 
 use crate::common::{CopyOptions, NixClient};
 
@@ -9,6 +8,8 @@ use crate::common::{CopyOptions, NixClient};
 pub struct RealNixClient;
 
 /// TODO: docs.
+#[derive(Debug)]
+#[expect(unused)]
 pub enum CacheHost {
     /// TODO: docs.
     LocalCache(SocketAddr),
@@ -17,19 +18,16 @@ pub enum CacheHost {
 }
 
 impl NixClient for RealNixClient {
-    type CacheHost = axum::Router;
-    type Installable = NarBytes;
-    type CopyError;
+    type CacheHost = CacheHost;
+    type Installable = String;
+    type CopyError = Infallible;
 
     async fn copy_impl(
         &self,
-        installables: Vec<Self::Installable>,
+        _installables: Vec<Self::Installable>,
         options: CopyOptions<true, Self>,
     ) -> Result<(), Self::CopyError> {
-        let (_app, user, cache) = options
-            .from
-            .ok_or(options.to)
-            .expect("exactly one of `from` and `to` must be set");
+        let (_app, _user, _cache) = options.cache_uri();
         todo!()
     }
 }
@@ -58,10 +56,10 @@ impl From<url::Url> for CacheHost {
     }
 }
 
-impl<T: AsRef<str>> TryFrom<T> for CacheHost {
-    type Error = <url::Url as FromStr>::Error;
+impl TryFrom<&str> for CacheHost {
+    type Error = <url::Url as FromStr>::Err;
 
-    fn try_from(value: T) -> Result<Self, Self::Error> {
-        value.as_ref().parse::<url::Url>().map(Self::RemoteCache)
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse::<url::Url>().map(Self::RemoteCache)
     }
 }

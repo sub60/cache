@@ -79,6 +79,14 @@ impl FromStr for UserName {
     }
 }
 
+impl TryFrom<&str> for UserName {
+    type Error = <Self as FromStr>::Err;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
 impl<'de> serde::de::Deserialize<'de> for UserName {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
