@@ -10,12 +10,25 @@ use crate::types::{NarFileName, NarInfoFileName};
 /// An [`ObjectStorage`] trait that stores the object in memory using a
 /// `HashMap`.
 #[derive(Clone, Default)]
-pub struct InMemoryObjectStorage {
-    nars: Arc<Mutex<HashMap<NarFileName, Bytes>>>,
-    nar_infos: Arc<Mutex<HashMap<NarInfoFileName, Bytes>>>,
+pub struct InMemoryObjectStorage(Arc<Mutex<InMemoryObjectStorageInner>>);
+
+#[derive(Default)]
+struct InMemoryObjectStorageInner {
+    nars: HashMap<NarFileName, Bytes>,
+    nar_infos: HashMap<NarInfoFileName, Bytes>,
 }
 
-#[expect(clippy::unwrap_used)]
+impl InMemoryObjectStorage {
+    fn with_inner<R>(
+        &self,
+        f: impl FnOnce(&mut InMemoryObjectStorageInner) -> R,
+    ) -> R {
+        #[expect(clippy::unwrap_used)]
+        let mut inner = self.0.lock().unwrap();
+        f(&mut inner)
+    }
+}
+
 impl ObjectStorage for InMemoryObjectStorage {
     type Error = core::convert::Infallible;
 
@@ -23,28 +36,28 @@ impl ObjectStorage for InMemoryObjectStorage {
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<bool, Self::Error> {
-        Ok(match key.into() {
+        Ok(self.with_inner(|inner| match key.into() {
             ObjectStorageKey::Nar(nar_file_name) => {
-                self.nars.lock().unwrap().contains_key(nar_file_name)
+                inner.nars.contains_key(nar_file_name)
             },
             ObjectStorageKey::NarInfo(narinfo_file_name) => {
-                self.nar_infos.lock().unwrap().contains_key(narinfo_file_name)
+                inner.nar_infos.contains_key(narinfo_file_name)
             },
-        })
+        }))
     }
 
     async fn get<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<Option<Bytes>, Self::Error> {
-        Ok(match key.into() {
+        Ok(self.with_inner(|inner| match key.into() {
             ObjectStorageKey::Nar(nar_file_name) => {
-                self.nars.lock().unwrap().get(nar_file_name).cloned()
+                inner.nars.get(nar_file_name).cloned()
             },
             ObjectStorageKey::NarInfo(narinfo_file_name) => {
-                self.nar_infos.lock().unwrap().get(narinfo_file_name).cloned()
+                inner.nar_infos.get(narinfo_file_name).cloned()
             },
-        })
+        }))
     }
 
     async fn set<'a>(
@@ -52,20 +65,16 @@ impl ObjectStorage for InMemoryObjectStorage {
         key: impl Into<ObjectStorageKey<'a>>,
         bytes: &[u8],
     ) -> Result<bool, Self::Error> {
-        Ok(match key.into() {
-            ObjectStorageKey::Nar(nar_file_name) => self
+        Ok(self.with_inner(|inner| match key.into() {
+            ObjectStorageKey::Nar(nar_file_name) => inner
                 .nars
-                .lock()
-                .unwrap()
                 .insert(nar_file_name.clone(), bytes.to_owned().into())
                 .is_none(),
 
-            ObjectStorageKey::NarInfo(narinfo_file_name) => self
+            ObjectStorageKey::NarInfo(narinfo_file_name) => inner
                 .nar_infos
-                .lock()
-                .unwrap()
                 .insert(narinfo_file_name.clone(), bytes.to_owned().into())
                 .is_none(),
-        })
+        }))
     }
 }
