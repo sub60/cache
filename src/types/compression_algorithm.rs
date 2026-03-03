@@ -18,7 +18,7 @@ pub enum CompressionAlgorithm {
 }
 
 /// The file extension produced by a given [`CompressionAlgorithm`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum CompressionExtension {
     /// TODO: docs.
     Bzip2,

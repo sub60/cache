@@ -11,7 +11,7 @@ use crate::types::{
 
 /// A parsed NAR file name of the form `{file_hash}.nar` or
 /// `{file_hash}.nar.{ext}`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NarFileName {
     /// The SHA-256 hash of the (possibly compressed) NAR file.
     pub file_hash: Nix32Digest<32>,

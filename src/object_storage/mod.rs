@@ -5,7 +5,7 @@ mod r2;
 
 use core::error::Error;
 
-pub use in_memory::{InMemoryObjectStorage, InMemoryObjectStorageKey};
+pub use in_memory::InMemoryObjectStorage;
 pub use r2::R2ObjectStorage;
 
 use crate::types::{NarFileName, NarInfoFileName};
@@ -13,32 +13,45 @@ use crate::types::{NarFileName, NarInfoFileName};
 /// TODO: docs.
 pub trait ObjectStorage: Sync {
     /// TODO: docs.
-    type Key<'a>: From<&'a NarFileName> + From<&'a NarInfoFileName> + Send;
-
-    /// TODO: docs.
     type Error: Error + Send;
 
     /// Returns whether the object storage contains the given key.
-    fn contains_key(
+    fn contains_key<'a>(
         &self,
-        key: &Self::Key<'_>,
+        key: impl Into<ObjectStorageKey<'a>> + Send,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// TODO: docs.
-    fn get<'this, 'key>(
-        &'this self,
-        key: &Self::Key<'key>,
-    ) -> impl Future<
-        Output = Result<
-            Option<impl AsRef<[u8]> + use<'this, 'key, Self>>,
-            Self::Error,
-        >,
-    > + Send;
+    fn get<'a>(
+        &self,
+        key: impl Into<ObjectStorageKey<'a>> + Send,
+    ) -> impl Future<Output = Result<Option<impl AsRef<[u8]>>, Self::Error>> + Send;
 
     /// TODO: docs.
-    fn set(
+    fn set<'a>(
         &self,
-        key: Self::Key<'_>,
+        key: impl Into<ObjectStorageKey<'a>> + Send,
         bytes: &[u8],
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
+}
+
+/// TODO: docs..
+#[derive(Debug, Copy, Clone)]
+pub enum ObjectStorageKey<'a> {
+    /// TODO: docs..
+    Nar(&'a NarFileName),
+    /// TODO: docs..
+    NarInfo(&'a NarInfoFileName),
+}
+
+impl<'a> From<&'a NarFileName> for ObjectStorageKey<'a> {
+    fn from(nar_file_name: &'a NarFileName) -> Self {
+        Self::Nar(nar_file_name)
+    }
+}
+
+impl<'a> From<&'a NarInfoFileName> for ObjectStorageKey<'a> {
+    fn from(narinfo_file_name: &'a NarInfoFileName) -> Self {
+        Self::NarInfo(narinfo_file_name)
+    }
 }

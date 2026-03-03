@@ -1,9 +1,8 @@
-use core::fmt;
-use core::str::FromStr;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::ObjectStorage;
+use crate::object_storage::ObjectStorageKey;
 use crate::types::{NarFileName, NarInfoFileName};
 
 /// An [`ObjectStorage`] trait that stores the object in memory using a
@@ -13,67 +12,63 @@ pub struct InMemoryObjectStorage {
     objects: Arc<Mutex<HashMap<InMemoryObjectStorageKey, Vec<u8>>>>,
 }
 
-/// The key of the [`InMemoryObjectStorage`].
 #[derive(PartialEq, Eq, Hash)]
-pub struct InMemoryObjectStorageKey(String);
+enum InMemoryObjectStorageKey {
+    Nar(NarFileName),
+    NarInfo(NarInfoFileName),
+}
 
 #[expect(clippy::unwrap_used)]
 impl ObjectStorage for InMemoryObjectStorage {
-    type Key<'a> = InMemoryObjectStorageKey;
     type Error = core::convert::Infallible;
 
-    async fn contains_key(
+    async fn contains_key<'a>(
         &self,
-        key: &Self::Key<'_>,
+        key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<bool, Self::Error> {
-        Ok(self.objects.lock().unwrap().contains_key(key))
+        Ok(self.objects.lock().unwrap().contains_key(&(key.into().into())))
     }
 
-    async fn get(
+    async fn get<'a>(
         &self,
-        key: &Self::Key<'_>,
-    ) -> Result<Option<impl AsRef<[u8]> + use<>>, Self::Error> {
-        Ok(self.objects.lock().unwrap().get(key).cloned())
+        key: impl Into<ObjectStorageKey<'a>>,
+    ) -> Result<Option<Vec<u8>>, Self::Error> {
+        Ok(self.objects.lock().unwrap().get(&(key.into().into())).cloned())
     }
 
-    async fn set(
+    async fn set<'a>(
         &self,
-        key: Self::Key<'_>,
+        key: impl Into<ObjectStorageKey<'a>>,
         bytes: &[u8],
     ) -> Result<bool, Self::Error> {
-        Ok(self.objects.lock().unwrap().insert(key, bytes.to_vec()).is_none())
+        Ok(self
+            .objects
+            .lock()
+            .unwrap()
+            .insert(key.into().into(), bytes.to_vec())
+            .is_none())
     }
 }
 
 impl From<&NarFileName> for InMemoryObjectStorageKey {
     fn from(nar_file_name: &NarFileName) -> Self {
-        Self(format!("nar-{nar_file_name}"))
+        Self::Nar(nar_file_name.clone())
     }
 }
 
 impl From<&NarInfoFileName> for InMemoryObjectStorageKey {
     fn from(narinfo_file_name: &NarInfoFileName) -> Self {
-        Self(format!("narinfo-{narinfo_file_name}"))
+        Self::NarInfo(narinfo_file_name.clone())
     }
 }
 
-impl fmt::Display for InMemoryObjectStorageKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl FromStr for InMemoryObjectStorageKey {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (key_kind, _key) = s
-            .split_once('-')
-            .ok_or_else(|| format!("invalid key format: {s}"))?;
-
-        match key_kind {
-            "nar" | "narinfo" => Ok(Self(s.to_owned())),
-            _ => Err(format!("invalid key kind: {key_kind}")),
+impl From<ObjectStorageKey<'_>> for InMemoryObjectStorageKey {
+    fn from(key: ObjectStorageKey<'_>) -> Self {
+        match key {
+            ObjectStorageKey::Nar(nar_file_name) => Self::from(nar_file_name),
+            ObjectStorageKey::NarInfo(narinfo_file_name) => {
+                Self::from(narinfo_file_name)
+            },
         }
     }
 }

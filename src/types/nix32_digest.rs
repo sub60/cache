@@ -7,7 +7,7 @@ use std::borrow::Cow;
 const ALPHABET: &[u8; 32] = b"0123456789abcdfghijklmnpqrsvwxyz";
 
 /// TODO: docs.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Nix32Digest<const NUM_BYTES: usize>(
     [u8; num_chars_of_bytes(NUM_BYTES)],
 )

@@ -13,7 +13,12 @@ use compact_str::{CompactString, format_compact};
 
 use crate::context::ObjectStorageError;
 use crate::object_gateway::ObjectGateway;
-use crate::types::{NarInfo, NarInfoFileName, NarInfoFromStrError};
+use crate::types::{
+    NarFileName,
+    NarInfo,
+    NarInfoFileName,
+    NarInfoFromStrError,
+};
 use crate::{Cdn, Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/{narinfo_file_name}";
@@ -72,14 +77,11 @@ async fn handler<Ctx: Context>(
 > {
     let object_storage = ctx.object_storage();
 
-    let object_storage_key = (&narinfo_file_name).into();
-
     let Some(narinfo_bytes) = object_storage
-        .get(&object_storage_key)
+        .get(&narinfo_file_name)
         .await
         .map_err(NarInfoGetResponseError::GetNarInfo)?
     else {
-        drop(object_storage_key);
         return Err(NarInfoGetResponseError::NarInfoNotFound(
             narinfo_file_name,
         ));
@@ -89,7 +91,10 @@ async fn handler<Ctx: Context>(
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?
         .parse::<NarInfo<EmptyString>>()?;
 
-    let nar_url = ctx.object_gateway().object_url(object_storage_key);
+    let nar_url = ctx.object_gateway().nar_url(&NarFileName {
+        file_hash: narinfo_without_url.file_hash,
+        extension: narinfo_without_url.compression.extension(),
+    });
 
     Ok(NarInfoGetResponse {
         narinfo: narinfo_without_url.with_url(nar_url),

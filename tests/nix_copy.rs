@@ -24,12 +24,7 @@ async fn mock_nix_copy_to() {
     let obj_storage = test_ctx.object_storage();
     let nar_filename = "todo".parse::<NarFileName>().unwrap();
     assert_eq!(
-        obj_storage
-            .get(&(&nar_filename).into())
-            .await
-            .unwrap()
-            .unwrap()
-            .as_ref(),
+        obj_storage.get(&nar_filename).await.unwrap().unwrap(),
         nar.as_bytes()
     );
 }

@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use crate::types::{NixStoreHash, NixStoreHashFromStrError};
 
 /// A parsed NARInfo file name of the form `{store_hash}.narinfo`.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NarInfoFileName {
     /// The store hash in the file name.
     pub store_hash: NixStoreHash,

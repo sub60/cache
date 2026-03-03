@@ -178,7 +178,7 @@ async fn handler<Ctx: Context>(
     let object_storage = ctx.object_storage();
 
     if !object_storage
-        .contains_key(&(&narinfo.url.nar_file_name).into())
+        .contains_key(&narinfo.url.nar_file_name)
         .await
         .map_err(NarInfoPutRequestError::CheckNarExistence)?
     {
@@ -190,7 +190,7 @@ async fn handler<Ctx: Context>(
     let stored_narinfo = narinfo.with_url("");
 
     let narinfo_was_inserted = object_storage
-        .set((&narinfo_file_name).into(), stored_narinfo.to_string().as_bytes())
+        .set(&narinfo_file_name, stored_narinfo.to_string().as_bytes())
         .await
         .map_err(NarInfoPutRequestError::StoreNarInfo)?;
 

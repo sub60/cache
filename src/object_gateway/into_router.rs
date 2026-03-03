@@ -9,6 +9,8 @@ use axum::http::{self, Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, put};
 
+use crate::object_storage::ObjectStorageKey;
+use crate::types::{NarFileName, NarInfoFileName};
 use crate::{ObjectGateway, ObjectStorage};
 
 /// TODO: docs.
@@ -16,6 +18,11 @@ use crate::{ObjectGateway, ObjectStorage};
 pub struct IntoRouterObjectGateway<ObjStorage> {
     base_route: Cow<'static, str>,
     storage: ObjStorage,
+}
+
+enum ObjectKey {
+    Nar(NarFileName),
+    NarInfo(NarInfoFileName),
 }
 
 impl<ObjStorage> IntoRouterObjectGateway<ObjStorage> {
@@ -49,13 +56,12 @@ impl<ObjStorage: ObjectStorage> From<IntoRouterObjectGateway<ObjStorage>>
 where
     ObjStorage: ObjectStorage + Clone + Send + 'static,
     ObjStorage::Error: fmt::Display,
-    for<'a> ObjStorage::Key<'a>: FromStr<Err: fmt::Display>,
 {
     fn from(gateway: IntoRouterObjectGateway<ObjStorage>) -> Self {
         let storage = gateway.storage.clone();
 
         let get_handler = async move |Path::<String>(key)| {
-            let object_key = match ObjStorage::Key::from_str(&key) {
+            let object_key = match ObjectKey::from_str(&key) {
                 Ok(key) => key,
                 Err(err) => {
                     let msg = err.to_string();
@@ -75,14 +81,14 @@ where
         };
 
         let put_handler = async move |Path::<String>(key), object: Bytes| {
-            let object_key = match ObjStorage::Key::from_str(&key) {
+            let object_key = match ObjectKey::from_str(&key) {
                 Ok(key) => key,
                 Err(err) => {
                     let msg = err.to_string();
                     return (StatusCode::BAD_REQUEST, msg).into_response();
                 },
             };
-            match gateway.storage.set(object_key, &object).await {
+            match gateway.storage.set(&object_key, &object).await {
                 Ok(was_inserted) => {
                     if was_inserted {
                         StatusCode::CREATED.into_response()
@@ -111,12 +117,11 @@ where
 
 impl<ObjStorage: ObjectStorage> ObjectGateway
     for IntoRouterObjectGateway<ObjStorage>
-where
-    for<'a> ObjStorage::Key<'a>: fmt::Display,
 {
     type Storage = ObjStorage;
 
-    fn object_url(&self, key: ObjStorage::Key<'_>) -> http::Uri {
+    fn nar_url(&self, filename: &NarFileName) -> http::Uri {
+        let key = ObjectKey::Nar(filename.clone());
         if self.base_route.is_empty() {
             format!("/{key}")
         } else {
@@ -128,5 +133,48 @@ where
 
     fn storage(&self) -> &ObjStorage {
         &self.storage
+    }
+}
+
+impl fmt::Display for ObjectKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Nar(nar_file_name) => write!(f, "nar-{nar_file_name}"),
+            Self::NarInfo(narinfo_file_name) => {
+                write!(f, "narinfo-{narinfo_file_name}")
+            },
+        }
+    }
+}
+
+impl FromStr for ObjectKey {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (key_kind, key) = s
+            .split_once('-')
+            .ok_or_else(|| format!("invalid key format: {s}"))?;
+
+        match key_kind {
+            "nar" => key
+                .parse()
+                .map(Self::Nar)
+                .map_err(|err| format!("invalid NarFileName in key: {err}")),
+            "narinfo" => key.parse().map(Self::NarInfo).map_err(|err| {
+                format!("invalid NarInfoFileName in key: {err}")
+            }),
+            _ => Err(format!("invalid key kind: {key_kind}")),
+        }
+    }
+}
+
+impl<'a> From<&'a ObjectKey> for ObjectStorageKey<'a> {
+    fn from(object_key: &'a ObjectKey) -> Self {
+        match object_key {
+            ObjectKey::Nar(nar_file_name) => Self::Nar(nar_file_name),
+            ObjectKey::NarInfo(narinfo_file_name) => {
+                Self::NarInfo(narinfo_file_name)
+            },
+        }
     }
 }

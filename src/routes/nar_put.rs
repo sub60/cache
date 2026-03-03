@@ -27,6 +27,12 @@ enum NarPutResponse {
     Redirect { nar_location: http::Uri },
 }
 
+#[derive(Debug)]
+enum NarGetResponse {
+    NotFound,
+    Redirect { nar_location: http::Uri },
+}
+
 /// The type of error that can occur when handling a PUT request to the NAR
 /// route.
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
@@ -35,7 +41,28 @@ enum NarPutRequestError<ObjectStorageError> {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
+    let mut head_ctx = ctx.clone();
+
     routing::put(async move |path| handler(path, &mut ctx).await)
+        .head(async move |path| head_handler(path, &mut head_ctx).await)
+}
+
+async fn head_handler<Ctx: Context>(
+    Path(NarPutPath { nar_file_name }): Path<NarPutPath>,
+    ctx: &mut Ctx,
+) -> Result<NarGetResponse, NarPutRequestError<ObjectStorageError<Ctx>>> {
+    let object_storage = ctx.object_storage();
+
+    if object_storage
+        .contains_key(&nar_file_name)
+        .await
+        .map_err(NarPutRequestError::ObjectStorage)?
+    {
+        let nar_location = ctx.object_gateway().nar_url(&nar_file_name);
+        Ok(NarGetResponse::Redirect { nar_location })
+    } else {
+        Ok(NarGetResponse::NotFound)
+    }
 }
 
 async fn handler<Ctx: Context>(
@@ -46,16 +73,14 @@ async fn handler<Ctx: Context>(
 
     let object_storage = ctx.object_storage();
 
-    let object_storage_key = (&nar_file_name).into();
-
     if object_storage
-        .contains_key(&object_storage_key)
+        .contains_key(&nar_file_name)
         .await
         .map_err(NarPutRequestError::ObjectStorage)?
     {
         Ok(NarPutResponse::AlreadyExists)
     } else {
-        let nar_location = ctx.object_gateway().object_url(object_storage_key);
+        let nar_location = ctx.object_gateway().nar_url(&nar_file_name);
         Ok(NarPutResponse::Redirect { nar_location })
     }
 }
@@ -74,6 +99,27 @@ impl IntoResponse for NarPutResponse {
             Self::AlreadyExists => {
                 (StatusCode::NO_CONTENT, Body::empty()).into_response()
             },
+            Self::Redirect { nar_location } => {
+                axum::response::Response::builder()
+                    .status(StatusCode::TEMPORARY_REDIRECT)
+                    .header(
+                        header::LOCATION,
+                        header::HeaderValue::from_str(
+                            &nar_location.to_string(),
+                        )
+                        .expect("URIs are valid header values"),
+                    )
+                    .body(Body::empty())
+                    .expect("valid response")
+            },
+        }
+    }
+}
+
+impl IntoResponse for NarGetResponse {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            Self::NotFound => StatusCode::NOT_FOUND.into_response(),
             Self::Redirect { nar_location } => {
                 axum::response::Response::builder()
                     .status(StatusCode::TEMPORARY_REDIRECT)

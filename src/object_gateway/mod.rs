@@ -14,18 +14,17 @@ pub use into_router::IntoRouterObjectGateway;
 pub use loopback::LoopbackObjectGateway;
 
 use crate::ObjectStorage;
+use crate::object_storage::ObjectStorageKey;
+use crate::types::NarFileName;
 
 /// TODO: docs.
 pub trait ObjectGateway {
     /// TODO: docs.
     type Storage: ObjectStorage;
 
-    /// Returns the URL at which the object corresponding to the given key can
-    /// be accessed, if it exists.
-    fn object_url(
-        &self,
-        key: <Self::Storage as ObjectStorage>::Key<'_>,
-    ) -> http::Uri;
+    /// Returns the URL at which the NAR corresponding to the given file name
+    /// can be accessed, if it exists.
+    fn nar_url(&self, nar_filename: &NarFileName) -> http::Uri;
 
     /// TODO: docs.
     fn storage(&self) -> &Self::Storage;
@@ -35,9 +34,7 @@ pub trait ObjectGateway {
     /// URL.
     fn presign(
         &self,
-        _presign_request: PresignRequest<
-            <Self::Storage as ObjectStorage>::Key<'_>,
-        >,
+        _presign_request: PresignRequest<ObjectStorageKey<'_>>,
     ) -> impl fmt::Debug + Into<http::HeaderValue> {
         fn cast<T>(panic_msg: impl fmt::Display) -> T {
             unimplemented!("{panic_msg}")

@@ -1,4 +1,3 @@
-use core::fmt;
 use core::net::Ipv4Addr;
 use core::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -6,6 +5,7 @@ use std::sync::Arc;
 use axum::http;
 
 use crate::object_gateway::IntoRouterObjectGateway;
+use crate::types::NarFileName;
 use crate::{ObjectGateway, ObjectStorage};
 
 /// TODO: docs.
@@ -65,13 +65,11 @@ impl<ObjStorage> LoopbackObjectGateway<ObjStorage> {
 
 impl<ObjStorage: ObjectStorage> ObjectGateway
     for LoopbackObjectGateway<ObjStorage>
-where
-    for<'a> ObjStorage::Key<'a>: fmt::Display,
 {
     type Storage = ObjStorage;
 
     #[track_caller]
-    fn object_url(&self, key: ObjStorage::Key<'_>) -> http::Uri {
+    fn nar_url(&self, key: &NarFileName) -> http::Uri {
         if !self.is_running.load(Ordering::SeqCst) {
             panic!(
                 "LoopbackObjectGateway is not running. Please call \
@@ -80,7 +78,7 @@ where
             )
         }
         let port = self.port.expect("gateway is running, so port must be set");
-        let relative_uri = self.inner.object_url(key);
+        let relative_uri = self.inner.nar_url(key);
         format!("http://localhost:{port}/{relative_uri}")
             .parse()
             .expect("valid absolute URI")
