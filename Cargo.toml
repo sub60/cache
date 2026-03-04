@@ -15,6 +15,7 @@ memchr = "2"
 serde = "1"
 smallvec = "1"
 smol_str = "0.3"
+tempfile = "3"
 tokio = { version = "1", default-features = false }
 tower-layer = "0.3"
 tower-service = "0.3"
@@ -73,6 +74,7 @@ memchr = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 smallvec = { workspace = true }
 smol_str = { workspace = true, features = ["serde"] }
+tempfile = { workspace = true }
 tower-layer = { workspace = true }
 tower-service = { workspace = true }
 

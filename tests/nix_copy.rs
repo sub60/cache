@@ -37,7 +37,7 @@ async fn real_nix_copy_to() {
     tokio::spawn(
         axum::serve(listener, Router::from(test_ctx.clone())).into_future(),
     );
-    RealNixClient
+    RealNixClient::new()
         .copy(["nixpkgs#hello"])
         .to(local_addr, "user", "cache")
         .await
