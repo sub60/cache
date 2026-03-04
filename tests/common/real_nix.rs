@@ -35,11 +35,11 @@ impl RealNixClient {
         Self { store: RealNixStore::new() }
     }
 
-    fn run(
+    async fn run(
         &self,
         args: impl IntoIterator<Item = impl AsRef<str>>,
     ) -> process::Output {
-        run_nix_command(&self.store.canonicalized_path, args)
+        run_nix_command(&self.store.canonicalized_path, args).await
     }
 }
 
@@ -74,7 +74,8 @@ impl NixClient for RealNixClient {
             iter::once(Either::Right("copy".to_owned()))
                 .chain(options.into_cli_args().map(Either::Left))
                 .chain(paths.iter().map(|p| p.to_string()).map(Either::Right)),
-        );
+        )
+        .await;
 
         Ok(())
     }
@@ -104,9 +105,10 @@ impl NixStore for RealNixStore {
         let output = run_nix_command(
             &self.canonicalized_path,
             ["store", "add-file", "--name", store_name, file_path],
-        );
+        )
+        .await;
 
-        String::from_utf8(output.stdout)
+        str::from_utf8(&output.stdout)
             .expect("`nix store add-file` prints valid UTF-8")
             .trim()
             .parse()
@@ -192,7 +194,7 @@ fn nix_command(store_path: &Path) -> process::Command {
     cmd
 }
 
-fn run_nix_command(
+async fn run_nix_command(
     store_path: &Path,
     args: impl IntoIterator<Item = impl AsRef<str>>,
 ) -> process::Output {
@@ -205,11 +207,13 @@ fn run_nix_command(
         }
     }
 
-    let mut cmd = nix_command(store_path);
+    let mut cmd = {
+        let mut cmd = nix_command(store_path);
+        cmd.args(args.into_iter().map(Arg));
+        tokio::process::Command::from(cmd)
+    };
 
-    cmd.args(args.into_iter().map(Arg));
-
-    let output = match cmd.output() {
+    let output = match cmd.output().await {
         Ok(output) => output,
         Err(err) => panic!("failed to run `{:?}`: {err}", cmd),
     };

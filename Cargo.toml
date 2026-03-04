@@ -81,6 +81,7 @@ tower-service = { workspace = true }
 tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["process"] }
 url = { workspace = true }
 
 [lints]

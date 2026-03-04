@@ -22,14 +22,14 @@ where
 pub enum Nix32DigestFromStrError<const NUM_BYTES: usize> {
     /// The string was not exactly 32 characters long.
     #[display(
-        "String must be exactly {} characters long",
+        "string must be exactly {} characters long",
         num_chars_of_bytes(NUM_BYTES)
     )]
     InvalidLength,
 
     /// The string contains an invalid character at the given offset.
     #[display(
-        "String contains an invalid character at offset {offset}: \
+        "string contains an invalid character at offset {offset}: \
          '{character}'"
     )]
     InvalidCharacter {

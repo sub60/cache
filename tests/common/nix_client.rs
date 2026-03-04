@@ -112,7 +112,7 @@ impl<Client: NixClient> CopyOptions<false, Client> {
         let cache_name = cache_name.try_into().expect("invalid cache name");
         CopyOptions {
             cache_uri: Some((cache_host.into(), user_name, cache_name)),
-            direction: CopyDirection::From,
+            direction: self.direction,
         }
     }
 }
