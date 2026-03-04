@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 use std::{env, fs, process};
 
-use cache::types::{NixStoreBaseName, NixStorePath};
+use cache::types::{NixStoreBaseName, NixStoreName, NixStorePath};
 use either::Either;
 
 use crate::common::{CopyDirection, CopyOptions, NixClient, NixStore};
@@ -83,12 +83,34 @@ impl NixClient for RealNixClient {
 impl NixStore for RealNixStore {
     async fn add_file(
         &self,
-        _file_name: &str,
-        _file_contents: &[u8],
+        store_name: &str,
+        file_contents: &[u8],
     ) -> NixStorePath {
-        // let source = tempfile::NamedTempFile::new().unwrap();
-        // std::fs::write(source.path(), b"hello world").unwrap();
-        todo!()
+        if let Err(err) = store_name.parse::<NixStoreName>() {
+            panic!("invalid store name {store_name:?}: {err}");
+        }
+
+        let mut tempfile = tempfile::NamedTempFile::new()
+            .expect("failed to create temporary file");
+
+        use std::io::Write as _;
+        tempfile
+            .write_all(file_contents)
+            .expect("failed to write file contents to tempfile");
+
+        let file_path =
+            tempfile.path().to_str().expect("tempfile's path is valid UTF-8");
+
+        let output = run_nix_command(
+            &self.canonicalized_path,
+            ["store", "add-file", "--name", store_name, file_path],
+        );
+
+        String::from_utf8(output.stdout)
+            .expect("`nix store add-file` prints valid UTF-8")
+            .trim()
+            .parse()
+            .expect("`nix store add-file` prints a Nix store path")
     }
 }
 
