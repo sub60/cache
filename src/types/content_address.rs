@@ -4,14 +4,14 @@ use core::str::FromStr;
 use crate::types::NixHash;
 
 /// TODO: docs.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentAddress {
     method: ContentAddressMethod,
     hash: NixHash,
 }
 
 /// TODO: docs.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ContentAddressMethod {
     /// TODO: docs.
     Text,

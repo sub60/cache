@@ -4,7 +4,7 @@ use core::str::FromStr;
 use crate::types::Nix32Digest;
 
 /// TODO: docs.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum NixHash {
     /// The SHA-1 hash algorithm.
     Sha1(Nix32Digest<20>),

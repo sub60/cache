@@ -28,6 +28,7 @@ const SIGNATURE_FIELD_NAME: &str = "Sig";
 const CONTENT_ADDRESS_FIELD_NAME: &str = "CA";
 
 /// TODO: docs.
+#[derive(Debug, PartialEq, Eq)]
 pub struct NarInfo<NarUrl> {
     /// TODO: docs.
     pub store_path: NixStorePath,
@@ -159,8 +160,12 @@ impl<NarUrl: fmt::Display> fmt::Display for NarInfo<NarUrl> {
         writeln!(f, "{NAR_SIZE_FIELD_NAME}: {}", self.nar_size)?;
 
         write!(f, "{REFERENCES_FIELD_NAME}:")?;
-        for reference in &self.references {
-            write!(f, " {}", reference)?;
+        if self.references.is_empty() {
+            f.write_char(' ')?;
+        } else {
+            for reference in &self.references {
+                write!(f, " {}", reference)?;
+            }
         }
         f.write_char('\n')?;
 
@@ -259,11 +264,15 @@ where
                     nar_size.replace(parsed_nar_size).is_some()
                 },
                 REFERENCES_FIELD_NAME => {
-                    let parsed_references = field_value
-                        .split(' ')
-                        .map(str::parse)
-                        .collect::<Result<SmallVec<[NixStoreBaseName; 2]>, _>>()
-                        .map_err(NarInfoFromStrError::Reference)?;
+                    let parsed_references = if field_value.is_empty() {
+                        SmallVec::new()
+                    } else {
+                        field_value
+                            .split(' ')
+                            .map(str::parse)
+                            .collect::<Result<SmallVec<[NixStoreBaseName; 2]>, _>>()
+                            .map_err(NarInfoFromStrError::Reference)?
+                    };
                     references.replace(parsed_references).is_some()
                 },
                 DERIVER_FIELD_NAME => {
@@ -316,5 +325,38 @@ where
         };
 
         try_block().map_err(NarInfoFromStrError::MissingRequiredField)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nar_info_serialize_roundtrip_1() {
+        let nar_info = NarInfo {
+            store_path: "/nix/store/00000000000000000000000000000000-foo"
+                .parse()
+                .unwrap(),
+            url: "some_url".to_owned(),
+            compression: CompressionAlgorithm::None,
+            file_hash: Nix32Digest::new(&[0u8; _]),
+            file_size: NonZeroU64::new(123).unwrap(),
+            nar_hash: Nix32Digest::new(&[0u8; _]),
+            nar_size: NonZeroU64::new(456).unwrap(),
+            references: Default::default(),
+            deriver: None,
+            signatures: Default::default(),
+            content_address: Default::default(),
+        };
+
+        let serialized = nar_info.to_string();
+
+        let deserialized = match serialized.parse::<NarInfo<String>>() {
+            Ok(nar_info) => nar_info,
+            Err(err) => panic!("failed to deserialize NarInfo: {err}"),
+        };
+
+        assert_eq!(nar_info, deserialized);
     }
 }
