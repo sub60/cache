@@ -1,12 +1,16 @@
 use core::convert::Infallible;
+use core::iter;
 use core::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use core::str::FromStr;
 use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path::PathBuf;
+use std::process::ExitStatus;
 use std::{env, process};
 
-use crate::common::{CopyOptions, NixClient};
+use either::Either;
+
+use crate::common::{CopyDirection, CopyOptions, NixClient};
 
 /// TODO: docs.
 pub struct RealNixClient {
@@ -15,13 +19,7 @@ pub struct RealNixClient {
 
 /// TODO: docs.
 #[derive(Debug)]
-#[expect(unused)]
-pub enum CacheHost {
-    /// TODO: docs.
-    LocalCache(SocketAddr),
-    /// TODO: docs.
-    RemoteCache(url::Url),
-}
+pub struct CacheHost(url::Url);
 
 impl RealNixClient {
     #[track_caller]
@@ -70,14 +68,33 @@ impl RealNixClient {
     #[track_caller]
     fn run(
         &self,
-        args: impl IntoIterator<Item = impl AsRef<OsStr>>,
-    ) -> process::Output {
+        args: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> ExitStatus {
+        /// A `AsRef<str>` -> `AsRef<OsStr>` adapter for command arguments.
+        struct Arg<T>(T);
+
+        impl<T: AsRef<str>> AsRef<OsStr> for Arg<T> {
+            fn as_ref(&self) -> &OsStr {
+                OsStr::new(self.0.as_ref())
+            }
+        }
+
         let mut cmd = self.command();
-        cmd.args(args);
-        match cmd.output() {
+        cmd.args(args.into_iter().map(Arg));
+        let output = match cmd.output() {
             Ok(output) => output,
             Err(err) => panic!("failed to run `{:?}`: {err}", cmd),
+        };
+        if !output.status.success() {
+            panic!(
+                "`{:?}` failed with status {}: stdout:\n{}\nstderr:\n{}",
+                cmd,
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
+        output.status
     }
 }
 
@@ -88,35 +105,47 @@ impl NixClient for RealNixClient {
 
     async fn copy_impl(
         &self,
-        _installables: Vec<Self::Installable>,
+        installables: Vec<Self::Installable>,
         options: CopyOptions<true, Self>,
     ) -> Result<(), Self::CopyError> {
-        let (_app, _user, _cache) = options.cache_uri();
-        todo!()
+        self.run(
+            iter::once(Either::Right("copy"))
+                .chain(options.into_cli_args().map(Either::Left))
+                .chain(installables.iter().map(|s| Either::Right(s.as_str()))),
+        );
+
+        Ok(())
     }
 }
 
 impl From<SocketAddrV4> for CacheHost {
+    #[track_caller]
     fn from(addr: SocketAddrV4) -> Self {
         SocketAddr::V4(addr).into()
     }
 }
 
 impl From<SocketAddrV6> for CacheHost {
+    #[track_caller]
     fn from(addr: SocketAddrV6) -> Self {
         SocketAddr::V6(addr).into()
     }
 }
 
 impl From<SocketAddr> for CacheHost {
+    #[track_caller]
     fn from(addr: SocketAddr) -> Self {
-        Self::LocalCache(addr)
+        assert!(
+            addr.ip().is_loopback(),
+            "expected {addr:?} to be a loopback address"
+        );
+        Self(format!("http://{addr}").parse().expect("valid cache URI"))
     }
 }
 
 impl From<url::Url> for CacheHost {
     fn from(url: url::Url) -> Self {
-        Self::RemoteCache(url)
+        Self(url)
     }
 }
 
@@ -124,6 +153,12 @@ impl TryFrom<&str> for CacheHost {
     type Error = <url::Url as FromStr>::Err;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        value.parse::<url::Url>().map(Self::RemoteCache)
+        value.parse::<url::Url>().map(Self)
+    }
+}
+
+impl From<CacheHost> for url::Url {
+    fn from(CacheHost(url): CacheHost) -> Self {
+        url
     }
 }

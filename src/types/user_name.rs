@@ -1,4 +1,5 @@
 use core::fmt;
+use core::ops::Deref;
 use core::str::FromStr;
 
 use smol_str::SmolStr;
@@ -84,6 +85,14 @@ impl TryFrom<&str> for UserName {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         value.parse()
+    }
+}
+
+impl Deref for UserName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

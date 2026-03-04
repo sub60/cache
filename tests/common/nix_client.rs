@@ -45,6 +45,7 @@ pub struct CopyOptions<const HAS_CACHE_URI: bool, Client: NixClient> {
     pub direction: CopyDirection,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum CopyDirection {
     From,
     To,
@@ -117,6 +118,37 @@ impl<Client: NixClient> CopyOptions<true, Client> {
         self,
     ) -> (<Client as NixClient>::CacheHost, UserName, CacheName) {
         self.cache_uri.expect("cache URI is set")
+    }
+
+    pub fn into_cli_args(self) -> impl Iterator<Item = impl AsRef<str>>
+    where
+        Client::CacheHost: Into<url::Url>,
+    {
+        let direction = self.direction;
+
+        let (host, user, cache) = self.cache_uri();
+
+        let mut cache_url = host.into();
+
+        {
+            let mut segments = cache_url
+                .path_segments_mut()
+                .expect("remote cache URL cannot be a base");
+            segments.push(&user);
+            segments.push(&cache);
+        }
+
+        vec![direction.as_cli_arg().to_owned(), cache_url.to_string()]
+            .into_iter()
+    }
+}
+
+impl CopyDirection {
+    fn as_cli_arg(self) -> &'static str {
+        match self {
+            Self::From => "--from",
+            Self::To => "--to",
+        }
     }
 }
 
