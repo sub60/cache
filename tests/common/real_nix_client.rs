@@ -1,13 +1,15 @@
 use core::convert::Infallible;
 use core::iter;
 use core::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
+use core::ops::Deref;
 use core::str::FromStr;
 use std::borrow::Cow;
 use std::ffi::OsStr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
-use std::{env, process};
+use std::{env, fs, process};
 
+use cache::types::{NixStoreBaseName, NixStorePath};
 use either::Either;
 
 use crate::common::{CopyDirection, CopyOptions, NixClient};
@@ -17,11 +19,24 @@ pub struct RealNixClient {
     nix_store: tempfile::TempDir,
 }
 
-/// TODO: docs.
 #[derive(Debug)]
 pub struct CacheHost(url::Url);
 
+#[derive(Debug)]
+pub struct Installable(String);
+
 impl RealNixClient {
+    #[track_caller]
+    pub fn add_file(
+        &self,
+        _file_name: &str,
+        _file_contents: &[u8],
+    ) -> NixStorePath {
+        // let source = tempfile::NamedTempFile::new().unwrap();
+        // std::fs::write(source.path(), b"hello world").unwrap();
+        todo!()
+    }
+
     #[track_caller]
     pub fn new() -> Self {
         Self {
@@ -47,6 +62,9 @@ impl RealNixClient {
 
         let mut cmd = process::Command::new(nix_binary);
 
+        let nix_store_path = fs::canonicalize(self.nix_store.path())
+            .expect("failed to canonicalize nix store path");
+
         cmd
             // Clear all environment variables for reproducibility.
             .env_clear()
@@ -60,16 +78,15 @@ impl RealNixClient {
             // interfering with other concurrently-running tests and with the
             // user's Nix store.
             .arg("--store")
-            .arg(self.nix_store.path());
+            .arg(nix_store_path);
 
         cmd
     }
 
-    #[track_caller]
     fn run(
         &self,
         args: impl IntoIterator<Item = impl AsRef<str>>,
-    ) -> ExitStatus {
+    ) -> process::Output {
         /// A `AsRef<str>` -> `AsRef<OsStr>` adapter for command arguments.
         struct Arg<T>(T);
 
@@ -81,26 +98,28 @@ impl RealNixClient {
 
         let mut cmd = self.command();
         cmd.args(args.into_iter().map(Arg));
+
         let output = match cmd.output() {
             Ok(output) => output,
             Err(err) => panic!("failed to run `{:?}`: {err}", cmd),
         };
+
         if !output.status.success() {
             panic!(
-                "`{:?}` failed with status {}: stdout:\n{}\nstderr:\n{}",
-                cmd,
+                "`{cmd:?}` failed with status {}: stdout:\n{}\nstderr:\n{}",
                 output.status,
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
             );
         }
-        output.status
+
+        output
     }
 }
 
 impl NixClient for RealNixClient {
     type CacheHost = CacheHost;
-    type Installable = String;
+    type Installable = Installable;
     type CopyError = Infallible;
 
     async fn copy_impl(
@@ -111,7 +130,7 @@ impl NixClient for RealNixClient {
         self.run(
             iter::once(Either::Right("copy"))
                 .chain(options.into_cli_args().map(Either::Left))
-                .chain(installables.iter().map(|s| Either::Right(s.as_str()))),
+                .chain(installables.iter().map(|s| &**s).map(Either::Right)),
         );
 
         Ok(())
@@ -160,5 +179,19 @@ impl TryFrom<&str> for CacheHost {
 impl From<CacheHost> for url::Url {
     fn from(CacheHost(url): CacheHost) -> Self {
         url
+    }
+}
+
+impl From<NixStorePath> for Installable {
+    fn from(path: NixStorePath) -> Self {
+        Self(path.to_string())
+    }
+}
+
+impl Deref for Installable {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

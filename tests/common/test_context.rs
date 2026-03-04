@@ -11,11 +11,27 @@ const OBJECT_GATEWAY_PATH: &str = "/objects";
 /// for testing.
 ///
 /// It always uses a [`IntoRouterObjectGateway`] to serve objects from the
-/// configured object storage, so it can be converted into a [`Router`] via its
-/// [`Into<Router>`] implementation.
+/// configured object storage, so it can be converted into a [`Router`] by
+/// calling [`app_router()`](TestContext::app_router).
 #[derive(Clone)]
 pub struct TestContext<Cdn = NoOpCdn, ObjStorage = InMemoryObjectStorage> {
     inner: ComposedContext<Cdn, IntoRouterObjectGateway<ObjStorage>>,
+}
+
+impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
+    pub fn app_router(&self) -> Router
+    where
+        Cdn: cdn::Cdn,
+        ObjStorage: Clone,
+        IntoRouterObjectGateway<ObjStorage>: Into<Router>,
+        ComposedContext<Cdn, IntoRouterObjectGateway<ObjStorage>>: Context<
+                Cdn = Cdn,
+                ObjectGateway = IntoRouterObjectGateway<ObjStorage>,
+            >,
+    {
+        let object_gateway = self.inner.object_gateway().clone();
+        cache::router(self.inner.clone()).merge(object_gateway)
+    }
 }
 
 impl Default for TestContext {
@@ -28,20 +44,6 @@ impl Default for TestContext {
                     Default::default(),
                 )),
         }
-    }
-}
-
-impl<Cdn, ObjStorage> From<TestContext<Cdn, ObjStorage>> for Router
-where
-    Cdn: cdn::Cdn,
-    ObjStorage: Clone,
-    IntoRouterObjectGateway<ObjStorage>: Into<Self>,
-    ComposedContext<Cdn, IntoRouterObjectGateway<ObjStorage>>:
-        Context<Cdn = Cdn, ObjectGateway = IntoRouterObjectGateway<ObjStorage>>,
-{
-    fn from(ctx: TestContext<Cdn, ObjStorage>) -> Self {
-        let object_gateway = ctx.inner.object_gateway().clone();
-        cache::router(ctx.inner).merge(object_gateway)
     }
 }
 
