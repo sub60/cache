@@ -6,30 +6,37 @@ mod common;
 
 use core::net::Ipv4Addr;
 
-use cache::types::{NarFileName, NarInfoFileName};
+use cache::types::NarInfoFileName;
 use cache::{Context, ObjectStorage};
 use common::{MockNixClient, NixClient, RealNixClient, TestContext};
 use tokio::net::TcpListener;
 
+use crate::common::NixStore;
+
 #[tokio::test]
-async fn mock_nix_copy_to() {
+async fn copy_to_cache_mock() {
     let test_ctx = TestContext::default();
-    let nar = "hello world";
-    MockNixClient
-        .copy([nar])
+
+    let nix = MockNixClient::default();
+
+    let path = nix.store().add_file("hello-world", b"hello world").await;
+
+    nix.copy([path.clone()])
         .to(test_ctx.app_router(), "user", "cache")
         .await
         .unwrap();
-    let obj_storage = test_ctx.object_storage();
-    let nar_filename = "todo".parse::<NarFileName>().unwrap();
-    assert_eq!(
-        obj_storage.get(&nar_filename).await.unwrap().unwrap(),
-        nar.as_bytes()
+
+    assert!(
+        test_ctx
+            .object_storage()
+            .contains_key(&NarInfoFileName { store_hash: path.into_hash() })
+            .await
+            .unwrap()
     );
 }
 
 #[tokio::test]
-async fn real_nix_copy_to() {
+async fn copy_to_cache_real() {
     let test_ctx = TestContext::default();
 
     // Start the cache server on a OS-assigned port.
@@ -39,7 +46,7 @@ async fn real_nix_copy_to() {
 
     let nix = RealNixClient::new();
 
-    let path = nix.add_file("hello-world", b"hello world");
+    let path = nix.store().add_file("hello-world", b"hello world").await;
 
     nix.copy([path.clone()]).to(local_addr, "user", "cache").await.unwrap();
 

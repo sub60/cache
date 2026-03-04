@@ -2,15 +2,17 @@ use core::error::Error;
 use core::fmt;
 use core::pin::Pin;
 
-use cache::types::{CacheName, UserName};
+use cache::types::{CacheName, NixStorePath, UserName};
+
+use crate::common::NixStore;
 
 /// TODO: docs.
 pub trait NixClient: Sized {
     /// TODO: docs.
-    type CacheHost;
+    type Store: NixStore;
 
     /// TODO: docs.
-    type Installable: Send;
+    type CacheHost;
 
     /// TODO: docs.
     type CopyError: Error + Send;
@@ -18,18 +20,20 @@ pub trait NixClient: Sized {
     /// TODO: docs.
     fn copy_impl(
         &self,
-        installables: Vec<Self::Installable>,
+        store_paths: Vec<NixStorePath>,
         options: CopyOptions<true, Self>,
     ) -> impl Future<Output = Result<(), Self::CopyError>>;
+
+    fn store(&self) -> &Self::Store;
 
     /// TODO: docs.
     fn copy(
         &self,
-        installables: impl IntoIterator<Item = impl Into<Self::Installable>>,
+        store_paths: impl IntoIterator<Item = impl Into<NixStorePath>>,
     ) -> CopyFutureBuilder<'_, false, Self> {
         CopyFutureBuilder {
             client: self,
-            installables: installables.into_iter().map(Into::into).collect(),
+            store_paths: store_paths.into_iter().map(Into::into).collect(),
             opts: CopyOptions {
                 cache_uri: None,
                 direction: CopyDirection::From,
@@ -58,7 +62,7 @@ pub struct CopyFutureBuilder<
     Client: NixClient,
 > {
     client: &'client Client,
-    installables: Vec<Client::Installable>,
+    store_paths: Vec<NixStorePath>,
     opts: CopyOptions<HAS_CACHE_URI, Client>,
 }
 
@@ -75,7 +79,7 @@ impl<'client, Client: NixClient> CopyFutureBuilder<'client, false, Client> {
         self.opts.direction = CopyDirection::From;
         CopyFutureBuilder {
             client: self.client,
-            installables: self.installables,
+            store_paths: self.store_paths,
             opts: self.opts.with_cache_uri(cache_host, user_name, cache_name),
         }
     }
@@ -91,7 +95,7 @@ impl<'client, Client: NixClient> CopyFutureBuilder<'client, false, Client> {
         self.opts.direction = CopyDirection::To;
         CopyFutureBuilder {
             client: self.client,
-            installables: self.installables,
+            store_paths: self.store_paths,
             opts: self.opts.with_cache_uri(cache_host, user_name, cache_name),
         }
     }
@@ -159,6 +163,6 @@ impl<'client, Client: NixClient> IntoFuture
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + 'client>>;
 
     fn into_future(self) -> Self::IntoFuture {
-        Box::pin(self.client.copy_impl(self.installables, self.opts))
+        Box::pin(self.client.copy_impl(self.store_paths, self.opts))
     }
 }
