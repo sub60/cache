@@ -36,12 +36,16 @@ pub struct MockNixStore {
 
 #[derive(Debug, derive_more::Display, cauchy::Error)]
 pub enum CopyError {
+    #[display("GET NAR failed with code {_0}")]
+    GetNarFailed(http::StatusCode),
+    #[display("GET NARInfo failed with code {_0}")]
+    GetNarInfoFailed(http::StatusCode),
     #[display("no file at {_0}")]
     MissingStorePath(NixStorePath),
-    #[display("PUT to NARInfo endpoint failed with code {_0}")]
-    PutNarInfoFailed(http::StatusCode),
     #[display("PUT to NAR endpoint failed with code {_0}")]
     PutNarFailed(http::StatusCode),
+    #[display("PUT to NARInfo endpoint failed with code {_0}")]
+    PutNarInfoFailed(http::StatusCode),
     #[display("PUT to redirected NAR endpoint failed with code {_0}")]
     PutNarRedirectFailed(http::StatusCode),
 }
@@ -72,12 +76,37 @@ impl NixClient for MockNixClient {
         let (app, user, cache) = options.cache_uri();
         let base = format!("/{user}/{cache}");
 
-        match direction {
-            CopyDirection::To => {
-                copy_to(&self.store, store_paths, app, &base).await
-            },
-            CopyDirection::From => todo!("MockNixClient copy --from"),
+        let mut futures = store_paths
+            .into_iter()
+            .map(|store_path| async {
+                match direction {
+                    CopyDirection::To => {
+                        copy_store_path_to(
+                            &self.store,
+                            store_path,
+                            &mut app.clone(),
+                            &base,
+                        )
+                        .await
+                    },
+                    CopyDirection::From => {
+                        copy_store_path_from(
+                            &self.store,
+                            store_path,
+                            &mut app.clone(),
+                            &base,
+                        )
+                        .await
+                    },
+                }
+            })
+            .collect::<FuturesUnordered<_>>();
+
+        while let Some(res) = futures.next().await {
+            res?;
         }
+
+        Ok(())
     }
 }
 
@@ -133,6 +162,125 @@ impl NixStore for MockNixStore {
     }
 }
 
+/// Replicates the HTTP calls that `nix copy --to` makes when uploading a single
+/// store path to an HTTP binary cache.
+async fn copy_store_path_to(
+    store: &MockNixStore,
+    store_path: NixStorePath,
+    app: &mut axum::Router,
+    base: &str,
+) -> Result<(), CopyError> {
+    let Some(nar_bytes) = store.get_file(&store_path) else {
+        return Err(CopyError::MissingStorePath(store_path));
+    };
+
+    // Step 1: GET /nix-cache-info
+    //
+    // The real Nix client does this to verify the StoreDir matches.
+    let response = send(
+        app,
+        Request::builder()
+            .method(http::Method::GET)
+            .uri(format!("{base}/nix-cache-info"))
+            .body(Body::empty())
+            .expect("valid request"),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::OK, "GET nix-cache-info failed");
+
+    // Step 2: HEAD /{store_hash}.narinfo
+    //
+    // The real Nix client checks if the store path is already cached.
+    let response = send(
+        app,
+        Request::builder()
+            .method(http::Method::HEAD)
+            .uri(format!("{base}/{}.narinfo", store_path.hash()))
+            .body(Body::empty())
+            .expect("valid request"),
+    )
+    .await;
+
+    // If the narinfo already exists, the path is already cached.
+    if response.status() == StatusCode::OK {
+        return Ok(());
+    }
+
+    let narinfo = mock_narinfo(store_path, &nar_bytes);
+
+    let nar_file_name = NarFileName::from(&narinfo);
+
+    // Step 3: PUT /nar/{file_hash}.nar
+    put_nar(app, base, &nar_file_name, nar_bytes).await?;
+
+    // Set the NARInfo's URL to the correct format.
+    let narinfo = narinfo.with_url(format!("nar/{nar_file_name}"));
+
+    // Step 4: PUT /{store_hash}.narinfo
+    put_narinfo(app, base, &narinfo).await.map_err(CopyError::PutNarInfoFailed)
+}
+
+/// Replicates the HTTP calls that `nix copy --from` makes when downloading a
+/// single store path from an HTTP binary cache.
+async fn copy_store_path_from(
+    store: &MockNixStore,
+    store_path: NixStorePath,
+    app: &mut axum::Router,
+    base: &str,
+) -> Result<(), CopyError> {
+    // Step 1: GET /{store_hash}.narinfo
+    let response = send(
+        app,
+        Request::builder()
+            .uri(format!("{base}/{}.narinfo", store_path.hash()))
+            .body(Body::empty())
+            .expect("valid request"),
+    )
+    .await;
+
+    if !response.status().is_success() {
+        return Err(CopyError::GetNarInfoFailed(response.status()));
+    }
+
+    let narinfo_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read narinfo body");
+
+    let narinfo = core::str::from_utf8(&narinfo_bytes)
+        .expect("narinfo is valid UTF-8")
+        .parse::<NarInfo<String>>()
+        .expect("narinfo is valid");
+
+    // Step 2: GET the NAR URL from the narinfo.
+    let response = send(
+        app,
+        Request::builder()
+            .uri(&narinfo.url)
+            .body(Body::empty())
+            .expect("valid request"),
+    )
+    .await;
+
+    if !response.status().is_success() {
+        return Err(CopyError::GetNarFailed(response.status()));
+    }
+
+    let nar_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read NAR body");
+
+    // Step 3: Store the NAR bytes in the mock store.
+    #[expect(clippy::unwrap_used)]
+    store
+        .files
+        .lock()
+        .unwrap()
+        .insert(store_path.basename().clone(), nar_bytes);
+
+    Ok(())
+}
+
 /// Builds a [`NarInfo`] from a store path and its NAR bytes.
 fn mock_narinfo(store_path: NixStorePath, nar_bytes: &[u8]) -> NarInfo<()> {
     let nar_hash_bytes = Sha256::digest(nar_bytes);
@@ -160,90 +308,6 @@ fn mock_narinfo(store_path: NixStorePath, nar_bytes: &[u8]) -> NarInfo<()> {
         signatures: Default::default(),
         content_address: None,
     }
-}
-
-/// Copies store paths to the cache, concurrently.
-async fn copy_to(
-    store: &MockNixStore,
-    store_paths: Vec<NixStorePath>,
-    app: axum::Router,
-    base: &str,
-) -> Result<(), CopyError> {
-    let mut futures = store_paths
-        .into_iter()
-        .map(|store_path| async {
-            match store.get_file(&store_path) {
-                Some(nar_bytes) => {
-                    copy_store_path_to(app.clone(), base, store_path, nar_bytes)
-                        .await
-                },
-                None => Err(CopyError::MissingStorePath(store_path)),
-            }
-        })
-        .collect::<FuturesUnordered<_>>();
-
-    while let Some(res) = futures.next().await {
-        res?;
-    }
-
-    Ok(())
-}
-
-/// Replicates the HTTP calls that `nix copy --to` makes when uploading a single
-/// store path to an HTTP binary cache.
-async fn copy_store_path_to(
-    mut app: axum::Router,
-    base: &str,
-    store_path: NixStorePath,
-    nar_bytes: Bytes,
-) -> Result<(), CopyError> {
-    // Step 1: GET /nix-cache-info
-    //
-    // The real Nix client does this to verify the StoreDir matches.
-    let response = send(
-        &mut app,
-        Request::builder()
-            .method(http::Method::GET)
-            .uri(format!("{base}/nix-cache-info"))
-            .body(Body::empty())
-            .expect("valid request"),
-    )
-    .await;
-
-    assert_eq!(response.status(), StatusCode::OK, "GET nix-cache-info failed");
-
-    // Step 2: HEAD /{store_hash}.narinfo
-    //
-    // The real Nix client checks if the store path is already cached.
-    let response = send(
-        &mut app,
-        Request::builder()
-            .method(http::Method::HEAD)
-            .uri(format!("{base}/{}.narinfo", store_path.hash()))
-            .body(Body::empty())
-            .expect("valid request"),
-    )
-    .await;
-
-    // If the narinfo already exists, the path is already cached.
-    if response.status() == StatusCode::OK {
-        return Ok(());
-    }
-
-    let narinfo = mock_narinfo(store_path, &nar_bytes);
-
-    let nar_file_name = NarFileName::from(&narinfo);
-
-    // Step 3: PUT /nar/{file_hash}.nar
-    put_nar(&mut app, base, &nar_file_name, nar_bytes).await?;
-
-    // Set the NARInfo's URL to the correct format.
-    let narinfo = narinfo.with_url(format!("nar/{nar_file_name}"));
-
-    // Step 4: PUT /{store_hash}.narinfo
-    put_narinfo(&mut app, base, &narinfo)
-        .await
-        .map_err(CopyError::PutNarInfoFailed)
 }
 
 /// Uploads the NAR bytes to the cache server, following redirects to the object
@@ -316,6 +380,7 @@ async fn send(
     app: &mut axum::Router,
     request: Request<Body>,
 ) -> axum::response::Response {
-    let a = app.call(request).await;
-    a.expect("router returned an error")
+    match app.call(request).await {
+        Ok(response) => response,
+    }
 }
