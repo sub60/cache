@@ -31,7 +31,7 @@ pub trait ObjectStorage: Sync {
     fn set<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>> + Send,
-        bytes: &[u8],
+        bytes: impl AsRef<[u8]> + Send,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 }
 

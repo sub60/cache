@@ -69,7 +69,6 @@ pub struct CopyFutureBuilder<
 impl<'client, Client: NixClient> CopyFutureBuilder<'client, false, Client> {
     /// TODO: docs.
     #[track_caller]
-    #[expect(dead_code)]
     pub fn from(
         mut self,
         cache_host: impl Into<Client::CacheHost>,

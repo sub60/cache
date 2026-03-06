@@ -6,7 +6,8 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::{env, fs, process};
 
-use cache::types::{NixStoreName, NixStorePath};
+use axum::body::Bytes;
+use cache::types::{NarInfo, NixStoreName, NixStorePath};
 use either::Either;
 
 use crate::common::{CopyOptions, NixClient, NixStore};
@@ -110,6 +111,22 @@ impl NixStore for RealNixStore {
             .trim()
             .parse()
             .expect("`nix store add-file` prints a Nix store path")
+    }
+
+    async fn remove_store_path(&self, store_path: &NixStorePath) {
+        todo!("RealNixStore::remove_store_path")
+    }
+
+    async fn narinfo(&self, store_path: &NixStorePath) -> NarInfo<String> {
+        todo!("RealNixStore::narinfo")
+    }
+
+    async fn nar_bytes(&self, store_path: &NixStorePath) -> Bytes {
+        todo!("RealNixStore::nar_bytes")
+    }
+
+    async fn contains(&self, store_path: &NixStorePath) -> bool {
+        todo!("RealNixStore::contains")
     }
 }
 

@@ -63,17 +63,20 @@ impl ObjectStorage for InMemoryObjectStorage {
     async fn set<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
-        bytes: &[u8],
+        bytes: impl AsRef<[u8]>,
     ) -> Result<bool, Self::Error> {
         Ok(self.with_inner(|inner| match key.into() {
             ObjectStorageKey::Nar(nar_file_name) => inner
                 .nars
-                .insert(nar_file_name.clone(), bytes.to_owned().into())
+                .insert(nar_file_name.clone(), bytes.as_ref().to_owned().into())
                 .is_none(),
 
             ObjectStorageKey::NarInfo(narinfo_file_name) => inner
                 .nar_infos
-                .insert(narinfo_file_name.clone(), bytes.to_owned().into())
+                .insert(
+                    narinfo_file_name.clone(),
+                    bytes.as_ref().to_owned().into(),
+                )
                 .is_none(),
         }))
     }
