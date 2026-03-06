@@ -36,6 +36,11 @@ pub enum NixStorePathFromStrError<StoreDir> {
 }
 
 impl NixStorePath {
+    /// Returns the basename of this [`NixStorePath`].
+    pub fn basename(&self) -> &NixStoreBaseName {
+        &self.basename
+    }
+
     /// Returns the hash component of this [`NixStorePath`].
     pub fn hash(&self) -> &NixStoreHash {
         &self.basename.hash

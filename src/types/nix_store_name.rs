@@ -7,7 +7,7 @@ use smol_str::SmolStr;
 ///
 /// This is the part of a store path that comes after the hash and a dash, e.g
 /// `"hello"` in `"/nix/store/0123456789abcdfghijklmnpqrsvwxyz-hello"`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NixStoreName(SmolStr);
 
 impl NixStoreName {

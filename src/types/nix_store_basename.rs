@@ -10,7 +10,7 @@ use crate::types::{
 };
 
 /// TODO: docs.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct NixStoreBaseName {
     /// TODO: docs.
     pub hash: NixStoreHash,

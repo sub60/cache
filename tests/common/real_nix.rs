@@ -1,18 +1,15 @@
 use core::convert::Infallible;
 use core::iter;
 use core::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
-use core::ops::Deref;
 use core::str::FromStr;
-use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::process::ExitStatus;
 use std::{env, fs, process};
 
-use cache::types::{NixStoreBaseName, NixStoreName, NixStorePath};
+use cache::types::{NixStoreName, NixStorePath};
 use either::Either;
 
-use crate::common::{CopyDirection, CopyOptions, NixClient, NixStore};
+use crate::common::{CopyOptions, NixClient, NixStore};
 
 /// TODO: docs.
 pub struct RealNixClient {
