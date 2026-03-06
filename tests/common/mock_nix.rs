@@ -109,20 +109,23 @@ impl NixStore for MockNixStore {
         NixStorePath::new(store_basename)
     }
 
-    async fn remove_store_path(&self, store_path: &NixStorePath) {}
+    async fn delete(&self, store_path: &NixStorePath) {
+        #[expect(clippy::unwrap_used)]
+        self.files.lock().unwrap().remove(store_path.basename());
+    }
 
-    async fn narinfo(&self, store_path: &NixStorePath) -> NarInfo<String> {
+    async fn nar_info_and_bytes(
+        &self,
+        store_path: &NixStorePath,
+    ) -> (NarInfo<String>, Bytes) {
         let nar_bytes = self.get_file(store_path).unwrap_or_else(|| {
             panic!("store path {store_path} not found in mock store")
         });
 
-        mock_narinfo(store_path.clone(), &nar_bytes)
-    }
+        let narinfo = mock_narinfo(store_path.clone(), &nar_bytes)
+            .with_url("".to_owned());
 
-    async fn nar_bytes(&self, store_path: &NixStorePath) -> Bytes {
-        self.get_file(store_path).unwrap_or_else(|| {
-            panic!("store path {store_path} not found in mock store")
-        })
+        (narinfo, nar_bytes)
     }
 
     async fn contains(&self, store_path: &NixStorePath) -> bool {
@@ -131,7 +134,7 @@ impl NixStore for MockNixStore {
 }
 
 /// Builds a [`NarInfo`] from a store path and its NAR bytes.
-fn mock_narinfo(store_path: NixStorePath, nar_bytes: &[u8]) -> NarInfo<String> {
+fn mock_narinfo(store_path: NixStorePath, nar_bytes: &[u8]) -> NarInfo<()> {
     let nar_hash_bytes = Sha256::digest(nar_bytes);
 
     let nar_hash = Nix32Digest::<32>::new(
@@ -146,7 +149,7 @@ fn mock_narinfo(store_path: NixStorePath, nar_bytes: &[u8]) -> NarInfo<String> {
 
     NarInfo {
         store_path,
-        url: String::new(),
+        url: (),
         compression: CompressionAlgorithm::None,
         file_hash: nar_hash,
         file_size: nar_size,
@@ -229,13 +232,13 @@ async fn copy_store_path_to(
 
     let narinfo = mock_narinfo(store_path, &nar_bytes);
 
-    let nar_file_name = NarFileName {
-        file_hash: narinfo.file_hash,
-        extension: narinfo.compression.extension(),
-    };
+    let nar_file_name = NarFileName::from(&narinfo);
 
     // Step 3: PUT /nar/{file_hash}.nar
     put_nar(&mut app, base, &nar_file_name, nar_bytes).await?;
+
+    // Set the NARInfo's URL to the correct format.
+    let narinfo = narinfo.with_url(format!("nar/{nar_file_name}"));
 
     // Step 4: PUT /{store_hash}.narinfo
     put_narinfo(&mut app, base, &narinfo)

@@ -52,6 +52,14 @@ impl RealNixStore {
 
         Self { canonicalized_path, dir }
     }
+
+    /// Runs a `nix` subcommand against this store.
+    async fn run(
+        &self,
+        args: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> process::Output {
+        run_nix_command(&self.canonicalized_path, args).await
+    }
 }
 
 impl NixClient for RealNixClient {
@@ -100,11 +108,9 @@ impl NixStore for RealNixStore {
         let file_path =
             tempfile.path().to_str().expect("tempfile's path is valid UTF-8");
 
-        let output = run_nix_command(
-            &self.canonicalized_path,
-            ["store", "add-file", "--name", store_name, file_path],
-        )
-        .await;
+        let output = self
+            .run(["store", "add-file", "--name", store_name, file_path])
+            .await;
 
         str::from_utf8(&output.stdout)
             .expect("`nix store add-file` prints valid UTF-8")
@@ -113,20 +119,62 @@ impl NixStore for RealNixStore {
             .expect("`nix store add-file` prints a Nix store path")
     }
 
-    async fn remove_store_path(&self, store_path: &NixStorePath) {
-        todo!("RealNixStore::remove_store_path")
+    async fn delete(&self, store_path: &NixStorePath) {
+        let path_str = store_path.to_string();
+        self.run(["store", "delete", "--ignore-liveness", &path_str]).await;
     }
 
-    async fn narinfo(&self, store_path: &NixStorePath) -> NarInfo<String> {
-        todo!("RealNixStore::narinfo")
-    }
+    async fn nar_info_and_bytes(
+        &self,
+        store_path: &NixStorePath,
+    ) -> (NarInfo<String>, Bytes) {
+        // To get the NARInfo and NAR bytes we copy the store path to a
+        // temporary `file://` cache and read the contents of the files produced
+        // by `nix`.
 
-    async fn nar_bytes(&self, store_path: &NixStorePath) -> Bytes {
-        todo!("RealNixStore::nar_bytes")
+        let cache_dir =
+            tempfile::tempdir().expect("failed to create temp cache dir");
+
+        let cache_dir_path = fs::canonicalize(cache_dir.path())
+            .expect("failed to canonicalize temp cache dir");
+
+        let cache_url = format!("file://{}", cache_dir_path.display());
+
+        let store_path_str = store_path.to_string();
+
+        self.run(["copy", "--to", &cache_url, &store_path_str]).await;
+
+        let narinfo_path =
+            cache_dir_path.join(format!("{}.narinfo", store_path.hash()));
+
+        let narinfo_text = fs::read_to_string(&narinfo_path)
+            .expect("nix copy should have written a .narinfo file");
+
+        let narinfo = narinfo_text
+            .parse::<NarInfo<String>>()
+            .expect("nix-produced .narinfo should be valid");
+
+        let nar_path = cache_dir_path.join(&narinfo.url);
+
+        let nar_bytes =
+            Bytes::from(fs::read(&nar_path).expect("NAR file should exist"));
+
+        (narinfo.with_url(String::new()), nar_bytes)
     }
 
     async fn contains(&self, store_path: &NixStorePath) -> bool {
-        todo!("RealNixStore::contains")
+        let mut cmd = nix_command(&self.canonicalized_path);
+        cmd.args(["path-info", &store_path.to_string()]);
+        let mut cmd = tokio::process::Command::from(cmd);
+
+        let output = cmd
+            .output()
+            .await
+            .unwrap_or_else(|err| panic!("failed to run `{cmd:?}`: {err}"));
+
+        // `nix path-info` prints the path to stdout if it exists,
+        // and prints nothing (with a non-zero exit) if it doesn't.
+        !output.stdout.is_empty()
     }
 }
 

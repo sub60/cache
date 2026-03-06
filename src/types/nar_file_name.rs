@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use crate::types::{
     CompressionExtension,
     CompressionExtensionFromStrError,
+    NarInfo,
     Nix32Digest,
     Nix32DigestFromStrError,
 };
@@ -90,5 +91,14 @@ impl<'de> serde::de::Deserialize<'de> for NarFileName {
         Cow::<'de, str>::deserialize(deserializer)?
             .parse()
             .map_err(serde::de::Error::custom)
+    }
+}
+
+impl<NarUrl> From<&NarInfo<NarUrl>> for NarFileName {
+    fn from(narinfo: &NarInfo<NarUrl>) -> Self {
+        Self {
+            file_hash: narinfo.file_hash,
+            extension: narinfo.compression.extension(),
+        }
     }
 }
