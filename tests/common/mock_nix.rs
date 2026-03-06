@@ -1,4 +1,6 @@
 use core::num::NonZeroU64;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 use axum::body::{Body, Bytes};
 use axum::http::{self, Request, StatusCode, header};
@@ -7,6 +9,9 @@ use cache::types::{
     NarFileName,
     NarInfo,
     Nix32Digest,
+    NixStoreBaseName,
+    NixStoreHash,
+    NixStoreName,
     NixStorePath,
 };
 use futures::StreamExt;
@@ -24,7 +29,10 @@ pub struct MockNixClient {
 
 /// TODO: docs.
 #[derive(Default)]
-pub struct MockNixStore {}
+pub struct MockNixStore {
+    /// Maps store path basenames to their file contents.
+    files: Mutex<HashMap<NixStoreBaseName, Bytes>>,
+}
 
 #[derive(Debug, derive_more::Display, cauchy::Error)]
 pub enum CopyError {
@@ -237,17 +245,37 @@ async fn send(
 
 impl MockNixStore {
     /// Returns the file contents of a previously added store path.
-    fn get_file(&self, _store_path: &NixStorePath) -> Option<Bytes> {
-        todo!()
+    fn get_file(&self, store_path: &NixStorePath) -> Option<Bytes> {
+        #[expect(clippy::unwrap_used)]
+        self.files.lock().unwrap().get(store_path.basename()).cloned()
     }
 }
 
 impl NixStore for MockNixStore {
     async fn add_file(
         &self,
-        _file_name: &str,
-        _file_contents: &[u8],
+        store_name: &str,
+        file_contents: &[u8],
     ) -> NixStorePath {
-        todo!()
+        let store_name =
+            store_name.parse::<NixStoreName>().expect("invalid store name");
+
+        let store_hash = {
+            let sha = Sha256::digest(file_contents);
+            NixStoreHash::new(
+                sha.as_slice()[..20].try_into().expect("correct length"),
+            )
+        };
+
+        let store_basename =
+            NixStoreBaseName { hash: store_hash, name: store_name };
+
+        #[expect(clippy::unwrap_used)]
+        self.files
+            .lock()
+            .unwrap()
+            .insert(store_basename.clone(), file_contents.to_vec().into());
+
+        NixStorePath::new(store_basename)
     }
 }
