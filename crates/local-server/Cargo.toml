@@ -1,0 +1,13 @@
+[package]
+name = "local-server"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+cache = { path = "../cache" }
+tokio = { workspace = true, features = ["net", "rt-multi-thread"] }
+
+[lints]
+workspace = true

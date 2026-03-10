@@ -1,0 +1,18 @@
+[package]
+name = "types"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64 = { workspace = true }
+cauchy = { workspace = true }
+derive_more = { workspace = true, features = ["display"] }
+ed25519-dalek = { workspace = true }
+memchr = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+smallvec = { workspace = true }
+smol_str = { workspace = true, features = ["serde"] }
+
+[lints]
+workspace = true

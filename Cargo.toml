@@ -1,3 +1,7 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
 [workspace.package]
 version = "0.0.0"
 edition = "2024"
@@ -20,6 +24,9 @@ tokio = { version = "1", default-features = false }
 tower-layer = "0.3"
 tower-service = "0.3"
 url = "2"
+
+cache = { path = "./crates/cache" }
+types = { path = "./crates/types" }
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"
@@ -50,46 +57,3 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
 [workspace.lints.rustdoc]
 broken_intra_doc_links = "deny"
 private_intra_doc_links = "deny"
-
-[package]
-name = "cache"
-version.workspace = true
-edition.workspace = true
-publish.workspace = true
-
-[features]
-default = ["local-server"]
-local-server = ["dep:tokio", "tokio/net", "tokio/rt-multi-thread"]
-loopback-object-gateway = ["dep:tokio", "tokio/net"]
-
-[dependencies]
-axum = { workspace = true }
-base64 = { workspace = true }
-cauchy = { workspace = true }
-compact_str = { workspace = true }
-derive_more = { workspace = true, features = ["display"] }
-ed25519-dalek = { workspace = true }
-either = { workspace = true }
-memchr = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-smallvec = { workspace = true }
-smol_str = { workspace = true, features = ["serde"] }
-tempfile = { workspace = true }
-tower-layer = { workspace = true }
-tower-service = { workspace = true }
-
-tokio = { workspace = true, optional = true }
-
-[dev-dependencies]
-futures = "0.3"
-sha2 = "0.10"
-tokio = { workspace = true, features = ["process"] }
-tower-service = { workspace = true }
-url = { workspace = true }
-
-[lints]
-workspace = true
-
-[[bin]]
-name = "local"
-required-features = ["local-server"]

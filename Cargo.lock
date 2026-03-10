@@ -113,22 +113,19 @@ name = "cache"
 version = "0.0.0"
 dependencies = [
  "axum",
- "base64",
  "cauchy",
  "compact_str",
  "derive_more",
- "ed25519-dalek",
  "either",
  "futures",
- "memchr",
  "serde",
  "sha2",
- "smallvec",
  "smol_str",
  "tempfile",
  "tokio",
  "tower-layer",
  "tower-service",
+ "types",
  "url",
 ]
 
@@ -740,6 +737,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6373607a59f0be73a39b6fe456b8192fcc3585f602af20751600e974dd455e77"
 
 [[package]]
+name = "local-server"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "cache",
+ "tokio",
+]
+
+[[package]]
 name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -834,6 +840,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "prod"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "cache",
+ "compact_str",
+ "types",
 ]
 
 [[package]]
@@ -1187,6 +1203,20 @@ name = "typenum"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
+
+[[package]]
+name = "types"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "cauchy",
+ "derive_more",
+ "ed25519-dalek",
+ "memchr",
+ "serde",
+ "smallvec",
+ "smol_str",
+]
 
 [[package]]
 name = "unicode-ident"
