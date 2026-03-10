@@ -4,7 +4,7 @@
 #![feature(generic_const_exprs)]
 
 mod cdn;
-mod r2;
+mod object_storage;
 
 pub use cdn::CloudflareCdn;
-pub use r2::R2ObjectStorage;
+pub use object_storage::R2ObjectStorage;
