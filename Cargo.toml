@@ -8,7 +8,7 @@ edition = "2024"
 publish = false
 
 [workspace.dependencies]
-axum = "0.8"
+axum = { version = "0.8", default-features = false }
 base64 = "0.22"
 cauchy = { git = "https://github.com/nomad/cauchy.git" }
 compact_str = "0.9"
@@ -24,6 +24,7 @@ tokio = { version = "1", default-features = false }
 tower-layer = "0.3"
 tower-service = "0.3"
 url = "2"
+worker = { version = "0.7", default-features = false }
 
 cache = { path = "./crates/cache" }
 types = { path = "./crates/types" }

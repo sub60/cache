@@ -4,11 +4,16 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 axum = { workspace = true }
 cache = { workspace = true }
 compact_str = { workspace = true }
+tower-service = { workspace = true }
 types = { workspace = true }
+worker = { workspace = true, features = ["http"] }
 
 [lints]
 workspace = true

@@ -6,7 +6,7 @@ use cache::{ObjectGateway, ObjectStorage};
 use types::NarFileName;
 
 /// The [`ObjectStorage`] implementation for R2.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct R2ObjectStorage;
 
 impl ObjectStorage for R2ObjectStorage {

@@ -6,7 +6,7 @@ use cache::Cdn;
 use compact_str::format_compact;
 
 /// The [`Cdn`] implementation for Cloudflare.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CloudflareCdn;
 
 impl Cdn for CloudflareCdn {
