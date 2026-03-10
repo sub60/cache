@@ -29,10 +29,10 @@ impl fmt::Display for NixStoreLiteral {
         #[cfg(windows)]
         {
             compile_error!(
-                "LiteralNixStore does not have a valid Display impl on Windows"
+                "NixStoreLiteral does not have a valid Display impl on Windows"
             );
         }
-        #[cfg(unix)]
+        #[cfg(not(windows))]
         {
             fmt::Display::fmt(Self::STR, f)
         }
