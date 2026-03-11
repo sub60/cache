@@ -39,6 +39,7 @@
           inherit prod;
           workerName = "cache";
           workerCompatibilityDate = "2026-03-11";
+          gitShortRev = self.shortRev;
         };
       });
 

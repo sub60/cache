@@ -4,12 +4,16 @@
   prod,
   workerName,
   workerCompatibilityDate,
+  gitShortRev,
 }:
 
 let
   metadata = builtins.toJSON {
     main_module = "index.js";
     compatibility_date = workerCompatibilityDate;
+    annotations = {
+      "workers/tag" = gitShortRev;
+    };
   };
 in
 writeShellApplication {
