@@ -17,12 +17,16 @@ use tower_service::Service;
 #[worker::event(fetch)]
 async fn fetch(
     req: worker::HttpRequest,
-    _env: worker::Env,
+    env: worker::Env,
     _ctx: worker::Context,
 ) -> Result<axum::http::Response<axum::body::Body>, Infallible> {
+    let bucket = env
+        .bucket(env!("R2_BUCKET_BINDING_NAME"))
+        .expect("R2 bucket binding not found");
+
     let context = ComposedContext::new()
         .with_cdn(CloudflareCdn)
-        .with_object_gateway(R2ObjectStorage);
+        .with_object_gateway(R2ObjectStorage::new(bucket));
 
     cache::router(context).call(req).await
 }

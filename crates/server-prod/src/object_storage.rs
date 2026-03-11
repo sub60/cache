@@ -1,48 +1,112 @@
-use core::convert::Infallible;
+use core::fmt;
 
 use axum::http;
 use cache::object_storage::ObjectStorageKey;
 use cache::{ObjectGateway, ObjectStorage};
 use types::NarFileName;
+use worker::send::IntoSendFuture;
 
-/// The [`ObjectStorage`] implementation for R2.
+/// The [`ObjectStorage`] and [`ObjectGateway`] implementation backed by
+/// Cloudflare R2.
 #[derive(Debug, Clone)]
-pub struct R2ObjectStorage;
+pub struct R2ObjectStorage {
+    bucket: worker::Bucket,
+}
+
+struct R2BucketKey<'a>(ObjectStorageKey<'a>);
+
+impl R2ObjectStorage {
+    /// Creates a new [`R2ObjectStorage`] backed by the given R2 bucket.
+    pub fn new(bucket: worker::Bucket) -> Self {
+        Self { bucket }
+    }
+}
 
 impl ObjectStorage for R2ObjectStorage {
-    type Error = Infallible;
+    type Error = worker::Error;
 
     async fn contains_key<'a>(
         &self,
-        _key: impl Into<ObjectStorageKey<'a>>,
+        key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<bool, Self::Error> {
-        todo!()
+        self.bucket
+            .head(R2BucketKey(key.into()))
+            .into_send()
+            .await
+            .map(|obj| obj.is_some())
     }
 
     async fn get<'a>(
         &self,
-        _key: impl Into<ObjectStorageKey<'a>>,
+        key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<Option<impl AsRef<[u8]>>, Self::Error> {
-        Ok(Some(vec![0u8; 10])) // TODO: return the actual bytes.
+        let Some(object) = self
+            .bucket
+            .get(R2BucketKey(key.into()))
+            .execute()
+            .into_send()
+            .await?
+        else {
+            return Ok(None);
+        };
+
+        object
+            .body()
+            .expect("GET response should always have a body")
+            .bytes()
+            .into_send()
+            .await
+            .map(Some)
     }
 
     async fn set<'a>(
         &self,
-        _key: impl Into<ObjectStorageKey<'a>>,
-        _bytes: impl AsRef<[u8]>,
-    ) -> Result<bool, Self::Error> {
-        todo!()
+        key: impl Into<ObjectStorageKey<'a>>,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<(), Self::Error> {
+        self.bucket
+            .put(R2BucketKey(key.into()), bytes.as_ref().to_vec())
+            .execute()
+            .into_send()
+            .await
+            .map(|_obj| ())
     }
 }
 
 impl ObjectGateway for R2ObjectStorage {
     type Storage = Self;
 
-    fn nar_url(&self, _key: &NarFileName) -> http::Uri {
-        todo!()
+    fn nar_url(&self, filename: &NarFileName) -> http::Uri {
+        R2BucketKey(ObjectStorageKey::Nar(filename))
+            .to_string()
+            .parse()
+            .expect("valid URI")
     }
 
     fn storage(&self) -> &Self {
         self
+    }
+}
+
+impl<'a> From<ObjectStorageKey<'a>> for R2BucketKey<'a> {
+    fn from(key: ObjectStorageKey<'a>) -> Self {
+        Self(key)
+    }
+}
+
+impl fmt::Display for R2BucketKey<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            ObjectStorageKey::Nar(nar) => write!(f, "nar/{nar}"),
+            ObjectStorageKey::NarInfo(narinfo) => {
+                write!(f, "narinfo/{narinfo}")
+            },
+        }
+    }
+}
+
+impl From<R2BucketKey<'_>> for String {
+    fn from(key: R2BucketKey<'_>) -> Self {
+        key.to_string()
     }
 }
