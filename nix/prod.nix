@@ -121,7 +121,10 @@ stdenv.mkDerivation {
   '';
 
   installPhase = ''
-    mv ${packagePathInWorkspace}/build $out
-    rm $out/.gitignore
+    mkdir -p $out
+    mv ${packagePathInWorkspace}/build/index.js $out/
+    mv ${packagePathInWorkspace}/build/index_bg.wasm $out/
   '';
+
+  passthru = { inherit packageName; };
 }

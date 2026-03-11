@@ -10,6 +10,7 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       crane,
       rust-overlay,
@@ -29,33 +30,38 @@
         pkgs: (rust-overlay.lib.mkRustBin { } pkgs).fromRustupToolchainFile ./rust-toolchain.toml;
     in
     {
-      packages = forEachSystem (pkgs: {
+      packages = forEachSystem (pkgs: rec {
         prod = pkgs.callPackage ./nix/prod.nix rec {
           toolchain = mkToolchain pkgs;
           craneLib = (crane.mkLib pkgs).overrideToolchain (_: toolchain);
         };
+        deploy = pkgs.callPackage ./nix/deploy.nix {
+          inherit prod;
+          workerName = "cache";
+          workerCompatibilityDate = "2026-03-11";
+        };
       });
 
-      devShells = forEachSystem (
-        pkgs:
-        let
-          toolchain = (mkToolchain pkgs).override {
-            extensions = [
-              "clippy"
-              "rust-analyzer"
-              "rust-src"
-              "rustfmt"
-            ];
-          };
-        in
-        {
-          default = pkgs.mkShell {
-            nativeBuildInputs = [
-              toolchain
-              pkgs.worker-build
-            ];
-          };
-        }
-      );
+      apps = forEachSystem (pkgs: {
+        deploy = {
+          type = "app";
+          program = pkgs.lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.deploy;
+        };
+      });
+
+      devShells = forEachSystem (pkgs: {
+        default = pkgs.mkShell {
+          nativeBuildInputs = [
+            ((mkToolchain pkgs).override {
+              extensions = [
+                "clippy"
+                "rust-analyzer"
+                "rust-src"
+                "rustfmt"
+              ];
+            })
+          ];
+        };
+      });
     };
 }
