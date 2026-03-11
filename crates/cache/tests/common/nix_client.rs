@@ -15,7 +15,7 @@ pub trait NixClient: Sized {
     type CacheHost;
 
     /// TODO: docs.
-    type CopyError: Error + Send;
+    type CopyError: Error;
 
     /// TODO: docs.
     fn copy_impl(

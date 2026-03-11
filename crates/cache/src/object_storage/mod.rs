@@ -10,7 +10,7 @@ use types::{NarFileName, NarInfoFileName};
 /// TODO: docs.
 pub trait ObjectStorage: Sync {
     /// TODO: docs.
-    type Error: Error + Send;
+    type Error: Error;
 
     /// Returns whether the object storage contains the given key.
     fn contains_key<'a>(
