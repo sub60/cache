@@ -5,6 +5,8 @@
   workerName,
   workerCompatibilityDate,
   gitShortRev,
+  r2BucketName,
+  r2BucketBindingName,
 }:
 
 let
@@ -14,6 +16,13 @@ let
     annotations = {
       "workers/tag" = gitShortRev;
     };
+    bindings = [
+      {
+        type = "r2_bucket";
+        name = r2BucketBindingName;
+        bucket_name = r2BucketName;
+      }
+    ];
   };
 in
 writeShellApplication {

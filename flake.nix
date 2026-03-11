@@ -28,15 +28,23 @@
 
       mkToolchain =
         pkgs: (rust-overlay.lib.mkRustBin { } pkgs).fromRustupToolchainFile ./rust-toolchain.toml;
+
+      # The name of the R2 bucket (set in the Cloudflare dashboard) that stores
+      # all NARs and NARInfo files.
+      r2BucketName = "cache";
+
+      # Internal binding name for the R2 bucket in the Worker environment.
+      r2BucketBindingName = "${nixpkgs.lib.toUpper r2BucketName}_BUCKET";
     in
     {
       packages = forEachSystem (pkgs: rec {
         prod = pkgs.callPackage ./nix/prod.nix rec {
           toolchain = mkToolchain pkgs;
           craneLib = (crane.mkLib pkgs).overrideToolchain (_: toolchain);
+          inherit r2BucketBindingName;
         };
         deploy = pkgs.callPackage ./nix/deploy.nix {
-          inherit prod;
+          inherit prod r2BucketName r2BucketBindingName;
           workerName = "cache";
           workerCompatibilityDate = "2026-03-11";
           gitShortRev = self.shortRev;
@@ -62,6 +70,7 @@
               ];
             })
           ];
+          env.R2_BUCKET_BINDING_NAME = r2BucketBindingName;
         };
       });
     };

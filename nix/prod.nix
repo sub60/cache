@@ -12,6 +12,7 @@
   writeShellScriptBin,
   craneLib,
   toolchain,
+  r2BucketBindingName,
 }:
 
 let
@@ -24,8 +25,8 @@ let
     inherit src;
     strictDeps = true;
     pname = packageName;
-    CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
     cargoExtraArgs = "-p ${packageName}";
+    env.CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
   };
 
   cargoArtifacts = craneLib.buildDepsOnly (commonArgs // { doInstall = false; });
@@ -41,6 +42,9 @@ let
         cp target/wasm32-unknown-unknown/release/*.wasm $out/
         cargo metadata --format-version 1 > $out/metadata.json
       '';
+      env = commonArgs.env // {
+        R2_BUCKET_BINDING_NAME = r2BucketBindingName;
+      };
     }
   );
 
