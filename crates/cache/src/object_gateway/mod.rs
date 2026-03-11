@@ -1,16 +1,12 @@
 //! TODO: docs.
 
 mod into_router;
-#[cfg(feature = "loopback-object-gateway")]
-mod loopback;
 
 use core::fmt;
 use core::time::Duration;
 
 use axum::http;
 pub use into_router::IntoRouterObjectGateway;
-#[cfg(feature = "loopback-object-gateway")]
-pub use loopback::LoopbackObjectGateway;
 use types::NarFileName;
 
 use crate::ObjectStorage;
