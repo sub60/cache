@@ -64,20 +64,21 @@ impl ObjectStorage for InMemoryObjectStorage {
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
         bytes: impl AsRef<[u8]>,
-    ) -> Result<bool, Self::Error> {
-        Ok(self.with_inner(|inner| match key.into() {
-            ObjectStorageKey::Nar(nar_file_name) => inner
-                .nars
-                .insert(nar_file_name.clone(), bytes.as_ref().to_owned().into())
-                .is_none(),
+    ) -> Result<(), Self::Error> {
+        self.with_inner(|inner| match key.into() {
+            ObjectStorageKey::Nar(nar_file_name) => inner.nars.insert(
+                nar_file_name.clone(),
+                bytes.as_ref().to_owned().into(),
+            ),
 
-            ObjectStorageKey::NarInfo(narinfo_file_name) => inner
-                .nar_infos
-                .insert(
+            ObjectStorageKey::NarInfo(narinfo_file_name) => {
+                inner.nar_infos.insert(
                     narinfo_file_name.clone(),
                     bytes.as_ref().to_owned().into(),
                 )
-                .is_none(),
-        }))
+            },
+        });
+
+        Ok(())
     }
 }

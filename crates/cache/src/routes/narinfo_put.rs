@@ -3,7 +3,7 @@
 use core::str::FromStr;
 use core::{fmt, str};
 
-use axum::body::{Body, Bytes};
+use axum::body::Bytes;
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -28,16 +28,6 @@ pub(crate) const ROUTE: &str = crate::routes::narinfo_get::ROUTE;
 #[derive(serde::Deserialize)]
 struct NarInfoPutPath {
     narinfo_file_name: NarInfoFileName,
-}
-
-/// The response returned to PUT requests to the NARInfo route.
-#[derive(Debug, Copy, Clone)]
-enum NarInfoPutResponse {
-    /// The NARInfo already exists in the user's cache, so the request was a
-    /// no-op.
-    AlreadyExists,
-    /// The NARInfo was successfully created.
-    Created,
 }
 
 /// The type of error that can occur when handling a PUT request to the NARInfo
@@ -139,8 +129,7 @@ async fn handler<Ctx: Context>(
     Path(NarInfoPutPath { narinfo_file_name }): Path<NarInfoPutPath>,
     body: Bytes,
     ctx: &mut Ctx,
-) -> Result<NarInfoPutResponse, NarInfoPutRequestError<ObjectStorageError<Ctx>>>
-{
+) -> Result<StatusCode, NarInfoPutRequestError<ObjectStorageError<Ctx>>> {
     // TODO: validate that the user has write permissions for that cache.
 
     let narinfo = str::from_utf8(&body)
@@ -189,25 +178,11 @@ async fn handler<Ctx: Context>(
 
     let stored_narinfo = narinfo.with_url("");
 
-    let narinfo_was_inserted = object_storage
+    object_storage
         .set(&narinfo_file_name, stored_narinfo.to_string().as_bytes())
         .await
-        .map_err(NarInfoPutRequestError::StoreNarInfo)?;
-
-    if narinfo_was_inserted {
-        Ok(NarInfoPutResponse::Created)
-    } else {
-        Ok(NarInfoPutResponse::AlreadyExists)
-    }
-}
-
-impl NarInfoPutResponse {
-    fn status_code(self) -> StatusCode {
-        match self {
-            Self::AlreadyExists => StatusCode::NO_CONTENT,
-            Self::Created => StatusCode::CREATED,
-        }
-    }
+        .map(|()| StatusCode::CREATED)
+        .map_err(NarInfoPutRequestError::StoreNarInfo)
 }
 
 impl<ObjectStorageError> NarInfoPutRequestError<ObjectStorageError> {
@@ -224,12 +199,6 @@ impl<ObjectStorageError> NarInfoPutRequestError<ObjectStorageError> {
                 StatusCode::INTERNAL_SERVER_ERROR
             },
         }
-    }
-}
-
-impl IntoResponse for NarInfoPutResponse {
-    fn into_response(self) -> axum::response::Response {
-        (self.status_code(), Body::empty()).into_response()
     }
 }
 

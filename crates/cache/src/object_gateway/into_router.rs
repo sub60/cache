@@ -89,13 +89,7 @@ where
                 },
             };
             match gateway.storage.set(&object_key, &object).await {
-                Ok(was_inserted) => {
-                    if was_inserted {
-                        StatusCode::CREATED.into_response()
-                    } else {
-                        StatusCode::NO_CONTENT.into_response()
-                    }
-                },
+                Ok(()) => StatusCode::CREATED.into_response(),
                 Err(err) => {
                     let msg = err.to_string();
                     (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response()
