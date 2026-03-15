@@ -1,12 +1,12 @@
 #![allow(missing_docs)]
 
+use std::env;
 use std::path::PathBuf;
 use std::process::Command;
-use std::{env, fs};
 
 fn main() {
     setup_nix();
-    setup_workerd();
+    setup_miniflare();
 }
 
 /// Checks if `nix` is in `$PATH` and enables `cfg(nix_in_path)`.
@@ -18,40 +18,39 @@ fn setup_nix() {
     }
 }
 
-/// Checks if `workerd` is in `$PATH` and enables `cfg(workerd_in_path)`.
+/// Checks if `miniflare-server` is in `$PATH` and enables
+/// `cfg(miniflare_in_path)`.
 ///
-/// When the `server-prod` feature is active and both `nix` and `workerd` are
-/// in `$PATH`, this also runs `nix build .#prod` to compile the WASM worker
-/// and generates a Cap'n Proto config file for `workerd`.
-fn setup_workerd() {
-    println!("cargo::rustc-check-cfg=cfg(workerd_in_path)");
+/// When the `server-prod` feature is active and both `nix` and
+/// `miniflare-server` are in `$PATH`, this also runs `nix build .#prod` to
+/// compile the WASM worker and exports its store path via
+/// `PROD_WORKER_PATH`.
+fn setup_miniflare() {
+    println!("cargo::rustc-check-cfg=cfg(miniflare_in_path)");
 
-    if find_in_path("workerd").is_some() {
-        println!("cargo:rustc-cfg=workerd_in_path");
+    if find_in_path("miniflare-server").is_some() {
+        println!("cargo:rustc-cfg=miniflare_in_path");
     }
 
     if env::var("CARGO_FEATURE_SERVER_PROD").is_ok()
         && find_in_path("nix").is_some()
-        && find_in_path("workerd").is_some()
+        && find_in_path("miniflare-server").is_some()
     {
-        build_workerd_config();
+        build_prod_worker();
     }
 }
 
-/// Builds the `server-prod` WASM worker via `nix build .#prod` and generates a
-/// Cap'n Proto config file that `workerd` can serve.
-fn build_workerd_config() {
+/// Builds the `server-prod` WASM worker via `nix build .#prod` and exports
+/// the Nix store path containing `index.js` and `index_bg.wasm`.
+fn build_prod_worker() {
     let manifest_dir =
         env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
 
-    // The flake root is the parent of the `tests/` directory.
     let flake_root = PathBuf::from(&manifest_dir)
         .parent()
         .expect("tests/ has a parent directory")
         .to_path_buf();
 
-    // Build the prod worker via Nix. The result symlink points to a directory
-    // containing `index.js` and `index_bg.wasm`.
     let output = Command::new("nix")
         .args(["build", ".#prod", "--no-link", "--print-out-paths"])
         .current_dir(&flake_root)
@@ -70,49 +69,7 @@ fn build_workerd_config() {
         .trim()
         .to_owned();
 
-    // Read R2_BUCKET_BINDING_NAME from the environment (set by the Nix dev
-    // shell).
-    let r2_binding_name = env::var("R2_BUCKET_BINDING_NAME")
-        .expect("R2_BUCKET_BINDING_NAME must be set");
-
-    // The compatibility date must match what's used in deploy.nix.
-    let compat_date = "2026-03-11";
-
-    let index_js_path = format!("{prod_store_path}/index.js");
-    let index_wasm_path = format!("{prod_store_path}/index_bg.wasm");
-
-    // Generate the Cap'n Proto config file.
-    let config = format!(
-        r#"using Workerd = import "/workerd/workerd.capnp";
-
-const config :Workerd.Config = (
-  services = [
-    (name = "cache", worker = .cacheWorker),
-  ],
-  sockets = [
-    (name = "http", address = "*:0", http = (), service = "cache"),
-  ],
-);
-
-const cacheWorker :Workerd.Worker = (
-  modules = [
-    (name = "index.js", esModule = embed "{index_js_path}"),
-    (name = "index_bg.wasm", wasm = embed "{index_wasm_path}"),
-  ],
-  compatibilityDate = "{compat_date}",
-  bindings = [
-    (name = "{r2_binding_name}", r2Bucket = "test-bucket"),
-  ],
-);
-"#
-    );
-
-    let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
-    let config_path = PathBuf::from(&out_dir).join("workerd-test.capnp");
-    fs::write(&config_path, &config).expect("failed to write capnp config");
-
-    // Export the config path so tests can find it.
-    println!("cargo:rustc-env=WORKERD_CONFIG_PATH={}", config_path.display());
+    println!("cargo:rustc-env=PROD_WORKER_PATH={prod_store_path}");
 
     // Re-run if the prod Nix derivation inputs change.
     println!("cargo:rerun-if-changed=../flake.nix");

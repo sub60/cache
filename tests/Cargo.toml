@@ -11,11 +11,9 @@ server-prod = []
 axum = { workspace = true, features = ["tokio", "http1"] }
 cache = { workspace = true }
 cauchy = { workspace = true }
-command-fds = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 either = { workspace = true }
 futures = { workspace = true }
-os_pipe = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

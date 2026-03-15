@@ -1,4 +1,4 @@
+mod miniflare;
 mod nix_copy;
-mod workerd;
 
-use workerd::Workerd;
+use miniflare::MiniflareServer;

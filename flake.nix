@@ -49,19 +49,16 @@
           workerCompatibilityDate = "2026-03-11";
           gitShortRev = self.shortRev;
         };
-        workerd = pkgs.callPackage ./nix/workerd.nix { };
+        miniflare-server = pkgs.callPackage ./nix/miniflare-server.nix {
+          inherit r2BucketBindingName;
+          workerCompatibilityDate = "2026-03-11";
+        };
       });
 
       apps = forEachSystem (pkgs: {
         deploy = {
           type = "app";
           program = pkgs.lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.deploy;
-        };
-        update-workerd = {
-          type = "app";
-          program =
-            pkgs.lib.getExe
-              self.packages.${pkgs.stdenv.hostPlatform.system}.workerd.passthru.updateScript;
         };
       });
 
@@ -76,7 +73,7 @@
                 "rustfmt"
               ];
             })
-            self.packages.${pkgs.stdenv.hostPlatform.system}.workerd
+            self.packages.${pkgs.stdenv.hostPlatform.system}.miniflare-server
           ];
           env.R2_BUCKET_BINDING_NAME = r2BucketBindingName;
         };
