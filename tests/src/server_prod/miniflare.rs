@@ -2,15 +2,6 @@ use core::net::SocketAddr;
 use std::io::{BufRead, BufReader};
 use std::process;
 
-/// Path to the built worker directory (set by `build.rs`).
-const PROD_WORKER_PATH: &str = env!("PROD_WORKER_PATH",);
-
-/// R2 bucket binding name (set by the Nix dev shell).
-const R2_BINDING_NAME: &str = env!("R2_BUCKET_BINDING_NAME");
-
-/// Worker compatibility date.
-const COMPAT_DATE: &str = "2026-03-11";
-
 pub(super) struct MiniflareServer {
     pub(super) addr: SocketAddr,
     child: process::Child,
@@ -18,12 +9,9 @@ pub(super) struct MiniflareServer {
 
 impl MiniflareServer {
     /// Spawns a `miniflare-server` process which gets killed when the
-    /// returned [`MiniflareProcess`] is dropped.
+    /// returned [`MiniflareServer`] is dropped.
     pub(super) fn spawn() -> Self {
-        let script_path = format!("{PROD_WORKER_PATH}/index.js");
-
         let mut child = process::Command::new("miniflare-server")
-            .args([&script_path, R2_BINDING_NAME, COMPAT_DATE])
             .stdin(process::Stdio::null())
             .stdout(process::Stdio::piped())
             .stderr(process::Stdio::piped())
