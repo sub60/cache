@@ -49,6 +49,7 @@
           workerCompatibilityDate = "2026-03-11";
           gitShortRev = self.shortRev;
         };
+        workerd = pkgs.callPackage ./nix/workerd.nix { };
       });
 
       apps = forEachSystem (pkgs: {
@@ -69,6 +70,7 @@
                 "rustfmt"
               ];
             })
+            self.packages.${pkgs.stdenv.hostPlatform.system}.workerd
           ];
           env.R2_BUCKET_BINDING_NAME = r2BucketBindingName;
         };
