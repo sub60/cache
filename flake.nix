@@ -35,6 +35,8 @@
 
       # Internal binding name for the R2 bucket in the Worker environment.
       r2BucketBindingName = "${nixpkgs.lib.toUpper r2BucketName}_BUCKET";
+
+      workerCompatibilityDate = "2026-03-11";
     in
     {
       packages = forEachSystem (pkgs: rec {
@@ -44,10 +46,17 @@
           inherit r2BucketBindingName;
         };
         deploy = pkgs.callPackage ./nix/deploy.nix {
-          inherit prod r2BucketName r2BucketBindingName;
+          inherit
+            prod
+            r2BucketName
+            r2BucketBindingName
+            workerCompatibilityDate
+            ;
           workerName = "cache";
-          workerCompatibilityDate = "2026-03-11";
           gitShortRev = self.shortRev;
+        };
+        miniflare-server = pkgs.callPackage ./nix/miniflare-server.nix {
+          inherit prod r2BucketBindingName workerCompatibilityDate;
         };
       });
 

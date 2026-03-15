@@ -77,8 +77,7 @@ impl ObjectGateway for R2ObjectStorage {
     type Storage = Self;
 
     fn nar_url(&self, filename: &NarFileName) -> http::Uri {
-        R2BucketKey(ObjectStorageKey::Nar(filename))
-            .to_string()
+        format!("/{}", R2BucketKey(ObjectStorageKey::Nar(filename)))
             .parse()
             .expect("valid URI")
     }

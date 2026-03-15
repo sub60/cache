@@ -1189,6 +1189,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "cache",
+ "cauchy",
+ "derive_more",
+ "either",
+ "futures",
+ "serde",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tower-service",
+ "types",
+ "url",
+]
+
+[[package]]
 name = "tinystr"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

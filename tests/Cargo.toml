@@ -1,0 +1,26 @@
+[package]
+name = "tests"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+server-prod = []
+
+[dependencies]
+axum = { workspace = true, features = ["tokio", "http1"] }
+cache = { workspace = true }
+cauchy = { workspace = true }
+derive_more = { workspace = true, features = ["display"] }
+either = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "process", "rt"] }
+tower-service = { workspace = true }
+types = { workspace = true }
+url = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,17 +1,16 @@
-#![allow(incomplete_features)]
-#![allow(missing_docs)]
-#![feature(generic_const_exprs)]
-
-mod common;
-
 use core::net::Ipv4Addr;
 
 use cache::{Context, ObjectStorage};
-use common::{MockNixClient, NixClient, RealNixClient, TestContext};
 use tokio::net::TcpListener;
 use types::{NarFileName, NarInfoFileName};
 
-use crate::common::NixStore;
+use crate::common::{
+    MockNixClient,
+    NixClient,
+    NixStore,
+    RealNixClient,
+    TestContext,
+};
 
 #[tokio::test]
 async fn copy_to_cache_mock() {
