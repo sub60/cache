@@ -133,17 +133,11 @@ dependencies = [
  "cauchy",
  "compact_str",
  "derive_more",
- "either",
- "futures",
  "serde",
- "sha2",
  "smol_str",
- "tempfile",
- "tokio",
  "tower-layer",
  "tower-service",
  "types",
- "url",
 ]
 
 [[package]]
