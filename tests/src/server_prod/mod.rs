@@ -1,5 +1,6 @@
 use core::net::SocketAddr;
 use std::io::{BufRead, BufReader};
+use std::os::unix::io::OwnedFd;
 use std::process::Stdio;
 
 use crate::common::{NixClient, NixStore, RealNixClient};
@@ -25,20 +26,14 @@ fn spawn_workerd() -> WorkerdProcess {
     cmd.stderr(Stdio::piped());
 
     // Map the write end of the pipe to fd 3 in the child process.
-    let write_end_fd = fd_of(&write_end);
-    command_fds::CommandFdExt::fd_mappings(&mut cmd, &[
-        command_fds::FdMapping {
-            parent_fd: write_end_fd,
-            child_fd: 3,
-        },
-    ])
+    let write_end_fd: OwnedFd = write_end.into();
+    command_fds::CommandFdExt::fd_mappings(
+        &mut cmd,
+        vec![command_fds::FdMapping { parent_fd: write_end_fd, child_fd: 3 }],
+    )
     .expect("failed to set up fd mappings");
 
     let child = cmd.spawn().expect("failed to spawn workerd");
-
-    // Close the write end in the parent so reads on the read end will EOF if
-    // workerd exits without writing.
-    drop(write_end);
 
     // Read the control message to discover the listening port.
     //
@@ -51,11 +46,9 @@ fn spawn_workerd() -> WorkerdProcess {
         .read_line(&mut line)
         .expect("failed to read control message from workerd");
 
-    let msg: serde_json::Value =
-        serde_json::from_str(line.trim()).unwrap_or_else(|e| {
-            panic!(
-                "failed to parse workerd control message {line:?}: {e}"
-            )
+    let msg: serde_json::Value = serde_json::from_str(line.trim())
+        .unwrap_or_else(|e| {
+            panic!("failed to parse workerd control message {line:?}: {e}")
         });
 
     assert_eq!(
@@ -72,12 +65,6 @@ fn spawn_workerd() -> WorkerdProcess {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
     WorkerdProcess { child, addr }
-}
-
-#[cfg(unix)]
-fn fd_of(pipe: &os_pipe::PipeWriter) -> std::os::unix::io::RawFd {
-    use std::os::unix::io::AsRawFd;
-    pipe.as_raw_fd()
 }
 
 struct WorkerdProcess {
@@ -98,8 +85,7 @@ async fn copy_to_and_from_cache() {
 
     let nix = RealNixClient::new();
 
-    let store_path =
-        nix.store().add_file("hello-world", b"hello world").await;
+    let store_path = nix.store().add_file("hello-world", b"hello world").await;
 
     // Push to the cache served by workerd (backed by in-memory R2).
     nix.copy([store_path.clone()])
