@@ -10,34 +10,31 @@ fn main() {
 }
 
 /// Checks if `nix` is in `$PATH` and enables `cfg(nix_in_path)`.
-///
-/// When enabled, the build script also runs `nix build .#prod` to compile the
-/// `server-prod` WASM worker, generates a Cap'n Proto config file for
-/// `workerd`, and exports its path via `WORKERD_TEST_CONFIG`.
 fn setup_nix() {
     println!("cargo::rustc-check-cfg=cfg(nix_in_path)");
 
-    if find_in_path("nix").is_none() {
-        return;
+    if find_in_path("nix").is_some() {
+        println!("cargo:rustc-cfg=nix_in_path");
     }
-
-    println!("cargo:rustc-cfg=nix_in_path");
-
-    // Only build the WASM and generate the config if workerd is also
-    // available — otherwise the config would be unused.
-    if find_in_path("workerd").is_none() {
-        return;
-    }
-
-    build_workerd_config();
 }
 
 /// Checks if `workerd` is in `$PATH` and enables `cfg(workerd_in_path)`.
+///
+/// When the `server-prod` feature is active and both `nix` and `workerd` are
+/// in `$PATH`, this also runs `nix build .#prod` to compile the WASM worker
+/// and generates a Cap'n Proto config file for `workerd`.
 fn setup_workerd() {
     println!("cargo::rustc-check-cfg=cfg(workerd_in_path)");
 
     if find_in_path("workerd").is_some() {
         println!("cargo:rustc-cfg=workerd_in_path");
+    }
+
+    if env::var("CARGO_FEATURE_SERVER_PROD").is_ok()
+        && find_in_path("nix").is_some()
+        && find_in_path("workerd").is_some()
+    {
+        build_workerd_config();
     }
 }
 
@@ -115,7 +112,7 @@ const cacheWorker :Workerd.Worker = (
     fs::write(&config_path, &config).expect("failed to write capnp config");
 
     // Export the config path so tests can find it.
-    println!("cargo:rustc-env=WORKERD_TEST_CONFIG={}", config_path.display());
+    println!("cargo:rustc-env=WORKERD_CONFIG_PATH={}", config_path.display());
 
     // Re-run if the prod Nix derivation inputs change.
     println!("cargo:rerun-if-changed=../flake.nix");

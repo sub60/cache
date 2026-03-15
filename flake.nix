@@ -57,6 +57,12 @@
           type = "app";
           program = pkgs.lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.deploy;
         };
+        update-workerd = {
+          type = "app";
+          program =
+            pkgs.lib.getExe
+              self.packages.${pkgs.stdenv.hostPlatform.system}.workerd.passthru.updateScript;
+        };
       });
 
       devShells = forEachSystem (pkgs: {

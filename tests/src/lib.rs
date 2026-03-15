@@ -7,5 +7,5 @@
 
 mod cache;
 mod common;
-#[cfg(all(nix_in_path, workerd_in_path))]
+#[cfg(feature = "server-prod")]
 mod server_prod;
