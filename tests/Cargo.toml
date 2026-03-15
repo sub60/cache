@@ -20,13 +20,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 tempfile = { workspace = true }
-tokio = { workspace = true, features = [
-  "macros",
-  "net",
-  "process",
-  "rt",
-  "io-util",
-] }
+tokio = { workspace = true, features = ["macros", "net", "process", "rt"] }
 tower-service = { workspace = true }
 types = { workspace = true }
 url = { workspace = true }
