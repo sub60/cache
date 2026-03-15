@@ -1,53 +1,41 @@
-# Fetches a prebuilt `workerd` binary from the npm registry.
+# Fetches a prebuilt `workerd` binary from GitHub releases.
 #
-# Cloudflare distributes workerd as platform-specific npm packages under the
-# `@cloudflare/workerd-<platform>-<arch>` scope. Each package contains a single
-# prebuilt binary.
+# To update, run:
+#   nix run .#update-workerd
 {
   lib,
   stdenv,
   fetchurl,
   autoPatchelfHook,
   glibc,
+  writeShellApplication,
+  nix,
+  curl,
+  jq,
 }:
 
 let
-  version = "1.20260313.1";
+  inherit (stdenv.hostPlatform) isDarwin isAarch64 system;
 
-  # Map Nix system identifiers to npm package names and SRI hashes.
-  platforms = {
-    "aarch64-darwin" = {
-      npmPkg = "workerd-darwin-arm64";
-      hash = "sha512-exIuImgO3hHGli9BKb4Lri35oKVbbV0/O4ZZ0sxblCNq/MHQKJT41w5s9g9vvTnf51+0UCzuXk8137ehVA61hw==";
-    };
-    "x86_64-darwin" = {
-      npmPkg = "workerd-darwin-64";
-      hash = "sha512-BfiPuTdn3UzIz+tSWDbvIxi0amhZASLteeRdkRhjry3UieB47Z17fHiebFJ/gAaGU8zDhhQwVzOaJgtnsqceHw==";
-    };
-    "x86_64-linux" = {
-      npmPkg = "workerd-linux-64";
-      hash = "sha512-1riikTl9uMb/B7lkTilnrp6+RZlDoEgG6BvDBYG/F0MOlOjV8KPWA4bwYw0WqcRWtbzFNrEAaYotKkd/VSp+pQ==";
-    };
-    "aarch64-linux" = {
-      npmPkg = "workerd-linux-arm64";
-      hash = "sha512-M6H97XVICxVImZNcnlfMkCS5tthAw8Hicp0PUkO/m4T4KSzpD7ZPVRiyuhP9r9cT/+s28phpvjvy/agGy+rL5g==";
-    };
-  };
+  os = if isDarwin then "darwin" else "linux";
+  arch = if isAarch64 then "arm64" else "64";
+  asset = "workerd-${os}-${arch}";
 
-  platform =
-    platforms.${stdenv.hostPlatform.system}
-      or (throw "workerd: unsupported system ${stdenv.hostPlatform.system}");
-
-  src = fetchurl {
-    url = "https://registry.npmjs.org/@cloudflare/${platform.npmPkg}/-/${platform.npmPkg}-${version}.tgz";
-    hash = platform.hash;
+  hashes = {
+    "workerd-darwin-arm64" = "sha256-5dzCpBnMiIcJ0qbsnjQ8L0MS9NQDHgGgD+HBGtiMb+M=";
+    "workerd-darwin-64" = "sha256-ry991b/K8PpvoSYoSTs06l1ZEN09BB3q2Bw8IwGJob0=";
+    "workerd-linux-64" = "sha256-xh3aZqPWcPscbXwrt+uTfvoT2hCfyrLyDYyI0q1yfpI=";
+    "workerd-linux-arm64" = "sha256-ibDH6EGSJs5oGD29wB1ptmenmtgogtVwqGEzrSBnmQs=";
   };
 in
-stdenv.mkDerivation {
+stdenv.mkDerivation (finalAttrs: {
   pname = "workerd";
-  inherit version src;
+  version = "1.20260313.1";
 
-  sourceRoot = ".";
+  src = fetchurl {
+    url = "https://github.com/cloudflare/workerd/releases/download/v${finalAttrs.version}/${asset}.gz";
+    hash = hashes.${asset} or (throw "workerd: unsupported system ${system}");
+  };
 
   nativeBuildInputs = lib.optionals stdenv.hostPlatform.isLinux [
     autoPatchelfHook
@@ -57,17 +45,53 @@ stdenv.mkDerivation {
     glibc
   ];
 
-  installPhase = ''
-    mkdir -p $out/bin
-    cp package/bin/workerd $out/bin/workerd
-    chmod +x $out/bin/workerd
+  unpackPhase = ''
+    gzip -dc $src > workerd
+    chmod +x workerd
   '';
 
-  meta = {
-    description = "The JavaScript/Wasm runtime that powers Cloudflare Workers";
-    homepage = "https://github.com/cloudflare/workerd";
-    license = lib.licenses.asl20;
-    platforms = builtins.attrNames platforms;
-    mainProgram = "workerd";
+  installPhase = ''
+    mkdir -p $out/bin
+    mv workerd $out/bin/
+  '';
+
+  passthru.updateScript = writeShellApplication {
+    name = "update-workerd";
+    runtimeInputs = [
+      curl
+      jq
+      nix
+    ];
+    text = ''
+      nix_file="nix/workerd.nix"
+
+      # Find the latest release that has assets.
+      latest=$(curl -sL "https://api.github.com/repos/cloudflare/workerd/releases" \
+        | jq -r '[.[] | select(.assets | length > 0)][0].tag_name')
+
+      version="''${latest#v}"
+      echo "Latest workerd version with assets: $version"
+
+      for name in ${lib.concatStringsSep " " (builtins.attrNames hashes)}; do
+        url="https://github.com/cloudflare/workerd/releases/download/v''${version}/''${name}.gz"
+        echo "Prefetching $name..."
+        raw_hash=$(nix-prefetch-url --type sha256 "$url" 2>/dev/null)
+        sri_hash=$(nix hash convert --hash-algo sha256 --to sri "$raw_hash")
+        echo "  $name: $sri_hash"
+
+        # Replace the hash for this asset in the Nix file.
+        sed -i.bak "/$name/s|\"sha256-.*\"|\"$sri_hash\"|" "$nix_file"
+      done
+
+      rm -f "''${nix_file}.bak"
+
+      # Update the version.
+      sed -i.bak "s|version = \".*\";|version = \"$version\";|" "$nix_file"
+      rm -f "''${nix_file}.bak"
+
+      echo "Updated $nix_file to workerd $version"
+    '';
   };
-}
+
+  meta.mainProgram = "workerd";
+})

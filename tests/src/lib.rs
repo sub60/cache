@@ -5,9 +5,7 @@
 #![cfg_attr(not(test), allow(dead_code, unused_imports))]
 #![feature(generic_const_exprs)]
 
-mod common;
-
 mod cache;
-
+mod common;
 #[cfg(all(nix_in_path, workerd_in_path))]
 mod server_prod;
