@@ -2,10 +2,7 @@ use crate::common::{NixClient, NixStore, RealNixClient};
 use crate::server_prod::MiniflareServer;
 
 #[tokio::test]
-#[cfg_attr(
-    not(all(nix_in_path, miniflare_in_path)),
-    ignore = "requires both `nix` and `miniflare-server` in $PATH"
-)]
+#[cfg_attr(not(nix_in_path), ignore = "requires `nix` in $PATH")]
 async fn copy_to_and_from_cache() {
     let mf = MiniflareServer::spawn();
 

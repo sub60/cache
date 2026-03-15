@@ -15,7 +15,6 @@ derive_more = { workspace = true, features = ["display"] }
 either = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
 sha2 = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "process", "rt"] }

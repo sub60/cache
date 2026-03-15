@@ -1,7 +1,10 @@
 # Packages a small script that uses Miniflare to serve a Cloudflare Worker
 # with R2 support locally.
 #
-# Prints {"event":"listen","port":<port>} to stdout when ready.
+# Usage:
+#   miniflare-server <state-dir>
+#
+# Prints the listening port to stdout when ready.
 {
   stdenvNoCC,
   bun,
@@ -45,6 +48,16 @@ let
   script = writeText "miniflare-server.ts" ''
     import { Miniflare } from "miniflare";
 
+    const stateDir = process.argv[2];
+    if (!stateDir) {
+      console.error("Usage: miniflare-server <state-dir>");
+      process.exit(1);
+    }
+
+    // Change to the state directory so any files miniflare/workerd creates
+    // (like .wrangler/) end up there instead of the caller's cwd.
+    process.chdir(stateDir);
+
     const mf = new Miniflare({
       scriptPath: "${prod}/index.js",
       modulesRoot: "${prod}",
@@ -60,7 +73,7 @@ let
 
     const url = await mf.ready;
 
-    console.log(JSON.stringify({ event: "listen", port: parseInt(url.port) }));
+    console.log(url.port);
   '';
 in
 writeShellApplication {
@@ -68,6 +81,6 @@ writeShellApplication {
   runtimeInputs = [ bun ];
   runtimeEnv.NODE_PATH = "${node_modules}";
   text = ''
-    exec bun run ${script}
+    exec bun run ${script} "$@"
   '';
 }

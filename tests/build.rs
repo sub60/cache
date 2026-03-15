@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
 
+use std::env;
 use std::path::PathBuf;
 use std::process::Command;
-use std::{env, fs};
 
 fn main() {
     setup_nix();
