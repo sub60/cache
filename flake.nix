@@ -78,7 +78,6 @@
                 "rustfmt"
               ];
             })
-            self.packages.${pkgs.stdenv.hostPlatform.system}.miniflare-server
           ];
           env.R2_BUCKET_BINDING_NAME = r2BucketBindingName;
         };
