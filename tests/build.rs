@@ -4,34 +4,27 @@ use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 
+const NIX_IN_PATH_CFG: &str = "nix_in_path";
+
 fn main() {
-    setup_nix();
-    setup_miniflare();
-}
+    println!("cargo::rustc-check-cfg=cfg({NIX_IN_PATH_CFG})");
 
-/// Checks if `nix` is in `$PATH` and enables `cfg(nix_in_path)`.
-fn setup_nix() {
-    println!("cargo::rustc-check-cfg=cfg(nix_in_path)");
-
-    if find_in_path("nix").is_some() {
-        println!("cargo:rustc-cfg=nix_in_path");
-    }
-}
-
-/// When the `server-prod` feature is active and `nix` is in `$PATH`, builds
-/// `miniflare-server` via `nix build` and exports its path via
-/// `MINIFLARE_SERVER_BIN`.
-fn setup_miniflare() {
-    if env::var("CARGO_FEATURE_SERVER_PROD").is_err() {
+    // We only build the `miniflare-server` via `nix build` when the
+    // `server-prod` feature is active and `nix` is in $PATH.
+    if env::var("CARGO_FEATURE_SERVER_PROD").is_err()
+        || find_in_path("nix").is_none()
+    {
         return;
     }
 
-    if find_in_path("nix").is_none() {
-        return;
-    }
+    println!("cargo:rustc-cfg={NIX_IN_PATH_CFG}");
 
+    build_miniflare();
+}
+
+fn build_miniflare() {
     let manifest_dir =
-        env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
+        env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is set");
 
     let flake_root = PathBuf::from(&manifest_dir)
         .parent()
@@ -61,12 +54,10 @@ fn setup_miniflare() {
     println!("cargo:rustc-env=MINIFLARE_SERVER_BIN={bin_path}");
 
     // Re-run if Nix inputs change.
-    println!("cargo:rerun-if-changed=../flake.nix");
     println!("cargo:rerun-if-changed=../flake.lock");
-    println!("cargo:rerun-if-changed=../nix/prod.nix");
+    println!("cargo:rerun-if-changed=../flake.nix");
     println!("cargo:rerun-if-changed=../nix/miniflare-server.nix");
-    println!("cargo:rerun-if-changed=../crates/server-prod/src");
-    println!("cargo:rerun-if-changed=../crates/cache/src");
+    println!("cargo:rerun-if-changed=../nix/prod.nix");
 }
 
 /// Checks if a binary is available in `$PATH`.
