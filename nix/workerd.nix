@@ -74,8 +74,7 @@ stdenv.mkDerivation (finalAttrs: {
 
       for name in ${lib.concatStringsSep " " (builtins.attrNames hashes)}; do
         url="https://github.com/cloudflare/workerd/releases/download/v''${version}/''${name}.gz"
-        echo "Prefetching $name..."
-        raw_hash=$(nix-prefetch-url --type sha256 "$url" 2>/dev/null)
+        raw_hash=$(nix-prefetch-url --type sha256 "$url")
         sri_hash=$(nix hash convert --hash-algo sha256 --to sri "$raw_hash")
         echo "  $name: $sri_hash"
 
