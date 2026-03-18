@@ -86,8 +86,9 @@ async fn handler<Ctx: Context>(
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?
         .parse::<NarInfo<EmptyString>>()?;
 
-    let nar_url =
-        ctx.object_gateway().nar_url(&NarFileName::from(&narinfo_without_url));
+    let nar_url = ctx
+        .object_gateway()
+        .nar_url::<false>(&NarFileName::from(&narinfo_without_url));
 
     Ok(NarInfoGetResponse {
         narinfo: narinfo_without_url.with_url(nar_url),

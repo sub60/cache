@@ -114,7 +114,10 @@ impl<ObjStorage: ObjectStorage> ObjectGateway
 {
     type Storage = ObjStorage;
 
-    fn nar_url(&self, filename: &NarFileName) -> http::Uri {
+    fn nar_url<const IS_FOR_PUT: bool>(
+        &self,
+        filename: &NarFileName,
+    ) -> http::Uri {
         let key = ObjectKey::Nar(filename.clone());
         if self.base_route.is_empty() {
             format!("/{key}")

@@ -76,8 +76,22 @@ impl ObjectStorage for R2ObjectStorage {
 impl ObjectGateway for R2ObjectStorage {
     type Storage = Self;
 
-    fn nar_url(&self, filename: &NarFileName) -> http::Uri {
-        format!("/{}", R2BucketKey(ObjectStorageKey::Nar(filename)))
+    fn nar_url<const IS_FOR_PUT: bool>(
+        &self,
+        filename: &NarFileName,
+    ) -> http::Uri {
+        // R2 only supports presigned URLs on the S3-compatible endpoint, not on
+        // custom domains (see https://developers.cloudflare.com/r2/api/s3/presigned-urls/#custom-domains).
+        //
+        // TODO: switch to using WAF HMAC validation once it makes sense to
+        // start paying for a Cloudflare Pro plan.
+        let base = if IS_FOR_PUT {
+            "https://0218f60551cfad9349da6d43dbb1add3.r2.cloudflarestorage.com/cache"
+        } else {
+            ""
+        };
+
+        format!("{base}/{}", R2BucketKey(ObjectStorageKey::Nar(filename)))
             .parse()
             .expect("valid URI")
     }

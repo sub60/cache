@@ -19,7 +19,10 @@ pub trait ObjectGateway {
 
     /// Returns the URL at which the NAR corresponding to the given file name
     /// can be accessed, if it exists.
-    fn nar_url(&self, nar_filename: &NarFileName) -> http::Uri;
+    fn nar_url<const IS_FOR_PUT: bool>(
+        &self,
+        nar_filename: &NarFileName,
+    ) -> http::Uri;
 
     /// TODO: docs.
     fn storage(&self) -> &Self::Storage;
@@ -35,7 +38,7 @@ pub trait ObjectGateway {
             unimplemented!("{panic_msg}")
         }
         cast::<http::HeaderValue>(
-            "probably not usable since it buckets are either public or private
+            "probably not usable since buckets are either public or private
              (without granularity), and private buckets mean we can't use a \
              CDN, while for public buckets presigned URLs are a security \
              theater",

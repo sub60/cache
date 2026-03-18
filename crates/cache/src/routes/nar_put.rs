@@ -58,7 +58,8 @@ async fn head_handler<Ctx: Context>(
         .await
         .map_err(NarPutRequestError::ObjectStorage)?
     {
-        let nar_location = ctx.object_gateway().nar_url(&nar_file_name);
+        let nar_location =
+            ctx.object_gateway().nar_url::<false>(&nar_file_name);
         Ok(NarGetResponse::Redirect { nar_location })
     } else {
         Ok(NarGetResponse::NotFound)
@@ -80,7 +81,7 @@ async fn handler<Ctx: Context>(
     {
         Ok(NarPutResponse::AlreadyExists)
     } else {
-        let nar_location = ctx.object_gateway().nar_url(&nar_file_name);
+        let nar_location = ctx.object_gateway().nar_url::<true>(&nar_file_name);
         Ok(NarPutResponse::Redirect { nar_location })
     }
 }
