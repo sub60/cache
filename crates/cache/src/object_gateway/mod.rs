@@ -2,7 +2,6 @@
 
 mod into_router;
 
-use core::fmt;
 use core::time::Duration;
 
 use axum::http;
@@ -27,21 +26,18 @@ pub trait ObjectGateway {
     /// TODO: docs.
     fn storage(&self) -> &Self::Storage;
 
-    /// Generates a presigned URL for the given [`PresignRequest`], returning an
-    /// opaque type containing the path and query parameters for the presigned
-    /// URL.
+    /// Generates a presigned URL for the given [`PresignRequest`].
+    ///
+    /// The returned URL contains embedded authentication parameters (e.g.
+    /// AWS SigV4 query parameters) that grant temporary access to the
+    /// specified object for the given HTTP method.
     fn presign(
         &self,
         _presign_request: PresignRequest<ObjectStorageKey<'_>>,
-    ) -> impl fmt::Debug + Into<http::HeaderValue> {
-        fn cast<T>(panic_msg: impl fmt::Display) -> T {
-            unimplemented!("{panic_msg}")
-        }
-        cast::<http::HeaderValue>(
-            "probably not usable since buckets are either public or private
-             (without granularity), and private buckets mean we can't use a \
-             CDN, while for public buckets presigned URLs are a security \
-             theater",
+    ) -> http::Uri {
+        unimplemented!(
+            "presigning requires S3-compatible credentials; \
+             not available for this ObjectGateway implementation"
         )
     }
 }

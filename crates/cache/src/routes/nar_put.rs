@@ -1,6 +1,7 @@
 //! TODO: docs.
 
 use core::fmt;
+use core::time::Duration;
 
 use axum::body::Body;
 use axum::extract::Path;
@@ -10,7 +11,8 @@ use axum::routing::{self, MethodRouter};
 use types::NarFileName;
 
 use crate::context::ObjectStorageError;
-use crate::object_gateway::ObjectGateway;
+use crate::object_gateway::{ObjectGateway, PresignRequest};
+use crate::object_storage::ObjectStorageKey;
 use crate::{Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/nar/{nar_file_name}";
@@ -81,7 +83,15 @@ async fn handler<Ctx: Context>(
     {
         Ok(NarPutResponse::AlreadyExists)
     } else {
-        let nar_location = ctx.object_gateway().nar_url::<true>(&nar_file_name);
+        // Generate a presigned PUT URL so the client can upload the NAR
+        // directly to R2 with embedded authentication.
+        let nar_location =
+            ctx.object_gateway().presign(PresignRequest {
+                key: ObjectStorageKey::Nar(&nar_file_name),
+                method: http::Method::PUT,
+                content_type: None,
+                ttl: Some(Duration::from_secs(60 * 60)),
+            });
         Ok(NarPutResponse::Redirect { nar_location })
     }
 }

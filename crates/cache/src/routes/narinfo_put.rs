@@ -185,8 +185,8 @@ async fn handler<Ctx: Context>(
 
     let mut stored_narinfo = narinfo.with_url("");
 
-    // Sign the NARInfo's fingerprint with our private key and append it to the
-    // list of signatures before storing the NARInfo.
+    // Sign the fingerprint with our private key and append the signature to the
+    // NARInfo before storing it.
     let cache_signature = cache_ctx
         .signing_key
         .sign(stored_narinfo.fingerprint().to_string().as_bytes());

@@ -11,6 +11,10 @@ crate-type = ["cdylib"]
 axum = { workspace = true }
 cache = { workspace = true }
 compact_str = { workspace = true }
+hex = { workspace = true }
+hmac = { workspace = true }
+js-sys = { workspace = true }
+sha2 = { workspace = true }
 tower-service = { workspace = true }
 types = { workspace = true }
 worker = { workspace = true, features = ["http"] }
