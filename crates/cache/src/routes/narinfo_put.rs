@@ -3,6 +3,7 @@
 use core::str::FromStr;
 use core::{fmt, str};
 
+use axum::Extension;
 use axum::body::Bytes;
 use axum::extract::Path;
 use axum::http::StatusCode;
@@ -20,6 +21,7 @@ use types::{
     NixStoreHash,
 };
 
+use crate::cache_ctx::CacheCtx;
 use crate::context::ObjectStorageError;
 use crate::{Context, ObjectStorage};
 
@@ -122,15 +124,20 @@ enum NarPutUrlFromStrError {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::put(async move |path, body| handler(path, body, &mut ctx).await)
+    routing::put(async move |path, cache_ctx, body| {
+        handler(path, cache_ctx, body, &mut ctx).await
+    })
 }
 
 async fn handler<Ctx: Context>(
     Path(NarInfoPutPath { narinfo_file_name }): Path<NarInfoPutPath>,
+    Extension(cache_ctx): Extension<CacheCtx>,
     body: Bytes,
     ctx: &mut Ctx,
 ) -> Result<StatusCode, NarInfoPutRequestError<ObjectStorageError<Ctx>>> {
     // TODO: validate that the user has write permissions for that cache.
+    // TODO: validate that the store dir in the NARInfo's StorePath matches the
+    // cache's storeDir.
 
     let narinfo = str::from_utf8(&body)
         .map_err(NarInfoPutRequestError::NarInfoNotUtf8)?
@@ -176,7 +183,15 @@ async fn handler<Ctx: Context>(
         ));
     }
 
-    let stored_narinfo = narinfo.with_url("");
+    let mut stored_narinfo = narinfo.with_url("");
+
+    // Sign the NARInfo's fingerprint with our private key and append it to the
+    // list of signatures before storing the NARInfo.
+    let cache_signature = cache_ctx
+        .signing_key
+        .sign(stored_narinfo.fingerprint().to_string().as_bytes());
+
+    stored_narinfo.signatures.push(cache_signature);
 
     object_storage
         .set(&narinfo_file_name, stored_narinfo.to_string().as_bytes())
