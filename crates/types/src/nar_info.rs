@@ -8,10 +8,12 @@ use smol_str::SmolStr;
 use crate::{
     CompressionAlgorithm,
     ContentAddress,
+    NarInfoFingerprint,
     Nix32Digest,
     NixHash,
     NixSignature,
     NixStoreBaseName,
+    NixStoreLiteral,
     NixStorePath,
 };
 
@@ -28,10 +30,10 @@ const SIGNATURE_FIELD_NAME: &str = "Sig";
 const CONTENT_ADDRESS_FIELD_NAME: &str = "CA";
 
 /// TODO: docs.
-#[derive(Debug, PartialEq, Eq)]
-pub struct NarInfo<NarUrl> {
+#[derive(cauchy::Debug, PartialEq, Eq)]
+pub struct NarInfo<NarUrl, StoreDir = NixStoreLiteral> {
     /// TODO: docs.
-    pub store_path: NixStorePath,
+    pub store_path: NixStorePath<StoreDir>,
     /// TODO: docs.
     pub url: NarUrl,
     /// TODO: docs.
@@ -130,9 +132,18 @@ pub enum NarInfoFromStrError<NarUrlFromStrError> {
     ContentAddress(<ContentAddress as FromStr>::Err),
 }
 
-impl<NarUrl> NarInfo<NarUrl> {
+impl<NarUrl, StoreDir> NarInfo<NarUrl, StoreDir> {
+    /// Returns the [`NarInfo`]'s fingerprint, which can be used to create a new
+    /// [signature](NixSignature).
+    pub fn fingerprint(&self) -> NarInfoFingerprint<'_, StoreDir> {
+        self.into()
+    }
+
     /// TODO: docs.
-    pub fn with_url<NewUrl>(self, new_nar_url: NewUrl) -> NarInfo<NewUrl> {
+    pub fn with_url<NewUrl>(
+        self,
+        new_nar_url: NewUrl,
+    ) -> NarInfo<NewUrl, StoreDir> {
         NarInfo {
             store_path: self.store_path,
             url: new_nar_url,

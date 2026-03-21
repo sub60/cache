@@ -58,13 +58,32 @@ impl NixStorePath {
 }
 
 impl<StoreDir> NixStorePath<StoreDir> {
+    /// Returns the store directory component of this [`NixStorePath`].
+    pub fn store_dir(&self) -> &StoreDir {
+        &self.store_dir
+    }
+
     /// Converts this [`NixStorePath`] to a new one with the given store
     /// directory.
     ///
     /// This together with [`NixStorePath::new`] allows to create a
     /// [`NixStorePath`] with different store directory than `"/nix/store"`.
-    pub fn with_dir<NewDir>(self, new_dir: NewDir) -> NixStorePath<NewDir> {
+    pub fn with_store_dir<NewDir>(
+        self,
+        new_dir: NewDir,
+    ) -> NixStorePath<NewDir> {
         NixStorePath { store_dir: new_dir, basename: self.basename }
+    }
+
+    pub(crate) fn fmt_display(
+        store_dir: &StoreDir,
+        basename: &NixStoreBaseName,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result
+    where
+        StoreDir: fmt::Display,
+    {
+        write!(f, "{}/{}", store_dir, basename)
     }
 }
 
@@ -76,7 +95,7 @@ impl<StoreDir: Display> fmt::Debug for NixStorePath<StoreDir> {
 
 impl<StoreDir: Display> fmt::Display for NixStorePath<StoreDir> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}", self.store_dir, self.basename)
+        Self::fmt_display(&self.store_dir, &self.basename, f)
     }
 }
 
