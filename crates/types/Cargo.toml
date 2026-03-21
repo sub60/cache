@@ -10,6 +10,7 @@ cauchy = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 ed25519-dalek = { workspace = true }
 memchr = { workspace = true }
+rand_core = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 smallvec = { workspace = true }
 smol_str = { workspace = true, features = ["serde"] }

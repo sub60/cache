@@ -21,9 +21,6 @@ mod nix_store_path;
 mod user_name;
 mod with_ref;
 
-/// TODO: docs.
-pub type NixSignature = NixKeyOrSignature<ed25519_dalek::Signature>;
-
 /// The type representing the 32-character hash of a Nix store path.
 pub type NixStoreHash = Nix32Digest<20>;
 
@@ -50,7 +47,13 @@ pub use nar_info_file_name::{NarInfoFileName, NarInfoFileNameFromStrError};
 pub use nar_info_fingerprint::NarInfoFingerprint;
 pub use nix_cache_info::NixCacheInfo;
 pub use nix_hash::{NixHash, NixHashFromStrError};
-pub use nix_key_or_signature::{NixKeyOrSignature, NixKeyOrSignatureName};
+pub use nix_key_or_signature::{
+    CachePublicKey,
+    CacheSigningKey,
+    NixKeyOrSignature,
+    NixKeyOrSignatureName,
+    NixSignature,
+};
 pub use nix_store_basename::{NixStoreBaseName, NixStoreBaseNameFromStrError};
 pub use nix_store_literal::{NixStoreLiteral, NixStoreLiteralFromStrError};
 pub use nix_store_name::{NixStoreName, NixStoreNameFromStrError};

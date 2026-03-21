@@ -7,6 +7,15 @@ use smol_str::SmolStr;
 use crate::WithRef;
 
 /// TODO: docs.
+pub type CacheSigningKey = NixKeyOrSignature<ed25519_dalek::SigningKey>;
+
+/// TODO: docs.
+pub type CachePublicKey = NixKeyOrSignature<ed25519_dalek::VerifyingKey>;
+
+/// TODO: docs.
+pub type NixSignature = NixKeyOrSignature<ed25519_dalek::Signature>;
+
+/// TODO: docs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NixKeyOrSignature<KeyOrSig> {
     name: NixKeyOrSignatureName,
@@ -59,6 +68,44 @@ pub enum NixKeyOrSignatureNameFromStrError {
     /// the key or signature in the [`NixKeyOrSignature`].
     #[display("the name of a key or signature cannot contain a ':' character")]
     ContainsColon,
+}
+
+impl CacheSigningKey {
+    /// Creates a new random [`CacheSigningKey`] with the given name from the
+    /// given RNG.
+    pub fn from_rng(
+        name: NixKeyOrSignatureName,
+        rng: &mut impl rand_core::Rng,
+    ) -> Self {
+        let mut bytes = [0u8; _];
+        rng.fill_bytes(&mut bytes);
+        Self::new(name, bytes)
+    }
+
+    /// Creates a new [`CacheSigningKey`] with the given name from the given
+    /// bytes.
+    pub fn new(name: NixKeyOrSignatureName, bytes: [u8; 32]) -> Self {
+        Self { name, key_or_sig: ed25519_dalek::SigningKey::from_bytes(&bytes) }
+    }
+
+    /// Converts the signing key into the corresponding public key which users
+    /// can add to the `trusted-public-keys` list in their Nix configuration.
+    pub fn public_key(&self) -> CachePublicKey {
+        CachePublicKey {
+            name: self.name.clone(),
+            key_or_sig: self.key_or_sig.verifying_key(),
+        }
+    }
+
+    /// Signs the given data, producing a [`NixSignature`] with the same
+    /// [name](NixKeyOrSignatureName) as this signing key.
+    pub fn sign(&self, data: &[u8]) -> NixSignature {
+        use ed25519_dalek::Signer;
+        NixSignature {
+            name: self.name.clone(),
+            key_or_sig: self.key_or_sig.sign(data),
+        }
+    }
 }
 
 impl NixKeyOrSignatureName {

@@ -55,6 +55,8 @@ async fn handler<Ctx: Context>(
     let cache_ctx = CacheCtx {
         name: cache_name,
         priority: cache_priority,
+        #[expect(clippy::redundant_closure_call)]
+        signing_key: (|| todo!())(),
         store_dir: cache_store_dir,
         visibility: cache_visibility,
     };

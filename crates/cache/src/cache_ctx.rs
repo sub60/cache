@@ -1,11 +1,12 @@
 use smol_str::SmolStr;
-use types::CacheName;
+use types::{CacheName, CacheSigningKey};
 
 #[derive(Clone)]
 #[expect(dead_code)]
 pub(crate) struct CacheCtx {
     pub(crate) name: CacheName,
     pub(crate) priority: u32,
+    pub(crate) signing_key: CacheSigningKey,
     pub(crate) store_dir: SmolStr,
     pub(crate) visibility: CacheVisibility,
 }
