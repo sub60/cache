@@ -2,12 +2,11 @@ use core::fmt;
 use core::time::Duration;
 
 use axum::http;
-use cache::object_gateway::PresignRequest;
+use cache::object_gateway::StorageAccessRequest;
 use cache::object_storage::ObjectStorageKey;
 use cache::{ObjectGateway, ObjectStorage};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
-use types::NarFileName;
 use worker::send::IntoSendFuture;
 
 /// The [`ObjectStorage`] and [`ObjectGateway`] implementation backed by
@@ -43,52 +42,10 @@ impl R2ObjectStorage {
     pub fn new(bucket: worker::Bucket, s3_creds: R2S3Credentials) -> Self {
         Self { bucket, s3_creds }
     }
-}
 
-impl R2S3Credentials {
-    /// Generates a presigned URL using AWS Signature Version 4.
-    fn presign_url(
-        &self,
-        request: PresignRequest<ObjectStorageKey<'_>>,
-    ) -> http::Uri {
-        let object_key = R2BucketKey(request.key).to_string();
-        let host = format!("{}.r2.cloudflarestorage.com", self.account_id);
-        let uri_path = format!("/{}/{object_key}", self.bucket_name);
-        let expires_in =
-            request.ttl.unwrap_or(Duration::from_secs(3600)).as_secs();
-        let method = request.method.as_str();
-
-        let (amz_date, date_stamp) = current_sigv4_timestamps();
-
-        let credential_scope = format!("{date_stamp}/auto/s3/aws4_request");
-        let credential = format!("{}/{credential_scope}", self.access_key_id);
-
-        let canonical_query_string =
-            sigv4_canonical_query_string(&credential, &amz_date, expires_in);
-
-        let canonical_request = format!(
-            "{method}\n{}\n{canonical_query_string}\nhost:{host}\n\nhost\\
-             nUNSIGNED-PAYLOAD",
-            uri_encode_path(&uri_path),
-        );
-
-        let string_to_sign = sigv4_string_to_sign(
-            &amz_date,
-            &credential_scope,
-            &canonical_request,
-        );
-
-        let signing_key =
-            sigv4_signing_key(&self.secret_access_key, &date_stamp);
-
-        let signature = hex::encode(hmac_sha256(&signing_key, &string_to_sign));
-
-        format!(
-            "https://{host}{uri_path}?\
-             {canonical_query_string}&X-Amz-Signature={signature}",
-        )
-        .parse()
-        .expect("presigned URL is a valid URI")
+    /// Returns the host of the S3-compatible endpoint for the given account ID.
+    fn s3_endpoint_host(account_id: &str) -> impl AsRef<str> {
+        format!("{account_id}.r2.cloudflarestorage.com")
     }
 }
 
@@ -146,39 +103,108 @@ impl ObjectStorage for R2ObjectStorage {
 impl ObjectGateway for R2ObjectStorage {
     type Storage = Self;
 
-    fn nar_url<const IS_FOR_PUT: bool>(
+    fn object_url(
         &self,
-        filename: &NarFileName,
+        access_request: StorageAccessRequest<'_>,
     ) -> http::Uri {
-        // R2 only supports presigned URLs on the S3-compatible endpoint, not on
-        // custom domains (see https://developers.cloudflare.com/r2/api/s3/presigned-urls/#custom-domains).
+        // R2 doesn't support unauthenticated writes, so we authenticate
+        // via a presigned URL. R2 only supports presigned URLs on the
+        // S3-compatible endpoint, not on custom domains (see
+        // https://developers.cloudflare.com/r2/api/s3/presigned-urls/#custom-domains).
         //
-        // TODO: switch to using WAF HMAC validation once it makes sense to
-        // start paying for a Cloudflare Pro plan.
-        let base = if IS_FOR_PUT {
-            format!(
-                "https://{}.r2.cloudflarestorage.com/{}",
-                self.s3_creds.account_id, self.s3_creds.bucket_name,
+        // TODO: switch to authenticating via WAF HMAC validation once it makes
+        // sense to start paying for a Cloudflare Pro plan.
+        if access_request.method == http::Method::PUT {
+            let base_url: http::Uri = format!(
+                "https://{}/{}/{}",
+                Self::s3_endpoint_host(&self.s3_creds.account_id).as_ref(),
+                self.s3_creds.bucket_name,
+                R2BucketKey(access_request.key),
+            )
+            .parse()
+            .expect("valid S3 URI");
+
+            presigned_url(
+                &base_url,
+                &self.s3_creds,
+                &access_request.method,
+                access_request.ttl.unwrap_or(Duration::from_secs(3600)),
             )
         } else {
-            String::new()
-        };
-
-        format!("{base}/{}", R2BucketKey(ObjectStorageKey::Nar(filename)))
-            .parse()
-            .expect("valid URI")
+            format!("/{}", R2BucketKey(access_request.key))
+                .parse()
+                .expect("valid relative URI")
+        }
     }
 
     fn storage(&self) -> &Self {
         self
     }
+}
 
-    fn presign(
-        &self,
-        presign_request: PresignRequest<ObjectStorageKey<'_>>,
-    ) -> http::Uri {
-        self.s3_creds.presign_url(presign_request)
+impl fmt::Display for R2BucketKey<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            // This `nar/` prefix is coupled to a Cloudflare Cloud Connector
+            // rule that routes requests whose URI path starts with `/nar/` on
+            // `cache.sub60.dev` directly to the R2 bucket, bypassing the
+            // worker. If this prefix changes, the Cloud Connector rule must be
+            // updated to match.
+            ObjectStorageKey::Nar(nar) => write!(f, "nar/{nar}"),
+
+            // Unlike NARs, NARInfos are always read and written directly
+            // through the cache worker's R2 bucket binding, so this `narinfo/`
+            // prefix is purely an internal key namespace and is never exposed
+            // publicly.
+            ObjectStorageKey::NarInfo(narinfo) => {
+                write!(f, "narinfo/{narinfo}")
+            },
+        }
     }
+}
+
+impl From<R2BucketKey<'_>> for String {
+    fn from(key: R2BucketKey<'_>) -> Self {
+        key.to_string()
+    }
+}
+
+/// Signs a base URL with AWS Signature Version 4, returning a presigned URL
+/// with the appropriate authentication query parameters.
+fn presigned_url(
+    base_url: &http::Uri,
+    creds: &R2S3Credentials,
+    method: &http::Method,
+    ttl: Duration,
+) -> http::Uri {
+    let host = base_url.host().expect("base URL must have a host");
+    let uri_path = base_url.path();
+
+    let (amz_date, date_stamp) = current_sigv4_timestamps();
+
+    let credential_scope = format!("{date_stamp}/auto/s3/aws4_request");
+    let credential = format!("{}/{credential_scope}", creds.access_key_id);
+
+    let canonical_query_string =
+        sigv4_canonical_query_string(&credential, &amz_date, ttl);
+
+    let canonical_request = format!(
+        "{}\n{}\n{canonical_query_string}\nhost:{host}\n\nhost\\
+         nUNSIGNED-PAYLOAD",
+        method.as_str(),
+        uri_encode_path(uri_path),
+    );
+
+    let string_to_sign =
+        sigv4_string_to_sign(&amz_date, &credential_scope, &canonical_request);
+
+    let signing_key = sigv4_signing_key(&creds.secret_access_key, &date_stamp);
+
+    let signature = hex::encode(hmac_sha256(&signing_key, &string_to_sign));
+
+    format!("{base_url}?{canonical_query_string}&X-Amz-Signature={signature}",)
+        .parse()
+        .expect("presigned URL is a valid URI")
 }
 
 /// Returns `(amz_date, date_stamp)` for the current UTC time.
@@ -200,7 +226,7 @@ fn current_sigv4_timestamps() -> (String, String) {
 fn sigv4_canonical_query_string(
     credential: &str,
     amz_date: &str,
-    expires_in: u64,
+    ttl: Duration,
 ) -> String {
     // These are pre-sorted by key name (X-Amz-A < X-Amz-C < X-Amz-D
     // < X-Amz-E < X-Amz-S).
@@ -213,7 +239,7 @@ fn sigv4_canonical_query_string(
     .into_iter()
     .map(|(k, v)| format!("{k}={}", uri_encode(v)))
     .chain([
-        format!("X-Amz-Expires={expires_in}"),
+        format!("X-Amz-Expires={}", ttl.as_secs()),
         "X-Amz-SignedHeaders=host".to_owned(),
     ])
     .collect::<Vec<_>>()
@@ -230,8 +256,8 @@ fn sigv4_string_to_sign(
     format!("AWS4-HMAC-SHA256\n{amz_date}\n{credential_scope}\n{hashed}",)
 }
 
-/// URI-encodes a string per RFC 3986, encoding everything except
-/// unreserved characters (A-Z, a-z, 0-9, '-', '.', '_', '~').
+/// URI-encodes a string per RFC 3986, encoding everything except unreserved
+/// characters (A-Z, a-z, 0-9, '-', '.', '_', '~').
 fn uri_encode(input: &str) -> String {
     let mut encoded = String::with_capacity(input.len());
     for byte in input.bytes() {
@@ -272,37 +298,4 @@ fn sigv4_signing_key(secret_key: &str, date_stamp: &str) -> Vec<u8> {
     let k_region = hmac_sha256(&k_date, "auto");
     let k_service = hmac_sha256(&k_region, "s3");
     hmac_sha256(&k_service, "aws4_request")
-}
-
-impl<'a> From<ObjectStorageKey<'a>> for R2BucketKey<'a> {
-    fn from(key: ObjectStorageKey<'a>) -> Self {
-        Self(key)
-    }
-}
-
-impl fmt::Display for R2BucketKey<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0 {
-            // This `nar/` prefix is coupled to a Cloudflare Cloud Connector
-            // rule that routes requests whose URI path starts with `/nar/` on
-            // `cache.sub60.dev` directly to the R2 bucket, bypassing the
-            // worker. If this prefix changes, the Cloud Connector rule must be
-            // updated to match.
-            ObjectStorageKey::Nar(nar) => write!(f, "nar/{nar}"),
-
-            // Unlike NARs, NARInfos are always read and written directly
-            // through the cache worker's R2 bucket binding, so this `narinfo/`
-            // prefix is purely an internal key namespace and is never exposed
-            // publicly.
-            ObjectStorageKey::NarInfo(narinfo) => {
-                write!(f, "narinfo/{narinfo}")
-            },
-        }
-    }
-}
-
-impl From<R2BucketKey<'_>> for String {
-    fn from(key: R2BucketKey<'_>) -> Self {
-        key.to_string()
-    }
 }
