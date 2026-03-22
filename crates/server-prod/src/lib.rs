@@ -10,7 +10,7 @@ use core::convert::Infallible;
 
 use cache::context::ComposedContext;
 use cdn::CloudflareCdn;
-use object_storage::{R2ObjectStorage, R2S3Credentials};
+use object_storage::R2ObjectStorage;
 use tower_service::Service;
 
 /// The entry point for the Cloudflare Worker.
@@ -20,15 +20,14 @@ async fn fetch(
     env: worker::Env,
     _ctx: worker::Context,
 ) -> Result<axum::http::Response<axum::body::Body>, Infallible> {
-    let bucket = env
-        .bucket(env!("R2_BUCKET_BINDING_NAME"))
-        .expect("R2 bucket binding not found");
-
-    let s3_creds = R2S3Credentials::new(&env);
+    let account_id = env
+        .secret("CLOUDFLARE_ACCOUNT_ID")
+        .expect("CLOUDFLARE_ACCOUNT_ID secret not found")
+        .to_string();
 
     let context = ComposedContext::new()
         .with_cdn(CloudflareCdn)
-        .with_object_gateway(R2ObjectStorage::new(bucket, s3_creds));
+        .with_object_gateway(R2ObjectStorage::new(account_id, &env));
 
     cache::router(context).call(req).await
 }

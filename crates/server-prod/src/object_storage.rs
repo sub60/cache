@@ -9,7 +9,8 @@ use worker::send::IntoSendFuture;
 /// The [`ObjectStorage`] and [`ObjectGateway`] implementation backed by
 /// Cloudflare R2.
 #[derive(Debug, Clone)]
-pub struct R2ObjectStorage {
+pub(crate) struct R2ObjectStorage {
+    account_id: String,
     bucket: worker::Bucket,
     s3_creds: R2S3Credentials,
 }
@@ -20,39 +21,35 @@ pub struct R2ObjectStorage {
 /// The token must have "Object Read & Write" permission scoped to the target
 /// bucket.
 #[derive(Debug, Clone)]
-pub(crate) struct R2S3Credentials {
-    /// The Cloudflare account ID (used to construct the S3-compatible
-    /// endpoint).
-    account_id: String,
+struct R2S3Credentials {
     /// The R2 API token's Access Key ID.
     access_key_id: String,
     /// The R2 API token's Secret Access Key.
     secret_access_key: String,
-    /// The name of the R2 bucket.
-    bucket_name: String,
 }
 
 struct R2BucketKey<'a>(ObjectStorageKey<'a>);
 
 impl R2ObjectStorage {
-    /// Creates a new [`R2ObjectStorage`] backed by the given R2 bucket.
-    pub fn new(bucket: worker::Bucket, s3_creds: R2S3Credentials) -> Self {
-        Self { bucket, s3_creds }
+    pub(crate) fn new(account_id: String, env: &worker::Env) -> Self {
+        Self {
+            account_id,
+            bucket: env
+                .bucket(env!("R2_BUCKET_BINDING_NAME"))
+                .expect("R2 bucket binding not found"),
+            s3_creds: R2S3Credentials::new(env),
+        }
     }
 
-    /// Returns the host of the S3-compatible endpoint for the given account ID.
-    fn s3_endpoint_host(account_id: &str) -> impl AsRef<str> {
-        format!("{account_id}.r2.cloudflarestorage.com")
+    /// Returns the host of the S3-compatible endpoint for the .
+    fn s3_endpoint_host(&self) -> impl AsRef<str> {
+        format!("{}.r2.cloudflarestorage.com", self.account_id)
     }
 }
 
 impl R2S3Credentials {
-    pub(crate) fn new(env: &worker::Env) -> Self {
+    fn new(env: &worker::Env) -> Self {
         Self {
-            account_id: env
-                .secret("CLOUDFLARE_ACCOUNT_ID")
-                .expect("CLOUDFLARE_ACCOUNT_ID secret not found")
-                .to_string(),
             access_key_id: env
                 .secret("R2_ACCESS_KEY_ID")
                 .expect("R2_ACCESS_KEY_ID secret not found")
@@ -60,10 +57,6 @@ impl R2S3Credentials {
             secret_access_key: env
                 .secret("R2_SECRET_ACCESS_KEY")
                 .expect("R2_SECRET_ACCESS_KEY secret not found")
-                .to_string(),
-            bucket_name: env
-                .var("R2_BUCKET_NAME")
-                .expect("R2_BUCKET_NAME var not found")
                 .to_string(),
         }
     }
@@ -137,8 +130,8 @@ impl ObjectGateway for R2ObjectStorage {
         if access_request.method == http::Method::PUT {
             let base_url = format!(
                 "https://{}/{}/{}",
-                Self::s3_endpoint_host(&self.s3_creds.account_id).as_ref(),
-                self.s3_creds.bucket_name,
+                self.s3_endpoint_host().as_ref(),
+                env!("R2_BUCKET_NAME"),
                 R2BucketKey(access_request.key),
             )
             .parse::<url::Url>()
