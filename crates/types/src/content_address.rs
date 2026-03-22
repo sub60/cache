@@ -64,6 +64,12 @@ impl ContentAddressMethod {
             Self::FixedGit => Self::FIXED_GIT_STR,
         }
     }
+
+    #[cfg(test)]
+    fn iter() -> impl Iterator<Item = Self> {
+        [Self::Text, Self::Fixed, Self::FixedRecursive, Self::FixedGit]
+            .into_iter()
+    }
 }
 
 impl fmt::Display for ContentAddress {
@@ -76,15 +82,27 @@ impl FromStr for ContentAddress {
     type Err = ContentAddressFromStrError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (method_str, hash_str) = s
-            .split_once(':')
-            .ok_or(ContentAddressFromStrError::MissingColon)?;
+        let method = if s.starts_with(ContentAddressMethod::TEXT_STR) {
+            ContentAddressMethod::Text
+        } else if s.starts_with(ContentAddressMethod::FIXED_RECURSIVE_STR) {
+            ContentAddressMethod::FixedRecursive
+        } else if s.starts_with(ContentAddressMethod::FIXED_GIT_STR) {
+            ContentAddressMethod::FixedGit
+        } else if s.starts_with(ContentAddressMethod::FIXED_STR) {
+            ContentAddressMethod::Fixed
+        } else {
+            return Err(ContentAddressFromStrError::Method(
+                ContentAddressMethodFromStrError::InvalidMethod,
+            ));
+        };
 
-        let method =
-            method_str.parse().map_err(ContentAddressFromStrError::Method)?;
+        if s.as_bytes().get(method.as_str().len()) != Some(&b':') {
+            return Err(ContentAddressFromStrError::MissingColon);
+        }
 
-        let hash =
-            hash_str.parse().map_err(ContentAddressFromStrError::Hash)?;
+        let hash = s[method.as_str().len() + 1..]
+            .parse()
+            .map_err(ContentAddressFromStrError::Hash)?;
 
         Ok(Self { method, hash })
     }
@@ -106,6 +124,25 @@ impl FromStr for ContentAddressMethod {
             Self::FIXED_RECURSIVE_STR => Ok(Self::FixedRecursive),
             Self::FIXED_GIT_STR => Ok(Self::FixedGit),
             _ => Err(ContentAddressMethodFromStrError::InvalidMethod),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Nix32Digest;
+
+    #[test]
+    fn content_address_from_str() {
+        for method in ContentAddressMethod::iter() {
+            let hash = NixHash::Sha256(Nix32Digest::new(&[0u8; 32]));
+
+            let parsed = format!("{}:{}", method.as_str(), hash)
+                .parse::<ContentAddress>()
+                .unwrap();
+
+            assert_eq!(parsed, ContentAddress { method, hash });
         }
     }
 }
