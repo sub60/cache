@@ -18,6 +18,12 @@ let
     annotations = {
       "workers/tag" = self.shortRev;
     };
+    # Preserve variables and secrets set via the Cloudflare dashboard across
+    # deployments.
+    keep_bindings = [
+      "plain_text"
+      "secret_text"
+    ];
     bindings = [
       {
         type = "r2_bucket";
