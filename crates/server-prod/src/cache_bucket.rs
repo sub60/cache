@@ -12,19 +12,16 @@ static PUBLIC_ENDPOINT: LazyLock<url::Url> = LazyLock::new(|| {
 });
 
 static S3_ENDPOINT: LazyLock<url::Url> = LazyLock::new(|| {
-    let mut base_url = format!(
-        "https://{}.r2.cloudflarestorage.com",
-        crate::CLOUDFLARE_ACCOUNT_ID
+    // NOTE: the trailing "/" matters! Without it the bucket name would be
+    // replaced by the bucket key when we construct the base URL for
+    // pre-signing.
+    format!(
+        "https://{}.r2.cloudflarestorage.com/{}/",
+        crate::CLOUDFLARE_ACCOUNT_ID,
+        env!("R2_BUCKET_NAME")
     )
     .parse::<url::Url>()
-    .expect("valid URL");
-
-    base_url
-        .path_segments_mut()
-        .expect("can be a base")
-        .push(env!("R2_BUCKET_NAME"));
-
-    base_url
+    .expect("valid URL")
 });
 
 /// The [`ObjectStorage`] and [`ObjectGateway`] implementation backed by
@@ -144,11 +141,9 @@ impl ObjectGateway for CacheBucket {
         // TODO: switch to authenticating via WAF HMAC validation once it makes
         // sense to start paying for a Cloudflare Pro plan.
         if access_request.method == http::Method::PUT {
-            let mut url = (*S3_ENDPOINT).clone();
-
-            url.path_segments_mut()
-                .expect("can be a base")
-                .push(&CacheBucketKey(access_request.key).to_string());
+            let url = S3_ENDPOINT
+                .join(&CacheBucketKey(access_request.key).to_string())
+                .expect("combined URL is valid");
 
             let now = chrono::DateTime::from_timestamp_millis(
                 js_sys::Date::now() as i64,
@@ -172,13 +167,9 @@ impl ObjectGateway for CacheBucket {
             .parse()
             .expect("presigned URL is a valid URI")
         } else {
-            let mut url = (*PUBLIC_ENDPOINT).clone();
-
-            url.path_segments_mut()
-                .expect("can be a base")
-                .push(&CacheBucketKey(access_request.key).to_string());
-
-            url
+            PUBLIC_ENDPOINT
+                .join(&CacheBucketKey(access_request.key).to_string())
+                .expect("combined URL is valid")
         }
     }
 
