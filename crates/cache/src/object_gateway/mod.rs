@@ -17,8 +17,10 @@ pub trait ObjectGateway: Sync {
 
     /// Returns a URL which is able to fulfill the given access request to an
     /// object in the storage.
-    fn object_url(&self, access_request: StorageAccessRequest<'_>)
-    -> http::Uri;
+    fn object_url(
+        &self,
+        access_request: StorageAccessRequest<'_>,
+    ) -> impl AsRef<str>;
 
     /// TODO: docs.
     fn storage(&self) -> &Self::Storage;

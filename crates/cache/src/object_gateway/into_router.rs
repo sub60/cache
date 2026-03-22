@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use axum::Router;
 use axum::body::Bytes;
 use axum::extract::Path;
-use axum::http::{self, Response, StatusCode};
+use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, put};
 use types::{NarFileName, NarInfoFileName};
@@ -109,7 +109,10 @@ impl<ObjStorage: ObjectStorage> ObjectGateway
 {
     type Storage = ObjStorage;
 
-    fn object_url(&self, access_request: StorageAccessRequest) -> http::Uri {
+    fn object_url(
+        &self,
+        access_request: StorageAccessRequest,
+    ) -> impl AsRef<str> {
         let key = object_key_display(access_request.key);
 
         if self.base_route.is_empty() {
@@ -117,8 +120,6 @@ impl<ObjStorage: ObjectStorage> ObjectGateway
         } else {
             format!("{}/{key}", self.base_route)
         }
-        .parse()
-        .expect("valid relative URI")
     }
 
     fn storage(&self) -> &ObjStorage {

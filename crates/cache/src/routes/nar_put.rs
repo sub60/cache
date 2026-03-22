@@ -26,7 +26,7 @@ pub(super) struct NarPutPath {
 #[derive(Debug)]
 enum NarPutResponse {
     AlreadyExists,
-    Redirect { nar_location: http::Uri },
+    Redirect { nar_url: http::HeaderValue },
 }
 
 /// The type of error that can occur when handling a PUT request to the NAR
@@ -56,12 +56,15 @@ async fn handler<Ctx: Context>(
     {
         Ok(NarPutResponse::AlreadyExists)
     } else {
-        let nar_location = object_gateway.object_url(StorageAccessRequest {
+        let nar_url = object_gateway.object_url(StorageAccessRequest {
             key: ObjectStorageKey::Nar(&nar_file_name),
             method: http::Method::PUT,
             min_ttl: Duration::from_mins(10),
         });
-        Ok(NarPutResponse::Redirect { nar_location })
+        Ok(NarPutResponse::Redirect {
+            nar_url: http::HeaderValue::from_str(nar_url.as_ref())
+                .expect("URL is valid header value"),
+        })
     }
 }
 
@@ -79,19 +82,11 @@ impl IntoResponse for NarPutResponse {
             Self::AlreadyExists => {
                 (StatusCode::NO_CONTENT, Body::empty()).into_response()
             },
-            Self::Redirect { nar_location } => {
-                axum::response::Response::builder()
-                    .status(StatusCode::TEMPORARY_REDIRECT)
-                    .header(
-                        header::LOCATION,
-                        header::HeaderValue::from_str(
-                            &nar_location.to_string(),
-                        )
-                        .expect("URIs are valid header values"),
-                    )
-                    .body(Body::empty())
-                    .expect("valid response")
-            },
+            Self::Redirect { nar_url } => axum::response::Response::builder()
+                .status(StatusCode::TEMPORARY_REDIRECT)
+                .header(header::LOCATION, nar_url)
+                .body(Body::empty())
+                .expect("valid response"),
         }
     }
 }

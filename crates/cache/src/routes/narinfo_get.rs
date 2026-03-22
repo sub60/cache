@@ -28,7 +28,7 @@ struct NarInfoGetPath {
 
 /// The response returned to GET requests to the NARInfo route.
 struct NarInfoGetResponse<Cdn: crate::Cdn> {
-    narinfo: NarInfo<http::Uri>,
+    narinfo: String,
     cache_headers: Cdn::CacheHeaders,
 }
 
@@ -86,14 +86,16 @@ async fn handler<Ctx: Context>(
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?
         .parse::<NarInfo<EmptyString>>()?;
 
+    let nar_filename = NarFileName::from(&narinfo_without_url);
+
     let nar_url = ctx.object_gateway().object_url(StorageAccessRequest {
-        key: (&NarFileName::from(&narinfo_without_url)).into(),
+        key: (&nar_filename).into(),
         method: http::Method::GET,
         min_ttl: Duration::from_hours(1),
     });
 
     Ok(NarInfoGetResponse {
-        narinfo: narinfo_without_url.with_url(nar_url),
+        narinfo: narinfo_without_url.with_url(nar_url.as_ref()).to_string(),
         // The NAR is purely content-addressed, so we can cache it for a long
         // time.
         cache_headers: ctx.cdn().cache_headers(Duration::from_days(365)),
@@ -121,7 +123,7 @@ impl<Cdn: crate::Cdn> IntoResponse for NarInfoGetResponse<Cdn> {
         }
 
         builder
-            .body(Body::new(self.narinfo.to_string()))
+            .body(Body::new(self.narinfo))
             .expect("headers and body are valid")
     }
 }

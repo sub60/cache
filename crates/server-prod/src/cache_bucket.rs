@@ -7,9 +7,24 @@ use cache::object_storage::ObjectStorageKey;
 use cache::{ObjectGateway, ObjectStorage};
 use worker::send::IntoSendFuture;
 
-/// The host of the S3-compatible endpoint for the R2 cache bucket.
-static S3_ENDPOINT_HOST: LazyLock<String> = LazyLock::new(|| {
-    format!("{}.r2.cloudflarestorage.com", crate::CLOUDFLARE_ACCOUNT_ID)
+static PUBLIC_ENDPOINT: LazyLock<url::Url> = LazyLock::new(|| {
+    url::Url::parse("https://r2.cache.sub60.dev").expect("valid URL")
+});
+
+static S3_ENDPOINT: LazyLock<url::Url> = LazyLock::new(|| {
+    let mut base_url = format!(
+        "https://{}.r2.cloudflarestorage.com",
+        crate::CLOUDFLARE_ACCOUNT_ID
+    )
+    .parse::<url::Url>()
+    .expect("valid URL");
+
+    base_url
+        .path_segments_mut()
+        .expect("can be a base")
+        .push(env!("R2_BUCKET_NAME"));
+
+    base_url
 });
 
 /// The [`ObjectStorage`] and [`ObjectGateway`] implementation backed by
@@ -120,10 +135,7 @@ impl ObjectStorage for CacheBucket {
 impl ObjectGateway for CacheBucket {
     type Storage = Self;
 
-    fn object_url(
-        &self,
-        access_request: StorageAccessRequest<'_>,
-    ) -> http::Uri {
+    fn object_url(&self, access_request: StorageAccessRequest<'_>) -> url::Url {
         // R2 doesn't support unauthenticated writes, so we authenticate
         // via a presigned URL. R2 only supports presigned URLs on the
         // S3-compatible endpoint, not on custom domains (see
@@ -132,14 +144,11 @@ impl ObjectGateway for CacheBucket {
         // TODO: switch to authenticating via WAF HMAC validation once it makes
         // sense to start paying for a Cloudflare Pro plan.
         if access_request.method == http::Method::PUT {
-            let base_url = format!(
-                "https://{}/{}/{}",
-                &*S3_ENDPOINT_HOST,
-                env!("R2_BUCKET_NAME"),
-                CacheBucketKey(access_request.key),
-            )
-            .parse::<url::Url>()
-            .expect("valid S3 URI");
+            let mut url = (*S3_ENDPOINT).clone();
+
+            url.path_segments_mut()
+                .expect("can be a base")
+                .push(&CacheBucketKey(access_request.key).to_string());
 
             let now = chrono::DateTime::from_timestamp_millis(
                 js_sys::Date::now() as i64,
@@ -152,7 +161,7 @@ impl ObjectGateway for CacheBucket {
                 &creds.access_key_id,
                 &creds.secret_access_key,
                 access_request.min_ttl.as_secs(),
-                &base_url,
+                &url,
                 access_request.method.as_str(),
                 "UNSIGNED-PAYLOAD",
                 "auto",
@@ -163,9 +172,13 @@ impl ObjectGateway for CacheBucket {
             .parse()
             .expect("presigned URL is a valid URI")
         } else {
-            format!("/{}", CacheBucketKey(access_request.key))
-                .parse()
-                .expect("valid relative URI")
+            let mut url = (*PUBLIC_ENDPOINT).clone();
+
+            url.path_segments_mut()
+                .expect("can be a base")
+                .push(&CacheBucketKey(access_request.key).to_string());
+
+            url
         }
     }
 
