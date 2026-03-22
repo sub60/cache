@@ -3,7 +3,7 @@ use axum::http::StatusCode;
 use axum::middleware::{self, Next};
 use axum::response::IntoResponse;
 use smol_str::SmolStr;
-use types::{CacheName, NixStoreLiteral, UserName};
+use types::{CacheName, CacheSigningKey, NixStoreLiteral, UserName};
 
 use crate::Context;
 use crate::cache_ctx::{CacheCtx, CacheVisibility};
@@ -55,8 +55,10 @@ async fn handler<Ctx: Context>(
     let cache_ctx = CacheCtx {
         name: cache_name,
         priority: cache_priority,
-        #[expect(clippy::redundant_closure_call)]
-        signing_key: (|| todo!())(),
+        signing_key: CacheSigningKey::new(
+            "test".parse().expect("valid key"),
+            [0u8; _],
+        ),
         store_dir: cache_store_dir,
         visibility: cache_visibility,
     };
