@@ -72,6 +72,7 @@
                   "rustfmt"
                 ];
               })
+              pkgs.wrangler
             ];
             env = self.packages.${system}.prod.buildEnv;
           };
