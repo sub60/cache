@@ -15,61 +15,60 @@ static S3_ENDPOINT_HOST: LazyLock<String> = LazyLock::new(|| {
 /// The [`ObjectStorage`] and [`ObjectGateway`] implementation backed by
 /// Cloudflare R2.
 #[derive(Debug, Clone)]
-pub(crate) struct R2ObjectStorage {
-    bucket: worker::Bucket,
-    s3_creds: R2S3Credentials,
+pub(crate) struct CacheBucket {
+    inner: worker::Bucket,
+    s3_creds: CacheBucketS3Credentials,
 }
 
 /// S3-compatible credentials for generating presigned R2 URLs.
 ///
-/// These are obtained by creating an R2 API token in the Cloudflare dashboard.
-/// The token must have "Object Read & Write" permission scoped to the target
-/// bucket.
+/// These are obtained by creating an R2 API token in the Cloudflare dashboard
+/// with "Object Read & Write" permissions scoped to the cache bucket.
 #[derive(Debug, Clone)]
-struct R2S3Credentials {
+struct CacheBucketS3Credentials {
     /// The R2 API token's Access Key ID.
     access_key_id: String,
     /// The R2 API token's Secret Access Key.
     secret_access_key: String,
 }
 
-struct R2BucketKey<'a>(ObjectStorageKey<'a>);
+struct CacheBucketKey<'a>(ObjectStorageKey<'a>);
 
-impl R2ObjectStorage {
+impl CacheBucket {
     pub(crate) fn new(env: &worker::Env) -> Self {
         Self {
-            bucket: env
+            inner: env
                 .bucket(env!("R2_BUCKET_BINDING_NAME"))
                 .expect("R2 bucket binding not found"),
-            s3_creds: R2S3Credentials::new(env),
+            s3_creds: CacheBucketS3Credentials::new(env),
         }
     }
 }
 
-impl R2S3Credentials {
+impl CacheBucketS3Credentials {
     fn new(env: &worker::Env) -> Self {
         Self {
             access_key_id: env
-                .secret("R2_ACCESS_KEY_ID")
-                .expect("R2_ACCESS_KEY_ID secret not found")
+                .var("CACHE_BUCKET_ACCESS_KEY_ID")
+                .expect("CACHE_BUCKET_ACCESS_KEY_ID variable not found")
                 .to_string(),
             secret_access_key: env
-                .secret("R2_SECRET_ACCESS_KEY")
-                .expect("R2_SECRET_ACCESS_KEY secret not found")
+                .secret("CACHE_BUCKET_SECRET_ACCESS_KEY")
+                .expect("CACHE_BUCKET_SECRET_ACCESS_KEY secret not found")
                 .to_string(),
         }
     }
 }
 
-impl ObjectStorage for R2ObjectStorage {
+impl ObjectStorage for CacheBucket {
     type Error = worker::Error;
 
     async fn contains_key<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<bool, Self::Error> {
-        self.bucket
-            .head(R2BucketKey(key.into()))
+        self.inner
+            .head(CacheBucketKey(key.into()))
             .into_send()
             .await
             .map(|obj| obj.is_some())
@@ -80,8 +79,8 @@ impl ObjectStorage for R2ObjectStorage {
         key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<Option<impl AsRef<[u8]>>, Self::Error> {
         let Some(object) = self
-            .bucket
-            .get(R2BucketKey(key.into()))
+            .inner
+            .get(CacheBucketKey(key.into()))
             .execute()
             .into_send()
             .await?
@@ -103,8 +102,8 @@ impl ObjectStorage for R2ObjectStorage {
         key: impl Into<ObjectStorageKey<'a>>,
         bytes: impl AsRef<[u8]>,
     ) -> Result<(), Self::Error> {
-        self.bucket
-            .put(R2BucketKey(key.into()), bytes.as_ref().to_vec())
+        self.inner
+            .put(CacheBucketKey(key.into()), bytes.as_ref().to_vec())
             .execute()
             .into_send()
             .await
@@ -112,7 +111,7 @@ impl ObjectStorage for R2ObjectStorage {
     }
 }
 
-impl ObjectGateway for R2ObjectStorage {
+impl ObjectGateway for CacheBucket {
     type Storage = Self;
 
     fn object_url(
@@ -131,7 +130,7 @@ impl ObjectGateway for R2ObjectStorage {
                 "https://{}/{}/{}",
                 &*S3_ENDPOINT_HOST,
                 env!("R2_BUCKET_NAME"),
-                R2BucketKey(access_request.key),
+                CacheBucketKey(access_request.key),
             )
             .parse::<url::Url>()
             .expect("valid S3 URI");
@@ -156,7 +155,7 @@ impl ObjectGateway for R2ObjectStorage {
             .parse()
             .expect("presigned URL is a valid URI")
         } else {
-            format!("/{}", R2BucketKey(access_request.key))
+            format!("/{}", CacheBucketKey(access_request.key))
                 .parse()
                 .expect("valid relative URI")
         }
@@ -167,7 +166,7 @@ impl ObjectGateway for R2ObjectStorage {
     }
 }
 
-impl fmt::Display for R2BucketKey<'_> {
+impl fmt::Display for CacheBucketKey<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             // This `nar/` prefix is coupled to a Cloudflare Cloud Connector
@@ -188,8 +187,8 @@ impl fmt::Display for R2BucketKey<'_> {
     }
 }
 
-impl From<R2BucketKey<'_>> for String {
-    fn from(key: R2BucketKey<'_>) -> Self {
+impl From<CacheBucketKey<'_>> for String {
+    fn from(key: CacheBucketKey<'_>) -> Self {
         key.to_string()
     }
 }

@@ -3,14 +3,14 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
+mod cache_bucket;
 mod cdn;
-mod object_storage;
 
 use core::convert::Infallible;
 
 use cache::context::ComposedContext;
+use cache_bucket::CacheBucket;
 use cdn::CloudflareCdn;
-use object_storage::R2ObjectStorage;
 use tower_service::Service;
 
 const CLOUDFLARE_ACCOUNT_ID: &str = env!("CLOUDFLARE_ACCOUNT_ID");
@@ -24,7 +24,7 @@ async fn fetch(
 ) -> Result<axum::http::Response<axum::body::Body>, Infallible> {
     let context = ComposedContext::new()
         .with_cdn(CloudflareCdn)
-        .with_object_gateway(R2ObjectStorage::new(&env));
+        .with_object_gateway(CacheBucket::new(&env));
 
     cache::router(context).call(req).await
 }
