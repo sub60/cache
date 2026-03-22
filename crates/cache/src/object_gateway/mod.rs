@@ -30,6 +30,6 @@ pub struct StorageAccessRequest<'a> {
     pub key: ObjectStorageKey<'a>,
     /// The HTTP method that the presigned URL should allow.
     pub method: http::Method,
-    /// The TTL for the presigned URL, if any.
-    pub ttl: Option<Duration>,
+    /// The TTL for the presigned URL.
+    pub min_ttl: Duration,
 }

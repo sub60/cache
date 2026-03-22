@@ -89,7 +89,7 @@ async fn handler<Ctx: Context>(
     let nar_url = ctx.object_gateway().object_url(StorageAccessRequest {
         key: (&NarFileName::from(&narinfo_without_url)).into(),
         method: http::Method::GET,
-        ttl: None,
+        min_ttl: Duration::from_hours(1),
     });
 
     Ok(NarInfoGetResponse {

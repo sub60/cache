@@ -24,24 +24,7 @@ async fn fetch(
         .bucket(env!("R2_BUCKET_BINDING_NAME"))
         .expect("R2 bucket binding not found");
 
-    let s3_creds = R2S3Credentials {
-        account_id: env
-            .secret("CLOUDFLARE_ACCOUNT_ID")
-            .expect("CLOUDFLARE_ACCOUNT_ID secret not found")
-            .to_string(),
-        access_key_id: env
-            .secret("R2_ACCESS_KEY_ID")
-            .expect("R2_ACCESS_KEY_ID secret not found")
-            .to_string(),
-        secret_access_key: env
-            .secret("R2_SECRET_ACCESS_KEY")
-            .expect("R2_SECRET_ACCESS_KEY secret not found")
-            .to_string(),
-        bucket_name: env
-            .var("R2_BUCKET_NAME")
-            .expect("R2_BUCKET_NAME var not found")
-            .to_string(),
-    };
+    let s3_creds = R2S3Credentials::new(&env);
 
     let context = ComposedContext::new()
         .with_cdn(CloudflareCdn)

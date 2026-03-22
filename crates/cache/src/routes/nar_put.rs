@@ -59,7 +59,7 @@ async fn handler<Ctx: Context>(
         let nar_location = object_gateway.object_url(StorageAccessRequest {
             key: ObjectStorageKey::Nar(&nar_file_name),
             method: http::Method::PUT,
-            ttl: Some(Duration::from_mins(10)),
+            min_ttl: Duration::from_mins(10),
         });
         Ok(NarPutResponse::Redirect { nar_location })
     }
