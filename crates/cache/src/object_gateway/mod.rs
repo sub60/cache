@@ -2,58 +2,34 @@
 
 mod into_router;
 
-use core::fmt;
 use core::time::Duration;
 
 use axum::http;
 pub use into_router::IntoRouterObjectGateway;
-use types::NarFileName;
 
 use crate::ObjectStorage;
 use crate::object_storage::ObjectStorageKey;
 
 /// TODO: docs.
-pub trait ObjectGateway {
+pub trait ObjectGateway: Sync {
     /// TODO: docs.
     type Storage: ObjectStorage;
 
-    /// Returns the URL at which the NAR corresponding to the given file name
-    /// can be accessed, if it exists.
-    fn nar_url<const IS_FOR_PUT: bool>(
-        &self,
-        nar_filename: &NarFileName,
-    ) -> http::Uri;
+    /// Returns a URL which is able to fulfill the given access request to an
+    /// object in the storage.
+    fn object_url(&self, access_request: StorageAccessRequest<'_>)
+    -> http::Uri;
 
     /// TODO: docs.
     fn storage(&self) -> &Self::Storage;
-
-    /// Generates a presigned URL for the given [`PresignRequest`], returning an
-    /// opaque type containing the path and query parameters for the presigned
-    /// URL.
-    fn presign(
-        &self,
-        _presign_request: PresignRequest<ObjectStorageKey<'_>>,
-    ) -> impl fmt::Debug + Into<http::HeaderValue> {
-        fn cast<T>(panic_msg: impl fmt::Display) -> T {
-            unimplemented!("{panic_msg}")
-        }
-        cast::<http::HeaderValue>(
-            "probably not usable since buckets are either public or private
-             (without granularity), and private buckets mean we can't use a \
-             CDN, while for public buckets presigned URLs are a security \
-             theater",
-        )
-    }
 }
 
 /// TODO: docs.
-pub struct PresignRequest<K> {
+pub struct StorageAccessRequest<'a> {
     /// The key of the object for which to generate a presigned URL.
-    pub key: K,
+    pub key: ObjectStorageKey<'a>,
     /// The HTTP method that the presigned URL should allow.
     pub method: http::Method,
-    /// The content type that the presigned URL should allow, if any.
-    pub content_type: Option<http::HeaderValue>,
-    /// The TTL for the presigned URL, if any.
-    pub ttl: Option<Duration>,
+    /// The TTL for the presigned URL.
+    pub min_ttl: Duration,
 }

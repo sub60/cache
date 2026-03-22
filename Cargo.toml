@@ -11,16 +11,19 @@ publish = false
 axum = { version = "0.8", default-features = false }
 base64 = "0.22"
 cauchy = { git = "https://github.com/nomad/cauchy.git" }
+chrono = { version = "0.4", default-features = false }
 command-fds = "0.3"
 compact_str = "0.9"
 derive_more = { version = "2", default-features = false }
 ed25519-dalek = "2"
 either = "1"
 futures = "0.3"
+js-sys = "0.3"
 memchr = "2"
 os_pipe = "1"
 rand_core = "0.10"
 serde = "1"
+s3v4 = "0.3"
 sha2 = "0.10"
 smallvec = "1"
 smol_str = "0.3"

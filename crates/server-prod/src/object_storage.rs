@@ -1,24 +1,64 @@
 use core::fmt;
 
 use axum::http;
+use cache::object_gateway::StorageAccessRequest;
 use cache::object_storage::ObjectStorageKey;
 use cache::{ObjectGateway, ObjectStorage};
-use types::NarFileName;
 use worker::send::IntoSendFuture;
 
 /// The [`ObjectStorage`] and [`ObjectGateway`] implementation backed by
 /// Cloudflare R2.
 #[derive(Debug, Clone)]
-pub struct R2ObjectStorage {
+pub(crate) struct R2ObjectStorage {
+    account_id: String,
     bucket: worker::Bucket,
+    s3_creds: R2S3Credentials,
+}
+
+/// S3-compatible credentials for generating presigned R2 URLs.
+///
+/// These are obtained by creating an R2 API token in the Cloudflare dashboard.
+/// The token must have "Object Read & Write" permission scoped to the target
+/// bucket.
+#[derive(Debug, Clone)]
+struct R2S3Credentials {
+    /// The R2 API token's Access Key ID.
+    access_key_id: String,
+    /// The R2 API token's Secret Access Key.
+    secret_access_key: String,
 }
 
 struct R2BucketKey<'a>(ObjectStorageKey<'a>);
 
 impl R2ObjectStorage {
-    /// Creates a new [`R2ObjectStorage`] backed by the given R2 bucket.
-    pub fn new(bucket: worker::Bucket) -> Self {
-        Self { bucket }
+    pub(crate) fn new(account_id: String, env: &worker::Env) -> Self {
+        Self {
+            account_id,
+            bucket: env
+                .bucket(env!("R2_BUCKET_BINDING_NAME"))
+                .expect("R2 bucket binding not found"),
+            s3_creds: R2S3Credentials::new(env),
+        }
+    }
+
+    /// Returns the host of the S3-compatible endpoint for the .
+    fn s3_endpoint_host(&self) -> impl AsRef<str> {
+        format!("{}.r2.cloudflarestorage.com", self.account_id)
+    }
+}
+
+impl R2S3Credentials {
+    fn new(env: &worker::Env) -> Self {
+        Self {
+            access_key_id: env
+                .secret("R2_ACCESS_KEY_ID")
+                .expect("R2_ACCESS_KEY_ID secret not found")
+                .to_string(),
+            secret_access_key: env
+                .secret("R2_SECRET_ACCESS_KEY")
+                .expect("R2_SECRET_ACCESS_KEY secret not found")
+                .to_string(),
+        }
     }
 }
 
@@ -76,34 +116,55 @@ impl ObjectStorage for R2ObjectStorage {
 impl ObjectGateway for R2ObjectStorage {
     type Storage = Self;
 
-    fn nar_url<const IS_FOR_PUT: bool>(
+    fn object_url(
         &self,
-        filename: &NarFileName,
+        access_request: StorageAccessRequest<'_>,
     ) -> http::Uri {
-        // R2 only supports presigned URLs on the S3-compatible endpoint, not on
-        // custom domains (see https://developers.cloudflare.com/r2/api/s3/presigned-urls/#custom-domains).
+        // R2 doesn't support unauthenticated writes, so we authenticate
+        // via a presigned URL. R2 only supports presigned URLs on the
+        // S3-compatible endpoint, not on custom domains (see
+        // https://developers.cloudflare.com/r2/api/s3/presigned-urls/#custom-domains).
         //
-        // TODO: switch to using WAF HMAC validation once it makes sense to
-        // start paying for a Cloudflare Pro plan.
-        let base = if IS_FOR_PUT {
-            "https://0218f60551cfad9349da6d43dbb1add3.r2.cloudflarestorage.com/cache"
-        } else {
-            ""
-        };
+        // TODO: switch to authenticating via WAF HMAC validation once it makes
+        // sense to start paying for a Cloudflare Pro plan.
+        if access_request.method == http::Method::PUT {
+            let base_url = format!(
+                "https://{}/{}/{}",
+                self.s3_endpoint_host().as_ref(),
+                env!("R2_BUCKET_NAME"),
+                R2BucketKey(access_request.key),
+            )
+            .parse::<url::Url>()
+            .expect("valid S3 URI");
 
-        format!("{base}/{}", R2BucketKey(ObjectStorageKey::Nar(filename)))
+            let now = chrono::DateTime::from_timestamp_millis(
+                js_sys::Date::now() as i64,
+            )
+            .expect("current time is a valid timestamp");
+
+            s3v4::pre_signed_url(
+                &self.s3_creds.access_key_id,
+                &self.s3_creds.secret_access_key,
+                access_request.min_ttl.as_secs(),
+                &base_url,
+                access_request.method.as_str(),
+                "UNSIGNED-PAYLOAD",
+                "auto",
+                &now,
+                "s3",
+            )
+            .expect("presigning should not fail")
             .parse()
-            .expect("valid URI")
+            .expect("presigned URL is a valid URI")
+        } else {
+            format!("/{}", R2BucketKey(access_request.key))
+                .parse()
+                .expect("valid relative URI")
+        }
     }
 
     fn storage(&self) -> &Self {
         self
-    }
-}
-
-impl<'a> From<ObjectStorageKey<'a>> for R2BucketKey<'a> {
-    fn from(key: ObjectStorageKey<'a>) -> Self {
-        Self(key)
     }
 }
 

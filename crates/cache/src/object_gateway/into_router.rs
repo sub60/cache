@@ -1,5 +1,4 @@
 use core::fmt;
-use core::str::FromStr;
 use std::borrow::Cow;
 
 use axum::Router;
@@ -10,6 +9,7 @@ use axum::response::IntoResponse;
 use axum::routing::{get, put};
 use types::{NarFileName, NarInfoFileName};
 
+use crate::object_gateway::StorageAccessRequest;
 use crate::object_storage::ObjectStorageKey;
 use crate::{ObjectGateway, ObjectStorage};
 
@@ -18,11 +18,6 @@ use crate::{ObjectGateway, ObjectStorage};
 pub struct IntoRouterObjectGateway<ObjStorage> {
     base_route: Cow<'static, str>,
     storage: ObjStorage,
-}
-
-enum ObjectKey {
-    Nar(NarFileName),
-    NarInfo(NarInfoFileName),
 }
 
 impl<ObjStorage> IntoRouterObjectGateway<ObjStorage> {
@@ -61,7 +56,7 @@ where
         let storage = gateway.storage.clone();
 
         let get_handler = async move |Path::<String>(key)| {
-            let object_key = match ObjectKey::from_str(&key) {
+            let object_key = match object_key_from_str(&key) {
                 Ok(key) => key,
                 Err(err) => {
                     let msg = err.to_string();
@@ -81,7 +76,7 @@ where
         };
 
         let put_handler = async move |Path::<String>(key), object: Bytes| {
-            let object_key = match ObjectKey::from_str(&key) {
+            let object_key = match object_key_from_str(&key) {
                 Ok(key) => key,
                 Err(err) => {
                     let msg = err.to_string();
@@ -114,11 +109,9 @@ impl<ObjStorage: ObjectStorage> ObjectGateway
 {
     type Storage = ObjStorage;
 
-    fn nar_url<const IS_FOR_PUT: bool>(
-        &self,
-        filename: &NarFileName,
-    ) -> http::Uri {
-        let key = ObjectKey::Nar(filename.clone());
+    fn object_url(&self, access_request: StorageAccessRequest) -> http::Uri {
+        let key = object_key_display(access_request.key);
+
         if self.base_route.is_empty() {
             format!("/{key}")
         } else {
@@ -133,43 +126,46 @@ impl<ObjStorage: ObjectStorage> ObjectGateway
     }
 }
 
-impl fmt::Display for ObjectKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Nar(nar_file_name) => write!(f, "nar-{nar_file_name}"),
-            Self::NarInfo(narinfo_file_name) => {
-                write!(f, "narinfo-{narinfo_file_name}")
-            },
-        }
+fn object_key_display(key: ObjectStorageKey) -> impl fmt::Display {
+    match key {
+        ObjectStorageKey::Nar(nar_file_name) => {
+            format!("nar-{nar_file_name}")
+        },
+        ObjectStorageKey::NarInfo(narinfo_file_name) => {
+            format!("narinfo-{narinfo_file_name}")
+        },
     }
 }
 
-impl FromStr for ObjectKey {
-    type Err = String;
+fn object_key_from_str(s: &str) -> Result<OwnedObjectStorageKey, String> {
+    let (key_kind, key) =
+        s.split_once('-').ok_or_else(|| format!("invalid key format: {s}"))?;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (key_kind, key) = s
-            .split_once('-')
-            .ok_or_else(|| format!("invalid key format: {s}"))?;
-
-        match key_kind {
-            "nar" => key
-                .parse()
-                .map(Self::Nar)
-                .map_err(|err| format!("invalid NarFileName in key: {err}")),
-            "narinfo" => key.parse().map(Self::NarInfo).map_err(|err| {
-                format!("invalid NarInfoFileName in key: {err}")
-            }),
-            _ => Err(format!("invalid key kind: {key_kind}")),
-        }
+    match key_kind {
+        "nar" => key
+            .parse()
+            .map(OwnedObjectStorageKey::Nar)
+            .map_err(|err| format!("invalid NarFileName in key: {err}")),
+        "narinfo" => key
+            .parse()
+            .map(OwnedObjectStorageKey::NarInfo)
+            .map_err(|err| format!("invalid NarInfoFileName in key: {err}")),
+        _ => Err(format!("invalid key kind: {key_kind}")),
     }
 }
 
-impl<'a> From<&'a ObjectKey> for ObjectStorageKey<'a> {
-    fn from(object_key: &'a ObjectKey) -> Self {
+enum OwnedObjectStorageKey {
+    Nar(NarFileName),
+    NarInfo(NarInfoFileName),
+}
+
+impl<'a> From<&'a OwnedObjectStorageKey> for ObjectStorageKey<'a> {
+    fn from(object_key: &'a OwnedObjectStorageKey) -> Self {
         match object_key {
-            ObjectKey::Nar(nar_file_name) => Self::Nar(nar_file_name),
-            ObjectKey::NarInfo(narinfo_file_name) => {
+            OwnedObjectStorageKey::Nar(nar_file_name) => {
+                Self::Nar(nar_file_name)
+            },
+            OwnedObjectStorageKey::NarInfo(narinfo_file_name) => {
                 Self::NarInfo(narinfo_file_name)
             },
         }

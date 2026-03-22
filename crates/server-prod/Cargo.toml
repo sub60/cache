@@ -10,9 +10,13 @@ crate-type = ["cdylib"]
 [dependencies]
 axum = { workspace = true }
 cache = { workspace = true }
+chrono = { workspace = true }
 compact_str = { workspace = true }
+js-sys = { workspace = true }
+s3v4 = { workspace = true }
 tower-service = { workspace = true }
 types = { workspace = true }
+url = { workspace = true }
 worker = { workspace = true, features = ["http"] }
 
 [lints]

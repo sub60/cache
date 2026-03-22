@@ -79,7 +79,10 @@
               ];
             })
           ];
-          env.R2_BUCKET_BINDING_NAME = r2BucketBindingName;
+          env = {
+            R2_BUCKET_NAME = r2BucketName;
+            R2_BUCKET_BINDING_NAME = r2BucketBindingName;
+          };
         };
       });
     };

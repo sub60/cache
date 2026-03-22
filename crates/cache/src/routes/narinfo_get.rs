@@ -13,18 +13,18 @@ use compact_str::{CompactString, format_compact};
 use types::{NarFileName, NarInfo, NarInfoFileName, NarInfoFromStrError};
 
 use crate::context::ObjectStorageError;
-use crate::object_gateway::ObjectGateway;
+use crate::object_gateway::{ObjectGateway, StorageAccessRequest};
 use crate::{Cdn, Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/{narinfo_file_name}";
+
+const NARINFO_CONTENT_TYPE: HeaderValue =
+    HeaderValue::from_static("text/x-nix-narinfo");
 
 #[derive(serde::Deserialize)]
 struct NarInfoGetPath {
     narinfo_file_name: NarInfoFileName,
 }
-
-const NARINFO_CONTENT_TYPE: HeaderValue =
-    HeaderValue::from_static("text/x-nix-narinfo");
 
 /// The response returned to GET requests to the NARInfo route.
 struct NarInfoGetResponse<Cdn: crate::Cdn> {
@@ -86,9 +86,11 @@ async fn handler<Ctx: Context>(
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?
         .parse::<NarInfo<EmptyString>>()?;
 
-    let nar_url = ctx
-        .object_gateway()
-        .nar_url::<false>(&NarFileName::from(&narinfo_without_url));
+    let nar_url = ctx.object_gateway().object_url(StorageAccessRequest {
+        key: (&NarFileName::from(&narinfo_without_url)).into(),
+        method: http::Method::GET,
+        min_ttl: Duration::from_hours(1),
+    });
 
     Ok(NarInfoGetResponse {
         narinfo: narinfo_without_url.with_url(nar_url),
