@@ -15,7 +15,6 @@ jobs:
           nix_version: 2.29.2
       - name: Deploy server to Cloudflare Workers
         env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CACHE_DEPLOY_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           nix run .#deploy

@@ -1,42 +1,46 @@
 {
+  stdenv,
   writeShellApplication,
   curl,
-  prod,
-  workerName,
-  workerCompatibilityDate,
-  gitShortRev,
-  r2BucketName,
-  r2BucketBindingName,
+  # --
+  self,
 }:
 
 let
+  inherit (self.lib) cloudflareAccountId cloudflareWorkerName r2BucketName;
+  inherit (self.packages.${stdenv.hostPlatform.system}) prod;
+
+  workerCompatibilityDate = "2026-03-11";
+
   metadata = builtins.toJSON {
     main_module = "index.js";
     compatibility_date = workerCompatibilityDate;
     annotations = {
-      "workers/tag" = gitShortRev;
+      "workers/tag" = self.shortRev;
     };
     bindings = [
       {
         type = "r2_bucket";
-        name = r2BucketBindingName;
+        name = prod.buildEnv.R2_BUCKET_BINDING_NAME;
         bucket_name = r2BucketName;
       }
     ];
   };
 in
-writeShellApplication {
+(writeShellApplication {
   name = "deploy";
   runtimeInputs = [ curl ];
   text = ''
-    : "''${CLOUDFLARE_API_TOKEN:?must be set}"
-    : "''${CLOUDFLARE_ACCOUNT_ID:?must be set}"
+    : "''${CACHE_DEPLOY_KEY:?must be set}"
 
     curl -sSf -X PUT \
-      "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/${workerName}" \
-      -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+      "https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/workers/scripts/${cloudflareWorkerName}" \
+      -H "Authorization: Bearer $CACHE_DEPLOY_KEY" \
       -F 'metadata=${metadata};type=application/json' \
       -F 'index.js=@${prod}/index.js;type=application/javascript+module' \
       -F 'index_bg.wasm=@${prod}/index_bg.wasm;type=application/wasm'
   '';
-}
+}).overrideAttrs
+  {
+    passthru = { inherit workerCompatibilityDate; };
+  }

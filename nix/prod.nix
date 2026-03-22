@@ -10,9 +10,10 @@
   rustPlatform,
   worker-build,
   writeShellScriptBin,
+  # --
+  self,
   craneLib,
   toolchain,
-  r2BucketBindingName,
 }:
 
 let
@@ -31,6 +32,12 @@ let
 
   cargoArtifacts = craneLib.buildDepsOnly (commonArgs // { doInstall = false; });
 
+  buildEnv = {
+    CLOUDFLARE_ACCOUNT_ID = self.lib.cloudflareAccountId;
+    R2_BUCKET_NAME = self.lib.r2BucketName;
+    R2_BUCKET_BINDING_NAME = "${lib.toUpper self.lib.r2BucketName}_BUCKET";
+  };
+
   wasm = craneLib.buildPackage (
     commonArgs
     // {
@@ -42,9 +49,7 @@ let
         cp target/wasm32-unknown-unknown/release/*.wasm $out/
         cargo metadata --format-version 1 > $out/metadata.json
       '';
-      env = commonArgs.env // {
-        R2_BUCKET_BINDING_NAME = r2BucketBindingName;
-      };
+      env = commonArgs.env // buildEnv;
     }
   );
 
@@ -130,5 +135,5 @@ stdenv.mkDerivation {
     mv ${packagePathInWorkspace}/build/index_bg.wasm $out/
   '';
 
-  passthru = { inherit packageName; };
+  passthru = { inherit buildEnv; };
 }

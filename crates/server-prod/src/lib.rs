@@ -13,6 +13,8 @@ use cdn::CloudflareCdn;
 use object_storage::R2ObjectStorage;
 use tower_service::Service;
 
+const CLOUDFLARE_ACCOUNT_ID: &str = env!("CLOUDFLARE_ACCOUNT_ID");
+
 /// The entry point for the Cloudflare Worker.
 #[worker::event(fetch)]
 async fn fetch(
@@ -20,14 +22,9 @@ async fn fetch(
     env: worker::Env,
     _ctx: worker::Context,
 ) -> Result<axum::http::Response<axum::body::Body>, Infallible> {
-    let account_id = env
-        .secret("CLOUDFLARE_ACCOUNT_ID")
-        .expect("CLOUDFLARE_ACCOUNT_ID secret not found")
-        .to_string();
-
     let context = ComposedContext::new()
         .with_cdn(CloudflareCdn)
-        .with_object_gateway(R2ObjectStorage::new(account_id, &env));
+        .with_object_gateway(R2ObjectStorage::new(&env));
 
     cache::router(context).call(req).await
 }

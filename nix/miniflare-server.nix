@@ -11,22 +11,19 @@
   cacert,
   writeShellApplication,
   writeText,
-  prod,
-  r2BucketBindingName,
-  workerCompatibilityDate,
+  # --,
+  self,
 }:
 
 let
+  inherit (self.packages.${stdenvNoCC.hostPlatform.system}) prod deploy;
+
   version = "4.20260312.0";
 
   # FOD that runs `bun install miniflare` and captures the resulting
   # node_modules tree.
   node_modules = stdenvNoCC.mkDerivation {
     name = "miniflare-${version}-node_modules";
-
-    outputHash = "sha256-OrMv6HlU2QFHXi4Qc8GOyQ9NdNTfBowlwPqRveCAsEM=";
-    outputHashAlgo = "sha256";
-    outputHashMode = "recursive";
 
     nativeBuildInputs = [
       bun
@@ -36,13 +33,17 @@ let
     dontUnpack = true;
 
     buildPhase = ''
-      bun install --no-save miniflare@${version}
+      bun install --no-save --no-progress --ignore-scripts --no-cache miniflare@${version}
     '';
 
     installPhase = ''
-      rm -rf node_modules/.cache
+      rm -rf node_modules/.cache node_modules/.bin
       mv node_modules $out
     '';
+
+    outputHash = "sha256-yRXIK+SAPdh+0H9DLrRLS6SWgBQ5p+LGUSm4r5GNc+Y=";
+    outputHashAlgo = "sha256";
+    outputHashMode = "recursive";
   };
 
   script = writeText "miniflare-server.ts" ''
@@ -65,8 +66,8 @@ let
       modulesRules: [
         { type: "CompiledWasm", include: ["**/*.wasm"], fallthrough: true },
       ],
-      compatibilityDate: "${workerCompatibilityDate}",
-      r2Buckets: ["${r2BucketBindingName}"],
+      compatibilityDate: "${deploy.workerCompatibilityDate}",
+      r2Buckets: ["${prod.buildEnv.R2_BUCKET_BINDING_NAME}"],
       port: 0,
       host: "127.0.0.1",
     });

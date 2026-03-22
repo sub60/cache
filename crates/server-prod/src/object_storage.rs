@@ -1,4 +1,5 @@
 use core::fmt;
+use std::sync::LazyLock;
 
 use axum::http;
 use cache::object_gateway::StorageAccessRequest;
@@ -6,11 +7,15 @@ use cache::object_storage::ObjectStorageKey;
 use cache::{ObjectGateway, ObjectStorage};
 use worker::send::IntoSendFuture;
 
+/// The host of the S3-compatible endpoint for the R2 cache bucket.
+static S3_ENDPOINT_HOST: LazyLock<String> = LazyLock::new(|| {
+    format!("{}.r2.cloudflarestorage.com", crate::CLOUDFLARE_ACCOUNT_ID)
+});
+
 /// The [`ObjectStorage`] and [`ObjectGateway`] implementation backed by
 /// Cloudflare R2.
 #[derive(Debug, Clone)]
 pub(crate) struct R2ObjectStorage {
-    account_id: String,
     bucket: worker::Bucket,
     s3_creds: R2S3Credentials,
 }
@@ -31,19 +36,13 @@ struct R2S3Credentials {
 struct R2BucketKey<'a>(ObjectStorageKey<'a>);
 
 impl R2ObjectStorage {
-    pub(crate) fn new(account_id: String, env: &worker::Env) -> Self {
+    pub(crate) fn new(env: &worker::Env) -> Self {
         Self {
-            account_id,
             bucket: env
                 .bucket(env!("R2_BUCKET_BINDING_NAME"))
                 .expect("R2 bucket binding not found"),
             s3_creds: R2S3Credentials::new(env),
         }
-    }
-
-    /// Returns the host of the S3-compatible endpoint for the .
-    fn s3_endpoint_host(&self) -> impl AsRef<str> {
-        format!("{}.r2.cloudflarestorage.com", self.account_id)
     }
 }
 
@@ -130,7 +129,7 @@ impl ObjectGateway for R2ObjectStorage {
         if access_request.method == http::Method::PUT {
             let base_url = format!(
                 "https://{}/{}/{}",
-                self.s3_endpoint_host().as_ref(),
+                &*S3_ENDPOINT_HOST,
                 env!("R2_BUCKET_NAME"),
                 R2BucketKey(access_request.key),
             )

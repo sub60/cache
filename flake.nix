@@ -22,68 +22,60 @@
         nixpkgs.lib.genAttrs [
           "aarch64-darwin"
           "aarch64-linux"
-          "x86_64-darwin"
           "x86_64-linux"
-        ] (system: f nixpkgs.legacyPackages.${system});
+        ] (system: f system nixpkgs.legacyPackages.${system});
 
       mkToolchain =
         pkgs: (rust-overlay.lib.mkRustBin { } pkgs).fromRustupToolchainFile ./rust-toolchain.toml;
-
-      # The name of the R2 bucket (set in the Cloudflare dashboard) that stores
-      # all NARs and NARInfo files.
-      r2BucketName = "cache";
-
-      # Internal binding name for the R2 bucket in the Worker environment.
-      r2BucketBindingName = "${nixpkgs.lib.toUpper r2BucketName}_BUCKET";
-
-      workerCompatibilityDate = "2026-03-11";
     in
     {
-      packages = forEachSystem (pkgs: rec {
-        prod = pkgs.callPackage ./nix/prod.nix rec {
-          toolchain = mkToolchain pkgs;
-          craneLib = (crane.mkLib pkgs).overrideToolchain (_: toolchain);
-          inherit r2BucketBindingName;
-        };
-        deploy = pkgs.callPackage ./nix/deploy.nix {
-          inherit
-            prod
-            r2BucketName
-            r2BucketBindingName
-            workerCompatibilityDate
-            ;
-          workerName = "cache";
-          gitShortRev = self.shortRev;
-        };
-        miniflare-server = pkgs.callPackage ./nix/miniflare-server.nix {
-          inherit prod r2BucketBindingName workerCompatibilityDate;
-        };
-      });
+      lib = {
+        cloudflareAccountId = "0218f60551cfad9349da6d43dbb1add3";
+        cloudflareWorkerName = "cache";
+        r2BucketName = "cache";
+      };
 
-      apps = forEachSystem (pkgs: {
-        deploy = {
-          type = "app";
-          program = pkgs.lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.deploy;
-        };
-      });
-
-      devShells = forEachSystem (pkgs: {
-        default = pkgs.mkShell {
-          nativeBuildInputs = [
-            ((mkToolchain pkgs).override {
-              extensions = [
-                "clippy"
-                "rust-analyzer"
-                "rust-src"
-                "rustfmt"
-              ];
-            })
-          ];
-          env = {
-            R2_BUCKET_NAME = r2BucketName;
-            R2_BUCKET_BINDING_NAME = r2BucketBindingName;
+      packages = forEachSystem (
+        _system: pkgs: {
+          prod = pkgs.callPackage ./nix/prod.nix rec {
+            inherit self;
+            toolchain = mkToolchain pkgs;
+            craneLib = (crane.mkLib pkgs).overrideToolchain (_: toolchain);
           };
-        };
-      });
+          deploy = pkgs.callPackage ./nix/deploy.nix {
+            inherit self;
+          };
+          miniflare-server = pkgs.callPackage ./nix/miniflare-server.nix {
+            inherit self;
+          };
+        }
+      );
+
+      apps = forEachSystem (
+        system: pkgs: {
+          deploy = {
+            type = "app";
+            program = pkgs.lib.getExe self.packages.${system}.deploy;
+          };
+        }
+      );
+
+      devShells = forEachSystem (
+        system: pkgs: {
+          default = pkgs.mkShell {
+            nativeBuildInputs = [
+              ((mkToolchain pkgs).override {
+                extensions = [
+                  "clippy"
+                  "rust-analyzer"
+                  "rust-src"
+                  "rustfmt"
+                ];
+              })
+            ];
+            env = self.packages.${system}.prod.buildEnv;
+          };
+        }
+      );
     };
 }
