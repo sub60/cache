@@ -31,11 +31,11 @@ in
   name = "deploy";
   runtimeInputs = [ curl ];
   text = ''
-    : "''${CACHE_DEPLOY_KEY:?must be set}"
+    : "''${CACHE_DEPLOY_TOKEN:?must be set}"
 
     curl -sSf -X PUT \
       "https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/workers/scripts/${cloudflareWorkerName}" \
-      -H "Authorization: Bearer $CACHE_DEPLOY_KEY" \
+      -H "Authorization: Bearer $CACHE_DEPLOY_TOKEN" \
       -F 'metadata=${metadata};type=application/json' \
       -F 'index.js=@${prod}/index.js;type=application/javascript+module' \
       -F 'index_bg.wasm=@${prod}/index_bg.wasm;type=application/wasm'
