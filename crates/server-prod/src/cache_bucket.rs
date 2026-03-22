@@ -181,17 +181,7 @@ impl ObjectGateway for CacheBucket {
 impl fmt::Display for CacheBucketKey<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
-            // This `nar/` prefix is coupled to a Cloudflare Cloud Connector
-            // rule that routes requests whose URI path starts with `/nar/` on
-            // `cache.sub60.dev` directly to the R2 bucket, bypassing the
-            // worker. If this prefix changes, the Cloud Connector rule must be
-            // updated to match.
             ObjectStorageKey::Nar(nar) => write!(f, "nar/{nar}"),
-
-            // Unlike NARs, NARInfos are always read and written directly
-            // through the cache worker's R2 bucket binding, so this `narinfo/`
-            // prefix is purely an internal key namespace and is never exposed
-            // publicly.
             ObjectStorageKey::NarInfo(narinfo) => {
                 write!(f, "narinfo/{narinfo}")
             },
