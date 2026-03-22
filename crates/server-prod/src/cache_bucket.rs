@@ -1,5 +1,5 @@
 use core::fmt;
-use std::sync::LazyLock;
+use std::sync::{LazyLock, OnceLock};
 
 use axum::http;
 use cache::object_gateway::StorageAccessRequest;
@@ -16,8 +16,9 @@ static S3_ENDPOINT_HOST: LazyLock<String> = LazyLock::new(|| {
 /// Cloudflare R2.
 #[derive(Debug, Clone)]
 pub(crate) struct CacheBucket {
+    env: worker::Env,
     inner: worker::Bucket,
-    s3_creds: CacheBucketS3Credentials,
+    s3_creds: OnceLock<CacheBucketS3Credentials>,
 }
 
 /// S3-compatible credentials for generating presigned R2 URLs.
@@ -35,13 +36,18 @@ struct CacheBucketS3Credentials {
 struct CacheBucketKey<'a>(ObjectStorageKey<'a>);
 
 impl CacheBucket {
-    pub(crate) fn new(env: &worker::Env) -> Self {
+    pub(crate) fn new(env: worker::Env) -> Self {
         Self {
             inner: env
                 .bucket(env!("R2_BUCKET_BINDING_NAME"))
                 .expect("R2 bucket binding not found"),
-            s3_creds: CacheBucketS3Credentials::new(env),
+            env,
+            s3_creds: OnceLock::new(),
         }
+    }
+
+    fn s3_creds(&self) -> &CacheBucketS3Credentials {
+        self.s3_creds.get_or_init(|| CacheBucketS3Credentials::new(&self.env))
     }
 }
 
@@ -140,9 +146,11 @@ impl ObjectGateway for CacheBucket {
             )
             .expect("current time is a valid timestamp");
 
+            let creds = self.s3_creds();
+
             s3v4::pre_signed_url(
-                &self.s3_creds.access_key_id,
-                &self.s3_creds.secret_access_key,
+                &creds.access_key_id,
+                &creds.secret_access_key,
                 access_request.min_ttl.as_secs(),
                 &base_url,
                 access_request.method.as_str(),

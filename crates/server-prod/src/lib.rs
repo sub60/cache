@@ -24,7 +24,7 @@ async fn fetch(
 ) -> Result<axum::http::Response<axum::body::Body>, Infallible> {
     let context = ComposedContext::new()
         .with_cdn(CloudflareCdn)
-        .with_object_gateway(CacheBucket::new(&env));
+        .with_object_gateway(CacheBucket::new(env));
 
     cache::router(context).call(req).await
 }
