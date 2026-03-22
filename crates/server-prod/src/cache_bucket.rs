@@ -133,13 +133,10 @@ impl ObjectGateway for CacheBucket {
     type Storage = Self;
 
     fn object_url(&self, access_request: StorageAccessRequest<'_>) -> url::Url {
-        // R2 doesn't support unauthenticated writes, so we authenticate
-        // via a presigned URL. R2 only supports presigned URLs on the
-        // S3-compatible endpoint, not on custom domains (see
-        // https://developers.cloudflare.com/r2/api/s3/presigned-urls/#custom-domains).
-        //
-        // TODO: switch to authenticating via WAF HMAC validation once it makes
-        // sense to start paying for a Cloudflare Pro plan.
+        // Writes go through the S3-compatible endpoint and are authenticated
+        // via a presigned URL. The S3 endpoint also bypasses Cloudflare's edge
+        // proxy, which would otherwise enforce a 100MiB body size limit
+        // (there's still a 5GiB limit on single-part uploads though).
         if access_request.method == http::Method::PUT {
             let url = S3_ENDPOINT
                 .join(&CacheBucketKey(access_request.key).to_string())
@@ -166,7 +163,10 @@ impl ObjectGateway for CacheBucket {
             .expect("presigning should not fail")
             .parse()
             .expect("presigned URL is a valid URI")
-        } else {
+        }
+        // Reads go through our public R2 domain, which is fronted by
+        // Cloudflare's edge proxy and gives us CDN caching.
+        else {
             PUBLIC_ENDPOINT
                 .join(&CacheBucketKey(access_request.key).to_string())
                 .expect("combined URL is valid")
