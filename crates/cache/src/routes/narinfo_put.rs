@@ -21,9 +21,8 @@ use types::{
     NixStoreHash,
 };
 
-use crate::cache_ctx::CacheCtx;
 use crate::context::ObjectStorageError;
-use crate::{Context, ObjectStorage};
+use crate::{CacheDb, CacheInfos, Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = crate::routes::narinfo_get::ROUTE;
 
@@ -124,14 +123,14 @@ enum NarPutUrlFromStrError {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::put(async move |path, cache_ctx, body| {
-        handler(path, cache_ctx, body, &mut ctx).await
+    routing::put(async move |Path(path), Extension(cache_infos), body| {
+        handler(path, cache_infos, body, &mut ctx).await
     })
 }
 
 async fn handler<Ctx: Context>(
-    Path(NarInfoPutPath { narinfo_file_name }): Path<NarInfoPutPath>,
-    Extension(cache_ctx): Extension<CacheCtx>,
+    NarInfoPutPath { narinfo_file_name }: NarInfoPutPath,
+    cache_infos: CacheInfos<<Ctx::CacheDb as CacheDb>::CacheId>,
     body: Bytes,
     ctx: &mut Ctx,
 ) -> Result<StatusCode, NarInfoPutRequestError<ObjectStorageError<Ctx>>> {
@@ -187,7 +186,7 @@ async fn handler<Ctx: Context>(
 
     // Sign the fingerprint with our private key and append the signature to the
     // NARInfo before storing it.
-    let cache_signature = cache_ctx
+    let cache_signature = cache_infos
         .signing_key
         .sign(stored_narinfo.fingerprint().to_string().as_bytes());
 

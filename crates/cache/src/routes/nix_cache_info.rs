@@ -10,8 +10,7 @@ use axum::routing::{self, MethodRouter};
 use smol_str::SmolStr;
 use types::NixCacheInfo;
 
-use crate::cache_ctx::CacheCtx;
-use crate::{Cdn as _, Context};
+use crate::{CacheDb, CacheInfos, Cdn as _, Context};
 
 pub(crate) const ROUTE: &str = "/nix-cache-info";
 
@@ -22,18 +21,20 @@ struct NixCacheInfoResponse<Cdn: crate::Cdn> {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::get(async move |cache_ctx| handler(cache_ctx, &mut ctx).await)
+    routing::get(async move |Extension(cache_infos)| {
+        handler(cache_infos, &mut ctx).await
+    })
 }
 
 async fn handler<Ctx: Context>(
-    Extension(cache_ctx): Extension<CacheCtx>,
+    cache_infos: CacheInfos<<Ctx::CacheDb as CacheDb>::CacheId>,
     ctx: &mut Ctx,
 ) -> NixCacheInfoResponse<Ctx::Cdn> {
     NixCacheInfoResponse {
         nix_cache_info: NixCacheInfo {
-            store_dir: cache_ctx.store_dir,
+            store_dir: cache_infos.store_dir,
             want_mass_query: ctx.want_mass_query(),
-            priority: cache_ctx.priority,
+            priority: cache_infos.priority,
         },
         cache_headers: ctx.cdn().cache_headers(Duration::from_days(365)),
     }
