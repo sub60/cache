@@ -17,7 +17,7 @@ s3v4 = { workspace = true }
 tower-service = { workspace = true }
 types = { workspace = true }
 url = { workspace = true }
-worker = { workspace = true, features = ["http"] }
+worker = { workspace = true, features = ["d1", "http"] }
 
 [lints]
 workspace = true

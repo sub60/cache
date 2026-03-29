@@ -5,12 +5,11 @@
 
 mod cache_bucket;
 mod cdn;
+mod d1_cache_database;
 
 use core::convert::Infallible;
 
 use cache::context::ComposedContext;
-use cache_bucket::CacheBucket;
-use cdn::CloudflareCdn;
 use tower_service::Service;
 
 const CLOUDFLARE_ACCOUNT_ID: &str = env!("CLOUDFLARE_ACCOUNT_ID");
@@ -23,8 +22,9 @@ async fn fetch(
     _ctx: worker::Context,
 ) -> Result<axum::http::Response<axum::body::Body>, Infallible> {
     let context = ComposedContext::new()
-        .with_cdn(CloudflareCdn)
-        .with_object_gateway(CacheBucket::new(env));
+        .with_cache_db(d1_cache_database::D1CacheDatabase::new(&env))
+        .with_cdn(cdn::CloudflareCdn)
+        .with_object_gateway(cache_bucket::CacheBucket::new(env));
 
     cache::router(context).call(req).await
 }
