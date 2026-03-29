@@ -1195,15 +1195,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "server-local"
-version = "0.0.0"
-dependencies = [
- "axum",
- "cache",
- "tokio",
-]
-
-[[package]]
 name = "server-prod"
 version = "0.0.0"
 dependencies = [
