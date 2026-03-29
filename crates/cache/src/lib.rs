@@ -12,7 +12,6 @@ pub mod object_gateway;
 pub mod object_storage;
 mod router;
 mod routes;
-mod user_ctx;
 
 pub use cdn::Cdn;
 pub use context::Context;
