@@ -5,7 +5,7 @@ use core::str::FromStr;
 use smol_str::SmolStr;
 
 /// The type representing the name of a cache.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CacheName(SmolStr);
 
 /// The type of error that can occur when parsing a string into a
