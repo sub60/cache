@@ -20,28 +20,39 @@ let
   packageName = "server-prod";
   packagePathInWorkspace = "crates/server-prod";
 
-  src = craneLib.cleanCargoSource ../.;
+  src = lib.cleanSourceWith {
+    src = ../.;
+    filter =
+      path: type:
+      (craneLib.filterCargoSources path type)
+      || (
+        type == "regular" && builtins.match ".*/crates/server-prod/\.sqlx/query-.*\.json$" path != null
+      );
+  };
 
   commonArgs = {
     inherit src;
     strictDeps = true;
     pname = packageName;
-    cargoExtraArgs = "-p ${packageName}";
+    cargoExtraArgs = "--locked -p ${packageName}";
     env.CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
   };
 
   cargoArtifacts = craneLib.buildDepsOnly (commonArgs // { doInstall = false; });
 
-  buildEnv = {
+  devShellEnv = {
     CLOUDFLARE_ACCOUNT_ID = self.lib.cloudflareAccountId;
     R2_BUCKET_NAME = self.lib.r2BucketName;
     R2_BUCKET_BINDING_NAME = "${lib.toUpper self.lib.r2BucketName}_BUCKET";
   };
 
+  buildEnv = commonArgs.env // devShellEnv;
+
   wasm = craneLib.buildPackage (
     commonArgs
     // {
       inherit cargoArtifacts;
+      env = buildEnv;
       doCheck = false;
       doInstallCargoArtifacts = false;
       installPhaseCommand = ''
@@ -49,7 +60,6 @@ let
         cp target/wasm32-unknown-unknown/release/*.wasm $out/
         cargo metadata --format-version 1 > $out/metadata.json
       '';
-      env = commonArgs.env // buildEnv;
     }
   );
 
@@ -135,5 +145,13 @@ stdenv.mkDerivation {
     mv ${packagePathInWorkspace}/build/index_bg.wasm $out/
   '';
 
-  passthru = { inherit buildEnv; };
+  passthru = {
+    inherit
+      src
+      buildEnv
+      cargoArtifacts
+      devShellEnv
+      packageName
+      ;
+  };
 }

@@ -1,5 +1,6 @@
 {
   inputs = {
+    cache-db.url = "git+ssh://git@github.com/sub60/cache-db.git";
     crane.url = "github:ipetkov/crane";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay = {
@@ -11,8 +12,9 @@
   outputs =
     {
       self,
-      nixpkgs,
+      cache-db,
       crane,
+      nixpkgs,
       rust-overlay,
       ...
     }:
@@ -36,17 +38,24 @@
       };
 
       packages = forEachSystem (
-        _system: pkgs: {
-          prod = pkgs.callPackage ./nix/prod.nix rec {
-            inherit self;
-            toolchain = mkToolchain pkgs;
-            craneLib = (crane.mkLib pkgs).overrideToolchain (_: toolchain);
+        system: pkgs:
+        let
+          toolchain = mkToolchain pkgs;
+          craneLib = (crane.mkLib pkgs).overrideToolchain (_: toolchain);
+        in
+        {
+          prod = pkgs.callPackage ./nix/prod.nix {
+            inherit self craneLib toolchain;
           };
           deploy = pkgs.callPackage ./nix/deploy.nix {
             inherit self;
           };
           miniflare-server = pkgs.callPackage ./nix/miniflare-server.nix {
             inherit self;
+          };
+          prod-sqlx = pkgs.callPackage ./nix/prod-sqlx.nix {
+            inherit cache-db craneLib;
+            prod = self.packages.${system}.prod;
           };
         }
       );
@@ -74,7 +83,7 @@
               })
               pkgs.wrangler
             ];
-            env = self.packages.${system}.prod.buildEnv;
+            env = self.packages.${system}.prod.devShellEnv;
           };
         }
       );

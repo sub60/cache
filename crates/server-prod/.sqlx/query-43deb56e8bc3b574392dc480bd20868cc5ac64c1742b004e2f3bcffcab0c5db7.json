@@ -1,0 +1,1 @@
+{"columns":[{"ordinal":0,"name":"id!: i64","type_info":"INTEGER"},{"ordinal":1,"name":"priority!: i64","type_info":"INTEGER"},{"ordinal":2,"name":"signing_key!: String","type_info":"TEXT"},{"ordinal":3,"name":"store_dir!: String","type_info":"TEXT"}],"parameters":{"Right":2},"nullable":[true,false,false,false]}
