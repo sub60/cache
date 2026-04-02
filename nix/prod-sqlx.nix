@@ -7,6 +7,9 @@
   prod,
 }:
 
+let
+  sqlxDir = "crates/server-prod/.sqlx";
+in
 craneLib.mkCargoDerivation {
   inherit (prod) src cargoArtifacts;
 
@@ -18,8 +21,8 @@ craneLib.mkCargoDerivation {
   ];
 
   env = prod.buildEnv // {
+    inherit sqlxDir;
     miniflareDir = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
-    sqlxDir = "crates/server-prod/.sqlx";
   };
 
   doCheck = false;
@@ -27,14 +30,18 @@ craneLib.mkCargoDerivation {
   strictDeps = true;
 
   buildPhaseCargoCommand = ''
-    mkdir -p $miniflareDir
-    rm -f $sqlxDir/*
-    print-schema | sqlite3 $miniflareDir/cache.sqlite
+    mkdir -p "$miniflareDir" "$sqlxDir"
+    rm -f "$sqlxDir"/*.json
+    print-schema | sqlite3 "$miniflareDir/cache.sqlite"
     cargo check --locked -p ${prod.packageName}
   '';
 
   installPhaseCommand = ''
     mkdir -p $out
-    cp -R $sqlxDir/. $out/
+    cp -R "$sqlxDir"/. $out/
   '';
+
+  passthru = {
+    inherit sqlxDir;
+  };
 }

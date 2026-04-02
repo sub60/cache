@@ -44,18 +44,21 @@
           craneLib = (crane.mkLib pkgs).overrideToolchain (_: toolchain);
         in
         {
-          prod = pkgs.callPackage ./nix/prod.nix {
-            inherit self craneLib toolchain;
-          };
           deploy = pkgs.callPackage ./nix/deploy.nix {
             inherit self;
           };
           miniflare-server = pkgs.callPackage ./nix/miniflare-server.nix {
             inherit self;
           };
+          prod = pkgs.callPackage ./nix/prod.nix {
+            inherit self craneLib toolchain;
+          };
           prod-sqlx = pkgs.callPackage ./nix/prod-sqlx.nix {
             inherit cache-db craneLib;
             prod = self.packages.${system}.prod;
+          };
+          update-sqlx = pkgs.callPackage ./nix/update-sqlx.nix {
+            prod-sqlx = self.packages.${system}.prod-sqlx;
           };
         }
       );
@@ -65,6 +68,10 @@
           deploy = {
             type = "app";
             program = pkgs.lib.getExe self.packages.${system}.deploy;
+          };
+          update-sqlx = {
+            type = "app";
+            program = pkgs.lib.getExe self.packages.${system}.update-sqlx;
           };
         }
       );
