@@ -64,14 +64,14 @@
       );
 
       apps = forEachSystem (
-        system: pkgs: {
+        system: _pkgs: {
           deploy = {
             type = "app";
-            program = pkgs.lib.getExe self.packages.${system}.deploy;
+            program = nixpkgs.lib.getExe self.packages.${system}.deploy;
           };
           update-sqlx = {
             type = "app";
-            program = pkgs.lib.getExe self.packages.${system}.update-sqlx;
+            program = nixpkgs.lib.getExe self.packages.${system}.update-sqlx;
           };
         }
       );
