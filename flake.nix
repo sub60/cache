@@ -76,7 +76,7 @@
         in
         {
           deploy = pkgs.callPackage ./nix/deploy.nix {
-            inherit self;
+            inherit self cache-db;
           };
           miniflare-server = pkgs.callPackage ./nix/miniflare-server.nix {
             inherit self;

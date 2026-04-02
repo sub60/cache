@@ -4,6 +4,7 @@
   curl,
   # --
   self,
+  cache-db,
 }:
 
 let
@@ -29,6 +30,11 @@ let
         type = "r2_bucket";
         name = prod.buildEnv.R2_BUCKET_BINDING_NAME;
         bucket_name = r2BucketName;
+      }
+      {
+        type = "d1";
+        name = cache-db.lib.cloudflareD1DatabaseBindingName;
+        id = cache-db.lib.cloudflareD1DatabaseUuid;
       }
     ];
   };
