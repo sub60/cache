@@ -27,7 +27,8 @@ let
       path: type:
       (craneLib.filterCargoSources path type)
       || (
-        type == "regular" && builtins.match ".*/crates/server-prod/\.sqlx/query-.*\.json$" path != null
+        type == "regular"
+        && builtins.match ".*/crates/server-prod/\.sqlx/query-.*\.json$" path != null
       );
   };
 
@@ -103,7 +104,9 @@ let
     let
       cargoLock = builtins.fromTOML (builtins.readFile ../Cargo.lock);
       wasmBindgenVersion =
-        (builtins.head (builtins.filter (p: p.name == "wasm-bindgen") cargoLock.package)).version;
+        (builtins.head (
+          builtins.filter (p: p.name == "wasm-bindgen") cargoLock.package
+        )).version;
     in
     buildWasmBindgenCli rec {
       src = fetchCrate {
