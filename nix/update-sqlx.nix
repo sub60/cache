@@ -21,6 +21,7 @@ writeShellApplication {
 
     for file in "${prod-sqlx}"/query-*.json; do
       cp "$file" "$sqlx_dir"/
+      chmod 0644 "$sqlx_dir"/"$(basename "$file")"
     done
   '';
 }

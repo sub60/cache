@@ -20,7 +20,7 @@ impl D1CacheDatabase {
     pub(crate) fn new(env: &worker::Env) -> Self {
         Self {
             inner: sqlx_d1::D1Connection::new(
-                env.d1(option_env!("D1_DB_BINDING_NAME").unwrap_or("CACHE_DB"))
+                env.d1(env!("D1_DB_BINDING_NAME"))
                     .expect("D1 database binding not found"),
             ),
         }

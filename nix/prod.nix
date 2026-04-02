@@ -12,6 +12,7 @@
   writeShellScriptBin,
   # --
   self,
+  cache-db,
   craneLib,
   toolchain,
 }:
@@ -42,6 +43,7 @@ let
 
   devShellEnv = {
     CLOUDFLARE_ACCOUNT_ID = self.lib.cloudflareAccountId;
+    D1_DB_BINDING_NAME = cache-db.lib.cloudflareD1DatabaseBindingName;
     R2_BUCKET_NAME = self.lib.r2BucketName;
     R2_BUCKET_BINDING_NAME = "${lib.toUpper self.lib.r2BucketName}_BUCKET";
   };

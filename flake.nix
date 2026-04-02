@@ -51,7 +51,12 @@
             inherit self;
           };
           prod = pkgs.callPackage ./nix/prod.nix {
-            inherit self craneLib toolchain;
+            inherit
+              self
+              cache-db
+              craneLib
+              toolchain
+              ;
           };
           prod-sqlx = pkgs.callPackage ./nix/prod-sqlx.nix {
             inherit cache-db craneLib;
