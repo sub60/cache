@@ -14,6 +14,7 @@ chrono = { workspace = true }
 compact_str = { workspace = true }
 js-sys = { workspace = true }
 s3v4 = { workspace = true }
+sqlx-d1 = { workspace = true }
 tower-service = { workspace = true }
 types = { workspace = true }
 url = { workspace = true }

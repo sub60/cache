@@ -27,6 +27,7 @@ s3v4 = "0.3"
 sha2 = "0.10"
 smallvec = "1"
 smol_str = "0.3"
+sqlx-d1 = { version = "0.3", features = ["macros"] }
 tempfile = "3"
 tokio = { version = "1", default-features = false }
 tower-layer = "0.3"
