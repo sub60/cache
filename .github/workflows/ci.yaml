@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  sqlx:
+    name: Check committed SQLx queries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v34
+        with:
+          nix_version: 2.29.2
+      - name: Verify committed .sqlx matches prod-sqlx
+        run: |
+          nix build .#prod-sqlx
+          diff -ru ./result ./crates/server-prod/.sqlx
