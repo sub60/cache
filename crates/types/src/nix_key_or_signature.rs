@@ -175,3 +175,28 @@ impl FromStr for NixKeyOrSignatureName {
         Ok(Self(SmolStr::new(s)))
     }
 }
+
+impl PartialEq<str> for NixKeyOrSignatureName {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+
+impl PartialEq<&str> for NixKeyOrSignatureName {
+    fn eq(&self, other: &&str) -> bool {
+        self == *other
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::CacheSigningKey;
+
+    #[test]
+    fn cache_signing_key_from_str() {
+        let key = "cache.sub60.dev/noib3/dotfiles-1:\
+                   +SYP16zDBSBu7o+W+pdjSURr6KKFql0y2UXnYOPsqpk=";
+        let parsed = key.parse::<CacheSigningKey>().unwrap();
+        assert_eq!(parsed.name, "cache.sub60.dev/noib3/dotfiles-1");
+    }
+}
