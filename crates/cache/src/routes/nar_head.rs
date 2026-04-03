@@ -5,9 +5,10 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
-use super::nar_put::NarPutPath;
-pub(crate) use super::nar_put::ROUTE;
+use crate::routes::nar_put::NarPutPath;
 use crate::{Context, ObjectStorage};
+
+pub(crate) const ROUTE: &str = crate::routes::nar_put::ROUTE;
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
     routing::head(async move |path| handler(path, &mut ctx).await)
