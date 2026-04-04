@@ -56,6 +56,27 @@
         "type": "github"
       }
     },
+    "flake-parts_2": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "wrangler",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1772408722,
+        "narHash": "sha256-rHuJtdcOjK7rAHpHphUb1iCvgkU3GpfvicLMwwnfMT0=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "f20dc5d9b8027381c474144ecabc9034d6a839a3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1774386573,
@@ -104,13 +125,30 @@
         "type": "github"
       }
     },
+    "nixpkgs_4": {
+      "locked": {
+        "lastModified": 1774855581,
+        "narHash": "sha256-YkreHeMgTCYvJ5fESV0YyqQK49bHGe2B51tH6claUh4=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "15c6719d8c604779cf59e03c245ea61d3d7ab69b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "cache-db": "cache-db",
         "crane": "crane",
         "nixpkgs": "nixpkgs_3",
         "rust-overlay": "rust-overlay",
-        "treefmt-nix": "treefmt-nix"
+        "treefmt-nix": "treefmt-nix",
+        "wrangler": "wrangler_2"
       }
     },
     "rust-overlay": {
@@ -164,6 +202,25 @@
         "owner": "emrldnix",
         "repo": "wrangler",
         "rev": "146b0356b81146ab1ddc9da16405e16212ff239c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "emrldnix",
+        "repo": "wrangler",
+        "type": "github"
+      }
+    },
+    "wrangler_2": {
+      "inputs": {
+        "flake-parts": "flake-parts_2",
+        "nixpkgs": "nixpkgs_4"
+      },
+      "locked": {
+        "lastModified": 1775208891,
+        "narHash": "sha256-bLYGl+/DOmSarxbsrD5cfnLfOSnBbFMyzuWDr5+LFKE=",
+        "owner": "emrldnix",
+        "repo": "wrangler",
+        "rev": "64aff44c3ab0e261ee61f494afd609954d4876eb",
         "type": "github"
       },
       "original": {

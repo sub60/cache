@@ -11,6 +11,7 @@
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    wrangler.url = "github:emrldnix/wrangler";
   };
 
   outputs =
@@ -21,6 +22,7 @@
       nixpkgs,
       rust-overlay,
       treefmt-nix,
+      wrangler,
       ...
     }:
     let
@@ -138,7 +140,7 @@
                   "rustfmt"
                 ];
               })
-              pkgs.wrangler
+              wrangler.packages.${system}.default
             ];
             env = self.packages.${system}.prod.devShellEnv;
           };
@@ -155,4 +157,13 @@
         }
       );
     };
+
+  nixConfig = {
+    extra-substituters = [
+      "https://wrangler.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "wrangler.cachix.org-1:N/FIcG2qBQcolSpklb2IMDbsfjZKWg+ctxx0mSMXdSs="
+    ];
+  };
 }
