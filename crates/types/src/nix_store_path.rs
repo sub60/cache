@@ -36,6 +36,13 @@ pub enum NixStorePathFromStrError<StoreDir> {
 }
 
 impl NixStorePath {
+    /// Creates a new [`NixStorePath`] with the given hash and name.
+    pub fn new(basename: NixStoreBaseName) -> Self {
+        Self { store_dir: NixStoreLiteral, basename }
+    }
+}
+
+impl<StoreDir> NixStorePath<StoreDir> {
     /// Returns the basename of this [`NixStorePath`].
     pub fn basename(&self) -> &NixStoreBaseName {
         &self.basename
@@ -51,13 +58,6 @@ impl NixStorePath {
         self.basename.hash
     }
 
-    /// Creates a new [`NixStorePath`] with the given hash and name.
-    pub fn new(basename: NixStoreBaseName) -> Self {
-        Self { store_dir: NixStoreLiteral, basename }
-    }
-}
-
-impl<StoreDir> NixStorePath<StoreDir> {
     /// Returns the store directory component of this [`NixStorePath`].
     pub fn store_dir(&self) -> &StoreDir {
         &self.store_dir
