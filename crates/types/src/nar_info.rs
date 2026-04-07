@@ -59,9 +59,16 @@ pub struct NarInfo<NarUrl, StoreDir = NixStoreLiteral> {
 /// The type of error that can occur when parsing a string into a
 /// [`NarInfo`].
 #[derive(
-    Debug, cauchy::PartialEq, cauchy::Eq, derive_more::Display, cauchy::Error,
+    cauchy::Debug,
+    cauchy::PartialEq,
+    cauchy::Eq,
+    derive_more::Display,
+    cauchy::Error,
 )]
-pub enum NarInfoFromStrError<NarUrlFromStrError> {
+pub enum NarInfoFromStrError<
+    NarUrlFromStrError,
+    StoreDir: FromStr = NixStoreLiteral,
+> {
     /// The given field was declared more than once in the input string.
     #[display("duplicate field: {_0}")]
     DuplicateField(SmolStr),
@@ -89,7 +96,7 @@ pub enum NarInfoFromStrError<NarUrlFromStrError> {
 
     /// The `StorePath` field did not parse successfully.
     #[display("invalid '{STORE_PATH_FIELD_NAME}': {_0}")]
-    StorePath(<NixStorePath as FromStr>::Err),
+    StorePath(<NixStorePath<StoreDir> as FromStr>::Err),
 
     /// The `URL` field did not parse successfully.
     #[display("invalid '{URL_FIELD_NAME}': {_0}")]
@@ -160,7 +167,9 @@ impl<NarUrl, StoreDir> NarInfo<NarUrl, StoreDir> {
     }
 }
 
-impl<NarUrl: fmt::Display> fmt::Display for NarInfo<NarUrl> {
+impl<NarUrl: fmt::Display, StoreDir: fmt::Display> fmt::Display
+    for NarInfo<NarUrl, StoreDir>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "{STORE_PATH_FIELD_NAME}: {}", self.store_path)?;
         writeln!(f, "{URL_FIELD_NAME}: {}", self.url)?;
@@ -196,11 +205,12 @@ impl<NarUrl: fmt::Display> fmt::Display for NarInfo<NarUrl> {
     }
 }
 
-impl<NarUrl> FromStr for NarInfo<NarUrl>
+impl<NarUrl, StoreDir> FromStr for NarInfo<NarUrl, StoreDir>
 where
     NarUrl: FromStr,
+    StoreDir: FromStr,
 {
-    type Err = NarInfoFromStrError<NarUrl::Err>;
+    type Err = NarInfoFromStrError<NarUrl::Err, StoreDir>;
 
     #[expect(clippy::too_many_lines)]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
