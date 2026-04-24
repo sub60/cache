@@ -9,7 +9,7 @@ use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
-use types::{
+use nix_types::{
     CompressionAlgorithm,
     NarFileName,
     NarFileNameFromStrError,

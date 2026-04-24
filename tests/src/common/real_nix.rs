@@ -8,7 +8,7 @@ use std::{env, fs, process};
 
 use axum::body::Bytes;
 use either::Either;
-use types::{NarInfo, NixStoreName, NixStorePath};
+use nix_types::{NarInfo, NixStoreName, NixStorePath};
 
 use crate::common::{CopyOptions, NixClient, NixStore};
 

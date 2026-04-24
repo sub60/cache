@@ -1,7 +1,7 @@
 use core::fmt;
 
 use axum::http;
-use types::{CacheName, UserName};
+use nix_types::{CacheName, UserName};
 
 use crate::CacheInfos;
 

@@ -10,7 +10,7 @@ use axum::http::{self, HeaderValue, StatusCode, header};
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 use compact_str::{CompactString, format_compact};
-use types::{NarFileName, NarInfo, NarInfoFileName, NarInfoFromStrError};
+use nix_types::{NarFileName, NarInfo, NarInfoFileName, NarInfoFromStrError};
 
 use crate::context::ObjectStorageError;
 use crate::object_gateway::{ObjectGateway, StorageAccessRequest};

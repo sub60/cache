@@ -8,7 +8,7 @@ use axum::http::{HeaderValue, header};
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 use smol_str::SmolStr;
-use types::NixCacheInfo;
+use nix_types::NixCacheInfo;
 
 use crate::{CacheDb, CacheInfos, Cdn as _, Context};
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
-use types::{NarFileName, NarInfoFileName};
+use nix_types::{NarFileName, NarInfoFileName};
 
 use crate::ObjectStorage;
 use crate::object_storage::ObjectStorageKey;

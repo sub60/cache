@@ -20,23 +20,23 @@ either = "1"
 futures = "0.3"
 js-sys = "0.3"
 memchr = "2"
+nix-types = { git = "ssh://git@github.com/sub60/nix-types.git" }
 os_pipe = "1"
 rand_core = "0.10"
 serde = "1"
 s3v4 = "0.3"
-sha2 = "0.10"
+sha2 = "0.11"
 smallvec = "1"
 smol_str = "0.3"
-sqlx-d1 = { version = "0.3", features = ["macros"] }
+sqlx-d1 = { version = "0.4", features = ["macros"] }
 tempfile = "3"
 tokio = { version = "1", default-features = false }
 tower-layer = "0.3"
 tower-service = "0.3"
 url = "2"
-worker = { version = "0.7", default-features = false }
+worker = { version = "0.8", default-features = false }
 
 cache = { path = "./crates/cache" }
-types = { path = "./crates/types" }
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"

@@ -1,5 +1,5 @@
 use axum::body::Bytes;
-use types::{NarInfo, NixStorePath};
+use nix_types::{NarInfo, NixStorePath};
 
 /// TODO: docs.
 pub trait NixStore: Sized {

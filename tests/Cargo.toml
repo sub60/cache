@@ -14,12 +14,12 @@ cauchy = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 either = { workspace = true }
 futures = { workspace = true }
+nix-types = { git = "ssh://git@github.com/sub60/nix-types.git" }
 serde = { workspace = true, features = ["derive"] }
 sha2 = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "process", "rt"] }
 tower-service = { workspace = true }
-types = { workspace = true }
 url = { workspace = true }
 
 [lints]

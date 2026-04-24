@@ -2,7 +2,7 @@ use core::net::Ipv4Addr;
 
 use cache::{Context, ObjectStorage};
 use tokio::net::TcpListener;
-use types::{NarFileName, NarInfoFileName};
+use nix_types::{NarFileName, NarInfoFileName};
 
 use crate::common::{
     MockNixClient,

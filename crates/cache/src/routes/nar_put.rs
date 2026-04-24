@@ -8,7 +8,7 @@ use axum::extract::Path;
 use axum::http::{self, StatusCode, header};
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
-use types::NarFileName;
+use nix_types::NarFileName;
 
 use crate::context::ObjectStorageError;
 use crate::object_gateway::{ObjectGateway, StorageAccessRequest};

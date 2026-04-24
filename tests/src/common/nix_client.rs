@@ -2,7 +2,7 @@ use core::error::Error;
 use core::fmt;
 use core::pin::Pin;
 
-use types::{CacheName, NixStorePath, UserName};
+use nix_types::{CacheName, NixStorePath, UserName};
 
 use crate::common::NixStore;
 

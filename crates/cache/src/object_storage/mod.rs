@@ -5,7 +5,7 @@ mod in_memory;
 use core::error::Error;
 
 pub use in_memory::InMemoryObjectStorage;
-use types::{NarFileName, NarInfoFileName};
+use nix_types::{NarFileName, NarInfoFileName};
 
 /// TODO: docs.
 pub trait ObjectStorage: Sync {

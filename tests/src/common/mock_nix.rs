@@ -8,7 +8,7 @@ use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use sha2::{Digest, Sha256};
 use tower_service::Service;
-use types::{
+use nix_types::{
     CompressionAlgorithm,
     NarFileName,
     NarInfo,
