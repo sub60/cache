@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::http;
 use cache::{CacheDb, CacheInfos};
-use nix_types::{CacheName, UserName};
+use nix_types::sub60::{CacheName, UserName};
 
 type CacheId = (UserName, CacheName);
 

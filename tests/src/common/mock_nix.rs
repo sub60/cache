@@ -6,18 +6,18 @@ use axum::body::{Body, Bytes};
 use axum::http::{self, Request, StatusCode, header};
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
-use sha2::{Digest, Sha256};
-use tower_service::Service;
 use nix_types::{
     CompressionAlgorithm,
     NarFileName,
     NarInfo,
     Nix32Digest,
-    NixStoreBaseName,
-    NixStoreHash,
-    NixStoreName,
-    NixStorePath,
+    StoreBaseName,
+    StoreHash,
+    StoreName,
+    StorePath,
 };
+use sha2::{Digest, Sha256};
+use tower_service::Service;
 
 use crate::common::{CopyDirection, CopyOptions, NixClient, NixStore};
 
@@ -31,7 +31,7 @@ pub struct MockNixClient {
 #[derive(Default)]
 pub struct MockNixStore {
     /// Maps store path basenames to their file contents.
-    files: Mutex<HashMap<NixStoreBaseName, Bytes>>,
+    files: Mutex<HashMap<StoreBaseName, Bytes>>,
 }
 
 #[derive(Debug, derive_more::Display, cauchy::Error)]
@@ -41,7 +41,7 @@ pub enum CopyError {
     #[display("GET NARInfo failed with code {_0}")]
     GetNarInfoFailed(http::StatusCode),
     #[display("no file at {_0}")]
-    MissingStorePath(NixStorePath),
+    MissingStorePath(StorePath),
     #[display("PUT to NAR endpoint failed with code {_0}")]
     PutNarFailed(http::StatusCode),
     #[display("PUT to NARInfo endpoint failed with code {_0}")]
@@ -52,7 +52,7 @@ pub enum CopyError {
 
 impl MockNixStore {
     /// Returns the file contents of a previously added store path.
-    fn get_file(&self, store_path: &NixStorePath) -> Option<Bytes> {
+    fn get_file(&self, store_path: &StorePath) -> Option<Bytes> {
         #[expect(clippy::unwrap_used)]
         self.files.lock().unwrap().get(store_path.basename()).cloned()
     }
@@ -69,7 +69,7 @@ impl NixClient for MockNixClient {
 
     async fn copy_impl(
         &self,
-        store_paths: Vec<NixStorePath>,
+        store_paths: Vec<StorePath>,
         options: CopyOptions<true, Self>,
     ) -> Result<(), CopyError> {
         let direction = options.direction;
@@ -115,19 +115,19 @@ impl NixStore for MockNixStore {
         &self,
         store_name: &str,
         file_contents: &[u8],
-    ) -> NixStorePath {
+    ) -> StorePath {
         let store_name =
-            store_name.parse::<NixStoreName>().expect("invalid store name");
+            store_name.parse::<StoreName>().expect("invalid store name");
 
         let store_hash = {
             let sha = Sha256::digest(file_contents);
-            NixStoreHash::new(
+            StoreHash::new(
                 sha.as_slice()[..20].try_into().expect("correct length"),
             )
         };
 
         let store_basename =
-            NixStoreBaseName { hash: store_hash, name: store_name };
+            StoreBaseName { hash: store_hash, name: store_name };
 
         #[expect(clippy::unwrap_used)]
         self.files
@@ -135,17 +135,17 @@ impl NixStore for MockNixStore {
             .unwrap()
             .insert(store_basename.clone(), file_contents.to_vec().into());
 
-        NixStorePath::new(store_basename)
+        StorePath::new(store_basename)
     }
 
-    async fn delete(&self, store_path: &NixStorePath) {
+    async fn delete(&self, store_path: &StorePath) {
         #[expect(clippy::unwrap_used)]
         self.files.lock().unwrap().remove(store_path.basename());
     }
 
     async fn nar_info_and_bytes(
         &self,
-        store_path: &NixStorePath,
+        store_path: &StorePath,
     ) -> (NarInfo<String>, Bytes) {
         let nar_bytes = self.get_file(store_path).unwrap_or_else(|| {
             panic!("store path {store_path} not found in mock store")
@@ -157,7 +157,7 @@ impl NixStore for MockNixStore {
         (narinfo, nar_bytes)
     }
 
-    async fn contains(&self, store_path: &NixStorePath) -> bool {
+    async fn contains(&self, store_path: &StorePath) -> bool {
         self.get_file(store_path).is_some()
     }
 }
@@ -166,7 +166,7 @@ impl NixStore for MockNixStore {
 /// store path to an HTTP binary cache.
 async fn copy_store_path_to(
     store: &MockNixStore,
-    store_path: NixStorePath,
+    store_path: StorePath,
     app: &mut axum::Router,
     base: &str,
 ) -> Result<(), CopyError> {
@@ -225,7 +225,7 @@ async fn copy_store_path_to(
 /// single store path from an HTTP binary cache.
 async fn copy_store_path_from(
     store: &MockNixStore,
-    store_path: NixStorePath,
+    store_path: StorePath,
     app: &mut axum::Router,
     base: &str,
 ) -> Result<(), CopyError> {
@@ -282,7 +282,7 @@ async fn copy_store_path_from(
 }
 
 /// Builds a [`NarInfo`] from a store path and its NAR bytes.
-fn mock_narinfo(store_path: NixStorePath, nar_bytes: &[u8]) -> NarInfo<()> {
+fn mock_narinfo(store_path: StorePath, nar_bytes: &[u8]) -> NarInfo<()> {
     let nar_hash_bytes = Sha256::digest(nar_bytes);
 
     let nar_hash = Nix32Digest::<32>::new(

@@ -1,5 +1,5 @@
 use axum::body::Bytes;
-use nix_types::{NarInfo, NixStorePath};
+use nix_types::{NarInfo, StorePath};
 
 /// TODO: docs.
 pub trait NixStore: Sized {
@@ -7,9 +7,9 @@ pub trait NixStore: Sized {
         &self,
         file_name: &str,
         file_contents: &[u8],
-    ) -> impl Future<Output = NixStorePath>;
+    ) -> impl Future<Output = StorePath>;
 
-    fn delete(&self, store_path: &NixStorePath) -> impl Future<Output = ()>;
+    fn delete(&self, store_path: &StorePath) -> impl Future<Output = ()>;
 
     /// Returns the [`NarInfo`] and the (possibly compressed) NAR bytes for
     /// the given store path.
@@ -18,10 +18,9 @@ pub trait NixStore: Sized {
     /// used when storing NarInfos in object storage.
     fn nar_info_and_bytes(
         &self,
-        store_path: &NixStorePath,
+        store_path: &StorePath,
     ) -> impl Future<Output = (NarInfo<String>, Bytes)>;
 
     /// Returns whether the given store path exists in this store.
-    fn contains(&self, store_path: &NixStorePath)
-    -> impl Future<Output = bool>;
+    fn contains(&self, store_path: &StorePath) -> impl Future<Output = bool>;
 }

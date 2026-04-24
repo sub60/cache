@@ -2,7 +2,7 @@ use axum::extract::{Path, Request};
 use axum::http::StatusCode;
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use nix_types::{CacheName, UserName};
+use nix_types::sub60::{CacheName, UserName};
 
 use crate::layers::RouteLayer;
 use crate::{CacheDb, Context};

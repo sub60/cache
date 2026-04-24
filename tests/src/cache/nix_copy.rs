@@ -1,8 +1,8 @@
 use core::net::Ipv4Addr;
 
 use cache::{Context, ObjectStorage};
-use tokio::net::TcpListener;
 use nix_types::{NarFileName, NarInfoFileName};
+use tokio::net::TcpListener;
 
 use crate::common::{
     MockNixClient,

@@ -8,6 +8,9 @@ edition = "2024"
 publish = false
 
 [workspace.dependencies]
+nix-types = { git = "ssh://git@github.com/sub60/nix-types.git", features = [
+  "sub60",
+] }
 axum = { version = "0.8", default-features = false }
 base64 = "0.22"
 cauchy = { git = "https://github.com/nomad/cauchy.git" }
@@ -20,7 +23,6 @@ either = "1"
 futures = "0.3"
 js-sys = "0.3"
 memchr = "2"
-nix-types = { git = "ssh://git@github.com/sub60/nix-types.git" }
 os_pipe = "1"
 rand_core = "0.10"
 serde = "1"

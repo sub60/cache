@@ -2,7 +2,8 @@ use core::error::Error;
 use core::fmt;
 use core::pin::Pin;
 
-use nix_types::{CacheName, NixStorePath, UserName};
+use nix_types::StorePath;
+use nix_types::sub60::{CacheName, UserName};
 
 use crate::common::NixStore;
 
@@ -20,7 +21,7 @@ pub trait NixClient: Sized {
     /// TODO: docs.
     fn copy_impl(
         &self,
-        store_paths: Vec<NixStorePath>,
+        store_paths: Vec<StorePath>,
         options: CopyOptions<true, Self>,
     ) -> impl Future<Output = Result<(), Self::CopyError>>;
 
@@ -29,7 +30,7 @@ pub trait NixClient: Sized {
     /// TODO: docs.
     fn copy(
         &self,
-        store_paths: impl IntoIterator<Item = impl Into<NixStorePath>>,
+        store_paths: impl IntoIterator<Item = impl Into<StorePath>>,
     ) -> CopyFutureBuilder<'_, false, Self> {
         CopyFutureBuilder {
             client: self,
@@ -62,7 +63,7 @@ pub struct CopyFutureBuilder<
     Client: NixClient,
 > {
     client: &'client Client,
-    store_paths: Vec<NixStorePath>,
+    store_paths: Vec<StorePath>,
     opts: CopyOptions<HAS_CACHE_URI, Client>,
 }
 

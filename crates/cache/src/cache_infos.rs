@@ -1,5 +1,5 @@
-use smol_str::SmolStr;
 use nix_types::CacheSigningKey;
+use smol_str::SmolStr;
 
 /// TODO: docs.
 #[derive(Clone)]

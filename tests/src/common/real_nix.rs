@@ -8,7 +8,7 @@ use std::{env, fs, process};
 
 use axum::body::Bytes;
 use either::Either;
-use nix_types::{NarInfo, NixStoreName, NixStorePath};
+use nix_types::{NarInfo, StoreName, StorePath};
 
 use crate::common::{CopyOptions, NixClient, NixStore};
 
@@ -73,7 +73,7 @@ impl NixClient for RealNixClient {
 
     async fn copy_impl(
         &self,
-        paths: Vec<NixStorePath>,
+        paths: Vec<StorePath>,
         options: CopyOptions<true, Self>,
     ) -> Result<(), Self::CopyError> {
         self.run(
@@ -92,8 +92,8 @@ impl NixStore for RealNixStore {
         &self,
         store_name: &str,
         file_contents: &[u8],
-    ) -> NixStorePath {
-        if let Err(err) = store_name.parse::<NixStoreName>() {
+    ) -> StorePath {
+        if let Err(err) = store_name.parse::<StoreName>() {
             panic!("invalid store name {store_name:?}: {err}");
         }
 
@@ -119,14 +119,14 @@ impl NixStore for RealNixStore {
             .expect("`nix store add-file` prints a Nix store path")
     }
 
-    async fn delete(&self, store_path: &NixStorePath) {
+    async fn delete(&self, store_path: &StorePath) {
         let path_str = store_path.to_string();
         self.run(["store", "delete", "--ignore-liveness", &path_str]).await;
     }
 
     async fn nar_info_and_bytes(
         &self,
-        store_path: &NixStorePath,
+        store_path: &StorePath,
     ) -> (NarInfo<String>, Bytes) {
         // To get the NARInfo and NAR bytes we copy the store path to a
         // temporary `file://` cache and read the contents of the files produced
@@ -162,7 +162,7 @@ impl NixStore for RealNixStore {
         (narinfo.with_url(String::new()), nar_bytes)
     }
 
-    async fn contains(&self, store_path: &NixStorePath) -> bool {
+    async fn contains(&self, store_path: &StorePath) -> bool {
         let mut cmd = nix_command(&self.canonicalized_path);
         cmd.args(["path-info", &store_path.to_string()]);
         let mut cmd = tokio::process::Command::from(cmd);

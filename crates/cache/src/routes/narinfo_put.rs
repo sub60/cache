@@ -18,7 +18,7 @@ use nix_types::{
     NarInfoFileNameFromStrError,
     NarInfoFromStrError,
     Nix32Digest,
-    NixStoreHash,
+    StoreHash,
 };
 
 use crate::context::ObjectStorageError;
@@ -87,9 +87,9 @@ enum NarInfoPutRequestError<ObjectStorageError> {
     )]
     NarInfoStoreHashMismatch {
         /// The store hash in the request URL.
-        declared_store_hash: NixStoreHash,
+        declared_store_hash: StoreHash,
         /// The store hash inferred from the `StorePath` field of the NARInfo.
-        inferred_store_hash: NixStoreHash,
+        inferred_store_hash: StoreHash,
     },
 
     /// The NAR file was not found in the object storage.
