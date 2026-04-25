@@ -3,6 +3,7 @@
 mod in_memory;
 
 use core::error::Error;
+use core::num::NonZeroU32;
 
 pub use in_memory::{InMemoryObjectStorage, InMemoryObjectStorageError};
 use nix_types::sub60::nar_multiparts::ETag;
@@ -55,6 +56,9 @@ pub trait ObjectStorage: Sync {
 
     /// Returns the maximum number of parts supported by multipart uploads.
     fn max_multipart_parts(&self) -> Option<usize>;
+
+    /// Returns the target size, in bytes, of each multipart upload part.
+    fn part_size(&self) -> NonZeroU32;
 }
 
 /// TODO: docs..

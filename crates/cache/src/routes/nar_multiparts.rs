@@ -61,8 +61,12 @@ async fn handler<Ctx: Context>(
 
     Ok((
         StatusCode::OK,
-        NarMultipartsResponseBody { upload_id: upload_id.into(), parts_urls }
-            .to_string(),
+        NarMultipartsResponseBody {
+            upload_id: upload_id.into(),
+            part_size: object_gateway.storage().part_size(),
+            parts_urls,
+        }
+        .to_string(),
     ))
 }
 

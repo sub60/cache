@@ -1,4 +1,5 @@
 use core::fmt;
+use core::num::NonZeroU32;
 use std::sync::{LazyLock, OnceLock};
 
 use axum::http;
@@ -9,6 +10,10 @@ use nix_types::sub60::nar_multiparts::ETag;
 use worker::send::IntoSendFuture;
 
 const MAX_MULTIPART_PARTS: usize = 10_000;
+
+/// 16 MiB.
+const PART_SIZE: NonZeroU32 =
+    NonZeroU32::new(16 * 1024 * 1024).expect("multipart part size is non-zero");
 
 static PUBLIC_ENDPOINT: LazyLock<url::Url> = LazyLock::new(|| {
     url::Url::parse("https://r2.cache.sub60.dev").expect("valid URL")
@@ -170,6 +175,10 @@ impl ObjectStorage for CacheBucket {
 
     fn max_multipart_parts(&self) -> Option<usize> {
         Some(MAX_MULTIPART_PARTS)
+    }
+
+    fn part_size(&self) -> NonZeroU32 {
+        PART_SIZE
     }
 }
 

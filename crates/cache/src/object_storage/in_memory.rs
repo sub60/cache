@@ -1,3 +1,4 @@
+use core::num::NonZeroU32;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -210,5 +211,9 @@ impl ObjectStorage for InMemoryObjectStorage {
 
     fn max_multipart_parts(&self) -> Option<usize> {
         None
+    }
+
+    fn part_size(&self) -> NonZeroU32 {
+        NonZeroU32::MAX
     }
 }
