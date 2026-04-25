@@ -8,6 +8,10 @@ use crate::object_gateway::ObjectGateway;
 use crate::{CacheDb, Cdn, ObjectStorage};
 
 /// TODO: docs.
+pub type MultipartUploadId<Ctx> =
+    <<<Ctx as Context>::ObjectGateway as ObjectGateway>::Storage as ObjectStorage>::MultipartUploadId;
+
+/// TODO: docs.
 pub type ObjectStorageError<Ctx> =
     <<<Ctx as Context>::ObjectGateway as ObjectGateway>::Storage as ObjectStorage>::Error;
 

@@ -11,7 +11,7 @@ use nix_types::{
     NarFileName,
     NarInfo,
     Nix32Digest,
-    StoreBaseName,
+    StoreBasename,
     StoreHash,
     StoreName,
     StorePath,
@@ -31,7 +31,7 @@ pub struct MockNixClient {
 #[derive(Default)]
 pub struct MockNixStore {
     /// Maps store path basenames to their file contents.
-    files: Mutex<HashMap<StoreBaseName, Bytes>>,
+    files: Mutex<HashMap<StoreBasename, Bytes>>,
 }
 
 #[derive(Debug, derive_more::Display, cauchy::Error)]
@@ -127,7 +127,7 @@ impl NixStore for MockNixStore {
         };
 
         let store_basename =
-            StoreBaseName { hash: store_hash, name: store_name };
+            StoreBasename { hash: store_hash, name: store_name };
 
         #[expect(clippy::unwrap_used)]
         self.files

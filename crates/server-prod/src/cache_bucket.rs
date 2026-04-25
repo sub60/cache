@@ -231,8 +231,8 @@ impl fmt::Display for CacheBucketKey<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             ObjectStorageKey::Nar(nar) => write!(f, "nar/{nar}"),
-            ObjectStorageKey::NarMultipart(upload_id) => {
-                write!(f, "nar-multipart/{upload_id}")
+            ObjectStorageKey::NarMultipart(store_basename) => {
+                write!(f, "nar-multipart/{store_basename}")
             },
             ObjectStorageKey::NarInfo(narinfo) => {
                 write!(f, "narinfo/{narinfo}")

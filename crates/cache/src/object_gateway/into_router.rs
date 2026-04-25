@@ -7,8 +7,7 @@ use axum::extract::Path;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, put};
-use nix_types::sub60::nar_multiparts;
-use nix_types::{NarFileName, NarInfoFileName};
+use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
 
 use crate::object_gateway::{MultipartUploadUrlRequest, ObjectUrlRequest};
 use crate::object_storage::ObjectStorageKey;
@@ -165,8 +164,8 @@ fn object_key_display(key: ObjectStorageKey) -> impl fmt::Display {
         ObjectStorageKey::Nar(nar_file_name) => {
             format!("nar/{nar_file_name}")
         },
-        ObjectStorageKey::NarMultipart(upload_id) => {
-            format!("nar-multipart/{upload_id}")
+        ObjectStorageKey::NarMultipart(store_basename) => {
+            format!("nar-multipart/{store_basename}")
         },
         ObjectStorageKey::NarInfo(narinfo_file_name) => {
             format!("narinfo/{narinfo_file_name}")
@@ -197,7 +196,7 @@ fn object_key_from_str(s: &str) -> Result<OwnedObjectStorageKey, String> {
 
 enum OwnedObjectStorageKey {
     Nar(NarFileName),
-    NarMultipart(nar_multiparts::UploadId),
+    NarMultipart(StoreBasename),
     NarInfo(NarInfoFileName),
 }
 
@@ -207,8 +206,8 @@ impl<'a> From<&'a OwnedObjectStorageKey> for ObjectStorageKey<'a> {
             OwnedObjectStorageKey::Nar(nar_file_name) => {
                 Self::Nar(nar_file_name)
             },
-            OwnedObjectStorageKey::NarMultipart(upload_id) => {
-                Self::NarMultipart(*upload_id)
+            OwnedObjectStorageKey::NarMultipart(store_basename) => {
+                Self::NarMultipart(store_basename)
             },
             OwnedObjectStorageKey::NarInfo(narinfo_file_name) => {
                 Self::NarInfo(narinfo_file_name)

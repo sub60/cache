@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
-use nix_types::sub60::nar_multiparts;
-use nix_types::{NarFileName, NarInfoFileName};
+use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
 
 use crate::ObjectStorage;
 use crate::object_storage::ObjectStorageKey;
@@ -17,7 +16,7 @@ pub struct InMemoryObjectStorage(Arc<Mutex<InMemoryObjectStorageInner>>);
 struct InMemoryObjectStorageInner {
     nars: HashMap<NarFileName, Bytes>,
     nar_infos: HashMap<NarInfoFileName, Bytes>,
-    nar_multiparts: HashMap<nar_multiparts::UploadId, NarMultipartState>,
+    nar_multiparts: HashMap<StoreBasename, NarMultipartState>,
 }
 
 enum NarMultipartState {
@@ -38,7 +37,7 @@ impl InMemoryObjectStorage {
 }
 
 impl ObjectStorage for InMemoryObjectStorage {
-    type MultipartUploadId = &'static str;
+    type MultipartUploadId = String;
     type Error = core::convert::Infallible;
 
     async fn contains_key<'a>(
@@ -52,8 +51,8 @@ impl ObjectStorage for InMemoryObjectStorage {
             ObjectStorageKey::NarInfo(narinfo_file_name) => {
                 inner.nar_infos.contains_key(narinfo_file_name)
             },
-            ObjectStorageKey::NarMultipart(upload_id) => {
-                inner.nar_multiparts.get(&upload_id).is_some_and(|state| {
+            ObjectStorageKey::NarMultipart(store_basename) => {
+                inner.nar_multiparts.get(store_basename).is_some_and(|state| {
                     matches!(state, NarMultipartState::Complete(_))
                 })
             },
@@ -64,7 +63,7 @@ impl ObjectStorage for InMemoryObjectStorage {
         &self,
         _: impl Into<ObjectStorageKey<'a>> + Send,
     ) -> Result<Self::MultipartUploadId, Self::Error> {
-        Ok("in-memory")
+        Ok("in-memory".to_owned())
     }
 
     async fn get<'a>(
@@ -78,9 +77,9 @@ impl ObjectStorage for InMemoryObjectStorage {
             ObjectStorageKey::NarInfo(narinfo_file_name) => {
                 inner.nar_infos.get(narinfo_file_name).cloned()
             },
-            ObjectStorageKey::NarMultipart(upload_id) => inner
+            ObjectStorageKey::NarMultipart(store_basename) => inner
                 .nar_multiparts
-                .get(&upload_id)
+                .get(store_basename)
                 .and_then(|state| match state {
                     NarMultipartState::Complete(bytes) => Some(bytes.clone()),
                     NarMultipartState::Incomplete(_) => None,
@@ -106,9 +105,9 @@ impl ObjectStorage for InMemoryObjectStorage {
                     bytes.as_ref().to_owned().into(),
                 );
             },
-            ObjectStorageKey::NarMultipart(upload_id) => {
+            ObjectStorageKey::NarMultipart(store_basename) => {
                 inner.nar_multiparts.insert(
-                    upload_id,
+                    store_basename.clone(),
                     NarMultipartState::Complete(
                         bytes.as_ref().to_owned().into(),
                     ),

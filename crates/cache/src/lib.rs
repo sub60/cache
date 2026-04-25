@@ -8,6 +8,7 @@ mod cache_db;
 mod cache_infos;
 pub mod cdn;
 pub mod context;
+mod from_str_body;
 mod layers;
 pub mod object_gateway;
 pub mod object_storage;

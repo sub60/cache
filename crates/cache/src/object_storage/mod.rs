@@ -5,13 +5,13 @@ mod in_memory;
 use core::error::Error;
 
 pub use in_memory::InMemoryObjectStorage;
-use nix_types::sub60::nar_multiparts;
-use nix_types::{NarFileName, NarInfoFileName};
+use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
+use serde::de::DeserializeOwned;
 
 /// TODO: docs.
 pub trait ObjectStorage: Sync {
     /// TODO: docs.
-    type MultipartUploadId: Send;
+    type MultipartUploadId: Into<String> + DeserializeOwned + Send;
 
     /// TODO: docs.
     type Error: Error;
@@ -49,10 +49,10 @@ pub enum ObjectStorageKey<'a> {
     Nar(&'a NarFileName),
 
     /// TODO: docs.
-    NarMultipart(nar_multiparts::UploadId),
+    NarInfo(&'a NarInfoFileName),
 
     /// TODO: docs.
-    NarInfo(&'a NarInfoFileName),
+    NarMultipart(&'a StoreBasename),
 }
 
 impl<'a> From<&'a NarFileName> for ObjectStorageKey<'a> {
@@ -61,14 +61,14 @@ impl<'a> From<&'a NarFileName> for ObjectStorageKey<'a> {
     }
 }
 
-impl From<nar_multiparts::UploadId> for ObjectStorageKey<'_> {
-    fn from(upload_id: nar_multiparts::UploadId) -> Self {
-        Self::NarMultipart(upload_id)
-    }
-}
-
 impl<'a> From<&'a NarInfoFileName> for ObjectStorageKey<'a> {
     fn from(narinfo_file_name: &'a NarInfoFileName) -> Self {
         Self::NarInfo(narinfo_file_name)
+    }
+}
+
+impl<'a> From<&'a StoreBasename> for ObjectStorageKey<'a> {
+    fn from(store_basename: &'a StoreBasename) -> Self {
+        Self::NarMultipart(store_basename)
     }
 }

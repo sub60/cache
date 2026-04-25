@@ -5,6 +5,7 @@ use crate::layers::user_cache;
 use crate::routes::{
     nar_head,
     nar_multiparts,
+    nar_multiparts_parts,
     nar_put,
     narinfo_get,
     narinfo_put,
@@ -21,7 +22,11 @@ pub fn router(ctx: impl Context) -> Router {
         .route(narinfo_put::ROUTE, narinfo_put::router(ctx.clone()))
         .route(nix_cache_info::ROUTE, nix_cache_info::router(ctx.clone()))
         // Custom routes.
-        .route(nar_multiparts::ROUTE, nar_multiparts::router(ctx.clone()));
+        .route(nar_multiparts::ROUTE, nar_multiparts::router(ctx.clone()))
+        .route(
+            nar_multiparts_parts::ROUTE,
+            nar_multiparts_parts::router(ctx.clone()),
+        );
 
     Router::new()
         // Place all the cache routes behind the /{user}/{cache} layer which
