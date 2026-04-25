@@ -2,7 +2,7 @@ use core::fmt;
 use std::sync::{LazyLock, OnceLock};
 
 use axum::http;
-use cache::object_gateway::StorageAccessRequest;
+use cache::object_gateway::{MultipartUploadUrlRequest, ObjectUrlRequest};
 use cache::object_storage::ObjectStorageKey;
 use cache::{ObjectGateway, ObjectStorage};
 use worker::send::IntoSendFuture;
@@ -79,6 +79,7 @@ impl CacheBucketS3Credentials {
 }
 
 impl ObjectStorage for CacheBucket {
+    type MultipartUploadId = String;
     type Error = worker::Error;
 
     async fn contains_key<'a>(
@@ -127,12 +128,26 @@ impl ObjectStorage for CacheBucket {
             .await
             .map(|_obj| ())
     }
+
+    async fn create_multipart_upload<'a>(
+        &self,
+        key: impl Into<ObjectStorageKey<'a>>,
+    ) -> Result<Self::MultipartUploadId, Self::Error> {
+        Ok(self
+            .inner
+            .create_multipart_upload(CacheBucketKey(key.into()))
+            .execute()
+            .into_send()
+            .await?
+            .upload_id()
+            .await)
+    }
 }
 
 impl ObjectGateway for CacheBucket {
     type Storage = Self;
 
-    fn object_url(&self, access_request: StorageAccessRequest<'_>) -> url::Url {
+    fn object_url(&self, access_request: ObjectUrlRequest<'_>) -> url::Url {
         // Writes go through the S3-compatible endpoint and are authenticated
         // via a presigned URL. The S3 endpoint also bypasses Cloudflare's edge
         // proxy, which would otherwise enforce a 100MiB body size limit
@@ -173,6 +188,40 @@ impl ObjectGateway for CacheBucket {
         }
     }
 
+    fn multipart_upload_url(
+        &self,
+        request: MultipartUploadUrlRequest<'_, String>,
+    ) -> url::Url {
+        let mut url = S3_ENDPOINT
+            .join(&CacheBucketKey(request.key).to_string())
+            .expect("combined URL is valid");
+
+        url.query_pairs_mut()
+            .append_pair("partNumber", &request.part_number.to_string())
+            .append_pair("uploadId", request.upload_id);
+
+        let now =
+            chrono::DateTime::from_timestamp_millis(js_sys::Date::now() as i64)
+                .expect("current time is a valid timestamp");
+
+        let creds = self.s3_creds();
+
+        s3v4::pre_signed_url(
+            &creds.access_key_id,
+            &creds.secret_access_key,
+            request.min_ttl.as_secs(),
+            &url,
+            http::Method::PUT.as_str(),
+            "UNSIGNED-PAYLOAD",
+            "auto",
+            &now,
+            "s3",
+        )
+        .expect("presigning should not fail")
+        .parse()
+        .expect("presigned URL is a valid URI")
+    }
+
     fn storage(&self) -> &Self {
         self
     }
@@ -182,6 +231,9 @@ impl fmt::Display for CacheBucketKey<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             ObjectStorageKey::Nar(nar) => write!(f, "nar/{nar}"),
+            ObjectStorageKey::NarMultipart(upload_id) => {
+                write!(f, "nar-multipart/{upload_id}")
+            },
             ObjectStorageKey::NarInfo(narinfo) => {
                 write!(f, "narinfo/{narinfo}")
             },

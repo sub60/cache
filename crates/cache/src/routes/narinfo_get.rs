@@ -13,7 +13,7 @@ use compact_str::{CompactString, format_compact};
 use nix_types::{NarFileName, NarInfo, NarInfoFileName, NarInfoFromStrError};
 
 use crate::context::ObjectStorageError;
-use crate::object_gateway::{ObjectGateway, StorageAccessRequest};
+use crate::object_gateway::{ObjectGateway, ObjectUrlRequest};
 use crate::{Cdn, Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/{narinfo_file_name}";
@@ -88,7 +88,7 @@ async fn handler<Ctx: Context>(
 
     let nar_filename = NarFileName::from(&narinfo_without_url);
 
-    let nar_url = ctx.object_gateway().object_url(StorageAccessRequest {
+    let nar_url = ctx.object_gateway().object_url(ObjectUrlRequest {
         key: (&nar_filename).into(),
         method: http::Method::GET,
         min_ttl: Duration::from_hours(1),

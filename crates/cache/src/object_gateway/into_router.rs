@@ -7,9 +7,10 @@ use axum::extract::Path;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, put};
+use nix_types::sub60::nar_multiparts;
 use nix_types::{NarFileName, NarInfoFileName};
 
-use crate::object_gateway::StorageAccessRequest;
+use crate::object_gateway::{MultipartUploadUrlRequest, ObjectUrlRequest};
 use crate::object_storage::ObjectStorageKey;
 use crate::{ObjectGateway, ObjectStorage};
 
@@ -92,27 +93,38 @@ where
             }
         };
 
+        let multipart_put_handler = async || StatusCode::NOT_IMPLEMENTED;
+
         let route_path = if gateway.base_route.is_empty() {
-            Cow::Borrowed("/{key}")
+            Cow::Borrowed("/{*key}")
         } else {
-            Cow::Owned(format!("{}/{{key}}", gateway.base_route))
+            Cow::Owned(format!("{}/{{*key}}", gateway.base_route))
+        };
+
+        let multipart_route_path = if gateway.base_route.is_empty() {
+            Cow::Borrowed("/multipart-upload/{*key}")
+        } else {
+            Cow::Owned(format!(
+                "{}/multipart-upload/{{*key}}",
+                gateway.base_route,
+            ))
         };
 
         Self::new()
+            .route(&multipart_route_path, put(multipart_put_handler))
             .route(&route_path, get(get_handler))
             .route(&route_path, put(put_handler))
     }
 }
 
-impl<ObjStorage: ObjectStorage> ObjectGateway
-    for IntoRouterObjectGateway<ObjStorage>
+impl<ObjStorage> ObjectGateway for IntoRouterObjectGateway<ObjStorage>
+where
+    ObjStorage: ObjectStorage,
+    ObjStorage::MultipartUploadId: fmt::Display,
 {
     type Storage = ObjStorage;
 
-    fn object_url(
-        &self,
-        access_request: StorageAccessRequest,
-    ) -> impl AsRef<str> {
+    fn object_url(&self, access_request: ObjectUrlRequest) -> impl AsRef<str> {
         let key = object_key_display(access_request.key);
 
         if self.base_route.is_empty() {
@@ -120,6 +132,27 @@ impl<ObjStorage: ObjectStorage> ObjectGateway
         } else {
             format!("{}/{key}", self.base_route)
         }
+    }
+
+    fn multipart_upload_url(
+        &self,
+        request: MultipartUploadUrlRequest<
+            '_,
+            <Self::Storage as ObjectStorage>::MultipartUploadId,
+        >,
+    ) -> impl AsRef<str> {
+        let key = object_key_display(request.key);
+
+        let base_url = if self.base_route.is_empty() {
+            format!("/multipart-upload/{key}")
+        } else {
+            format!("{}/multipart-upload/{key}", self.base_route)
+        };
+
+        format!(
+            "{base_url}?partNumber={}&uploadId={}",
+            request.part_number, request.upload_id,
+        )
     }
 
     fn storage(&self) -> &ObjStorage {
@@ -130,17 +163,20 @@ impl<ObjStorage: ObjectStorage> ObjectGateway
 fn object_key_display(key: ObjectStorageKey) -> impl fmt::Display {
     match key {
         ObjectStorageKey::Nar(nar_file_name) => {
-            format!("nar-{nar_file_name}")
+            format!("nar/{nar_file_name}")
+        },
+        ObjectStorageKey::NarMultipart(upload_id) => {
+            format!("nar-multipart/{upload_id}")
         },
         ObjectStorageKey::NarInfo(narinfo_file_name) => {
-            format!("narinfo-{narinfo_file_name}")
+            format!("narinfo/{narinfo_file_name}")
         },
     }
 }
 
 fn object_key_from_str(s: &str) -> Result<OwnedObjectStorageKey, String> {
     let (key_kind, key) =
-        s.split_once('-').ok_or_else(|| format!("invalid key format: {s}"))?;
+        s.split_once('/').ok_or_else(|| format!("invalid key format: {s}"))?;
 
     match key_kind {
         "nar" => key
@@ -151,12 +187,17 @@ fn object_key_from_str(s: &str) -> Result<OwnedObjectStorageKey, String> {
             .parse()
             .map(OwnedObjectStorageKey::NarInfo)
             .map_err(|err| format!("invalid NarInfoFileName in key: {err}")),
+        "nar-multipart" => key
+            .parse()
+            .map(OwnedObjectStorageKey::NarMultipart)
+            .map_err(|err| format!("invalid upload ID in key: {err}")),
         _ => Err(format!("invalid key kind: {key_kind}")),
     }
 }
 
 enum OwnedObjectStorageKey {
     Nar(NarFileName),
+    NarMultipart(nar_multiparts::UploadId),
     NarInfo(NarInfoFileName),
 }
 
@@ -165,6 +206,9 @@ impl<'a> From<&'a OwnedObjectStorageKey> for ObjectStorageKey<'a> {
         match object_key {
             OwnedObjectStorageKey::Nar(nar_file_name) => {
                 Self::Nar(nar_file_name)
+            },
+            OwnedObjectStorageKey::NarMultipart(upload_id) => {
+                Self::NarMultipart(*upload_id)
             },
             OwnedObjectStorageKey::NarInfo(narinfo_file_name) => {
                 Self::NarInfo(narinfo_file_name)

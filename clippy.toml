@@ -1,9 +1,15 @@
 allow-unwrap-in-tests = true
 allowed-duplicate-crates = [
+  "block-buffer",
+  "const-oid",
+  "cpufeatures",
+  "crypto-common",
+  "digest",
   "getrandom",
   "hashbrown",
   "matchit",
   "rand_core",
+  "sha2",
   "windows-sys",
 ]
 allowed-wildcard-imports = ["super"]

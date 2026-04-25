@@ -9,7 +9,7 @@ axum = { workspace = true }
 cauchy = { workspace = true }
 compact_str = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
-nix-types = { git = "ssh://git@github.com/sub60/nix-types.git" }
+nix-types = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 smol_str = { workspace = true, features = ["serde"] }
 tower-layer = { workspace = true }

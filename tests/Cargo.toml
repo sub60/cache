@@ -14,7 +14,7 @@ cauchy = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 either = { workspace = true }
 futures = { workspace = true }
-nix-types = { git = "ssh://git@github.com/sub60/nix-types.git" }
+nix-types = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 sha2 = { workspace = true }
 tempfile = { workspace = true }

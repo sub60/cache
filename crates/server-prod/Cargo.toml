@@ -13,7 +13,7 @@ cache = { workspace = true }
 chrono = { workspace = true }
 compact_str = { workspace = true }
 js-sys = { workspace = true }
-nix-types = { git = "ssh://git@github.com/sub60/nix-types.git" }
+nix-types = { workspace = true }
 s3v4 = { workspace = true }
 sqlx-d1 = { workspace = true }
 tower-service = { workspace = true }

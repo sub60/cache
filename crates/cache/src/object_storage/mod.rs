@@ -5,10 +5,14 @@ mod in_memory;
 use core::error::Error;
 
 pub use in_memory::InMemoryObjectStorage;
+use nix_types::sub60::nar_multiparts;
 use nix_types::{NarFileName, NarInfoFileName};
 
 /// TODO: docs.
 pub trait ObjectStorage: Sync {
+    /// TODO: docs.
+    type MultipartUploadId: Send;
+
     /// TODO: docs.
     type Error: Error;
 
@@ -17,6 +21,12 @@ pub trait ObjectStorage: Sync {
         &self,
         key: impl Into<ObjectStorageKey<'a>> + Send,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
+
+    /// Creates a new multipart upload ID for an object with the given key.
+    fn create_multipart_upload<'a>(
+        &self,
+        key: impl Into<ObjectStorageKey<'a>> + Send,
+    ) -> impl Future<Output = Result<Self::MultipartUploadId, Self::Error>> + Send;
 
     /// TODO: docs.
     fn get<'a>(
@@ -35,15 +45,25 @@ pub trait ObjectStorage: Sync {
 /// TODO: docs..
 #[derive(Debug, Copy, Clone)]
 pub enum ObjectStorageKey<'a> {
-    /// TODO: docs..
+    /// TODO: docs.
     Nar(&'a NarFileName),
-    /// TODO: docs..
+
+    /// TODO: docs.
+    NarMultipart(nar_multiparts::UploadId),
+
+    /// TODO: docs.
     NarInfo(&'a NarInfoFileName),
 }
 
 impl<'a> From<&'a NarFileName> for ObjectStorageKey<'a> {
     fn from(nar_file_name: &'a NarFileName) -> Self {
         Self::Nar(nar_file_name)
+    }
+}
+
+impl From<nar_multiparts::UploadId> for ObjectStorageKey<'_> {
+    fn from(upload_id: nar_multiparts::UploadId) -> Self {
+        Self::NarMultipart(upload_id)
     }
 }
 

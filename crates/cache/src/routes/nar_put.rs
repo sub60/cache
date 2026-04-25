@@ -11,7 +11,7 @@ use axum::routing::{self, MethodRouter};
 use nix_types::NarFileName;
 
 use crate::context::ObjectStorageError;
-use crate::object_gateway::{ObjectGateway, StorageAccessRequest};
+use crate::object_gateway::{ObjectGateway, ObjectUrlRequest};
 use crate::object_storage::ObjectStorageKey;
 use crate::{Context, ObjectStorage};
 
@@ -56,7 +56,7 @@ async fn handler<Ctx: Context>(
     {
         Ok(NarPutResponse::AlreadyExists)
     } else {
-        let nar_url = object_gateway.object_url(StorageAccessRequest {
+        let nar_url = object_gateway.object_url(ObjectUrlRequest {
             key: ObjectStorageKey::Nar(&nar_file_name),
             method: http::Method::PUT,
             min_ttl: Duration::from_mins(10),
