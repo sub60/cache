@@ -8,6 +8,7 @@ allowed-duplicate-crates = [
   "getrandom",
   "hashbrown",
   "matchit",
+  "r-efi",
   "rand_core",
   "sha2",
   "windows-sys",

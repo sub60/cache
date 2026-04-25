@@ -1,3 +1,5 @@
+use core::fmt;
+
 use axum::Router;
 use cache::cdn::{self, NoOpCdn};
 use cache::context::ComposedContext;
@@ -43,6 +45,10 @@ impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
         let object_gateway = self.inner.object_gateway().clone();
         cache::router(self.inner.clone()).merge(object_gateway)
     }
+
+    pub fn db_mut(&mut self) -> &mut InMemoryCacheDatabase {
+        self.inner.cache_db_mut()
+    }
 }
 
 impl Default for TestContext {
@@ -63,6 +69,7 @@ impl<Cdn, ObjStorage> Context for TestContext<Cdn, ObjStorage>
 where
     Cdn: cdn::Cdn + Clone + Send + Sync + 'static,
     ObjStorage: ObjectStorage + Clone + Send + Sync + 'static,
+    ObjStorage::MultipartUploadId: fmt::Display,
 {
     type CacheDb = InMemoryCacheDatabase;
     type Cdn = Cdn;

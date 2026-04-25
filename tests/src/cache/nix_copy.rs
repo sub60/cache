@@ -14,7 +14,9 @@ use crate::common::{
 
 #[tokio::test]
 async fn copy_to_cache_mock() {
-    let test_ctx = TestContext::default();
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_user("user");
+    test_ctx.db_mut().add_cache("user", "cache");
 
     let nix = MockNixClient::default();
 
@@ -34,7 +36,9 @@ async fn copy_to_cache_mock() {
 
 #[tokio::test]
 async fn copy_to_cache_real() {
-    let test_ctx = TestContext::default();
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_user("user");
+    test_ctx.db_mut().add_cache("user", "cache");
 
     // Start the cache server on a OS-assigned port.
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
@@ -59,7 +63,9 @@ async fn copy_to_cache_real() {
 
 #[tokio::test]
 async fn copy_from_cache_mock() {
-    let test_ctx = TestContext::default();
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_user("user");
+    test_ctx.db_mut().add_cache("user", "cache");
 
     let nix = MockNixClient::default();
 
@@ -91,7 +97,9 @@ async fn copy_from_cache_mock() {
 
 #[tokio::test]
 async fn copy_from_cache_real() {
-    let test_ctx = TestContext::default();
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_user("user");
+    test_ctx.db_mut().add_cache("user", "cache");
 
     // Start the cache server on a OS-assigned port.
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();

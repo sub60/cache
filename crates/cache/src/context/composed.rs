@@ -18,6 +18,11 @@ impl ComposedContext<(), (), ()> {
 }
 
 impl<Db, Cdn, ObjGateway> ComposedContext<Db, Cdn, ObjGateway> {
+    /// Returns a mutable reference to the cache database.
+    pub fn cache_db_mut(&mut self) -> &mut Db {
+        &mut self.cache_db
+    }
+
     /// TODO: docs.
     pub fn with_cache_db<NewDb: CacheDb>(
         self,
