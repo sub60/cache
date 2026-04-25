@@ -1,5 +1,6 @@
 //! TODO: docs.
 
+use core::convert::Infallible;
 use core::str::FromStr;
 use core::{fmt, str};
 
@@ -10,14 +11,11 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 use nix_types::{
-    CompressionAlgorithm,
     NarFileName,
-    NarFileNameFromStrError,
     NarInfo,
     NarInfoFileName,
     NarInfoFileNameFromStrError,
     NarInfoFromStrError,
-    Nix32Digest,
     StoreBasename,
     StoreHash,
 };
@@ -58,35 +56,6 @@ enum NarInfoPutRequestError<ObjectStorageError> {
     #[display("error moving NAR into place: {_0}")]
     MoveMultipartNar(ObjectStorageError),
 
-    /// The compression algorithm declared by the client in the `Compression`
-    /// field of the NARInfo did not match the compression algorithm inferred
-    /// from the NAR file name in the URL.
-    #[display(
-        "compression algorithm mismatch: declared '{declared_compression}' in
-         'Compression', inferred '{inferred_compression}' from filename
-         extension in 'URL'"
-    )]
-    NarCompressionMismatch {
-        /// The compression algorithm in the `Compression` field.
-        declared_compression: CompressionAlgorithm,
-        /// The compression algorithm inferred from `URL` field.
-        inferred_compression: CompressionAlgorithm,
-    },
-
-    /// The NAR hash declared by the client in the `FileHash` field of the
-    /// NARInfo did not match the hash inferred from the NAR file name in the
-    /// URL.
-    #[display(
-        "NAR hash mismatch: declared '{declared_file_hash}' in 'FileHash', \
-         inferred '{inferred_file_hash}' from filename in 'URL'"
-    )]
-    NarFileHashMismatch {
-        /// The file hash the `FileHash` field.
-        declared_file_hash: Nix32Digest<32>,
-        /// The file hash inferred from `URL` field.
-        inferred_file_hash: Nix32Digest<32>,
-    },
-
     /// The NARInfo in the body of the request was not valid UTF-8.
     #[display("NARInfo in request body is not valid UTF-8: {_0}")]
     NarInfoNotUtf8(str::Utf8Error),
@@ -114,29 +83,15 @@ enum NarInfoPutRequestError<ObjectStorageError> {
 
     /// The NARInfo we got from the client did not parse into a valid
     /// [`NarInfo`].
-    ParseNarInfo(#[from] NarInfoFromStrError<<NarPutUrl as FromStr>::Err>),
+    ParseNarInfo(#[from] NarInfoFromStrError<<DiscardUrl as FromStr>::Err>),
 
     /// The object storage returned an error when storing the NARInfo.
     StoreNarInfo(ObjectStorageError),
 }
 
-/// A struct whose [`FromStr`] implementation parses strings of the form
-/// `nar/{nar_file_name}`, which is the format used by the Nix client when
-/// sending a PUT request to the NARInfo route.
-struct NarPutUrl {
-    nar_file_name: NarFileName,
-}
-
-/// The type of error that can occur when parsing a string into a [`NarPutUrl`].
-#[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
-enum NarPutUrlFromStrError {
-    /// The input string did not start with the expected "nar/" prefix.
-    #[display("missing expected \"nar/\" prefix")]
-    MissingNarPrefix,
-    /// The NAR file name part of the input string did not parse successfully.
-    #[display("{_0}")]
-    InvalidNarFileName(NarFileNameFromStrError),
-}
+/// A type whose [`FromStr`] impl discards the string, used to ignore the `URL`
+/// field in the client-provided NARInfo.
+struct DiscardUrl;
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
     routing::put(
@@ -147,7 +102,6 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 #[expect(clippy::too_many_arguments)]
-#[expect(clippy::too_many_lines)]
 async fn handler<Ctx: Context>(
     NarInfoPutPath { narinfo_file_name }: NarInfoPutPath,
     NarInfoPutQuery { upload_id }: NarInfoPutQuery<MultipartUploadId<Ctx>>,
@@ -159,9 +113,9 @@ async fn handler<Ctx: Context>(
     // TODO: validate that the store dir in the NARInfo's StorePath matches the
     // cache's storeDir.
 
-    let narinfo = str::from_utf8(&body)
+    let mut narinfo = str::from_utf8(&body)
         .map_err(NarInfoPutRequestError::NarInfoNotUtf8)?
-        .parse::<NarInfo<NarPutUrl>>()?;
+        .parse::<NarInfo<DiscardUrl>>()?;
 
     if &narinfo_file_name.store_hash != narinfo.store_path.hash() {
         return Err(NarInfoPutRequestError::NarInfoStoreHashMismatch {
@@ -170,37 +124,16 @@ async fn handler<Ctx: Context>(
         });
     }
 
-    let inferred_compression = narinfo
-        .url
-        .nar_file_name
-        .extension
-        .map(|ext| ext.algorithm())
-        .unwrap_or(CompressionAlgorithm::None);
-
-    if narinfo.compression != inferred_compression {
-        return Err(NarInfoPutRequestError::NarCompressionMismatch {
-            declared_compression: narinfo.compression,
-            inferred_compression,
-        });
-    }
-
-    if narinfo.file_hash != narinfo.url.nar_file_name.file_hash {
-        return Err(NarInfoPutRequestError::NarFileHashMismatch {
-            declared_file_hash: narinfo.file_hash,
-            inferred_file_hash: narinfo.url.nar_file_name.file_hash,
-        });
-    }
-
     let object_storage = ctx.object_storage();
 
     let is_multipart_upload = upload_id.is_some();
 
-    let nar_file_name = &narinfo.url.nar_file_name;
+    let nar_file_name = NarFileName::from(&narinfo);
 
     let object_key = if is_multipart_upload {
         ObjectStorageKey::NarMultipart(narinfo.store_path.basename())
     } else {
-        ObjectStorageKey::Nar(nar_file_name)
+        ObjectStorageKey::Nar(&nar_file_name)
     };
 
     if !object_storage
@@ -213,29 +146,27 @@ async fn handler<Ctx: Context>(
                 narinfo.store_path.basename().clone(),
             )
         } else {
-            NarInfoPutRequestError::NarNotFound(nar_file_name.clone())
+            NarInfoPutRequestError::NarNotFound(nar_file_name)
         });
     }
 
     if is_multipart_upload {
         object_storage
-            .r#move(object_key, ObjectStorageKey::Nar(nar_file_name))
+            .r#move(object_key, ObjectStorageKey::Nar(&nar_file_name))
             .await
             .map_err(NarInfoPutRequestError::MoveMultipartNar)?;
     }
-
-    let mut stored_narinfo = narinfo.with_url("");
 
     // Sign the fingerprint with our private key and append the signature to the
     // NARInfo before storing it.
     let cache_signature = cache_infos
         .signing_key
-        .sign(stored_narinfo.fingerprint().to_string().as_bytes());
+        .sign(narinfo.fingerprint().to_string().as_bytes());
 
-    stored_narinfo.signatures.push(cache_signature);
+    narinfo.signatures.push(cache_signature);
 
     object_storage
-        .set(&narinfo_file_name, stored_narinfo.to_string().as_bytes())
+        .set(&narinfo_file_name, narinfo.to_string())
         .await
         .map(|()| StatusCode::CREATED)
         .map_err(NarInfoPutRequestError::StoreNarInfo)
@@ -245,8 +176,6 @@ impl<ObjectStorageError> NarInfoPutRequestError<ObjectStorageError> {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::InvalidNarInfoFileName(_)
-            | Self::NarCompressionMismatch { .. }
-            | Self::NarFileHashMismatch { .. }
             | Self::NarInfoNotUtf8(_)
             | Self::NarInfoStoreHashMismatch { .. }
             | Self::NarNotFound(_)
@@ -267,14 +196,16 @@ impl<ObjectStorageError: fmt::Display> IntoResponse
     }
 }
 
-impl FromStr for NarPutUrl {
-    type Err = NarPutUrlFromStrError;
+impl FromStr for DiscardUrl {
+    type Err = Infallible;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.strip_prefix("nar/")
-            .ok_or(NarPutUrlFromStrError::MissingNarPrefix)?
-            .parse()
-            .map_err(NarPutUrlFromStrError::InvalidNarFileName)
-            .map(|nar_file_name| Self { nar_file_name })
+    fn from_str(_: &str) -> Result<Self, Self::Err> {
+        Ok(Self)
+    }
+}
+
+impl fmt::Display for DiscardUrl {
+    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
     }
 }
