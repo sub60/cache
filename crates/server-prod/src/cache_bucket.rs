@@ -5,7 +5,10 @@ use axum::http;
 use cache::object_gateway::{MultipartUploadUrlRequest, ObjectUrlRequest};
 use cache::object_storage::ObjectStorageKey;
 use cache::{ObjectGateway, ObjectStorage};
+use nix_types::sub60::nar_multiparts::ETag;
 use worker::send::IntoSendFuture;
+
+const MAX_MULTIPART_PARTS: usize = 10_000;
 
 static PUBLIC_ENDPOINT: LazyLock<url::Url> = LazyLock::new(|| {
     url::Url::parse("https://r2.cache.sub60.dev").expect("valid URL")
@@ -141,6 +144,32 @@ impl ObjectStorage for CacheBucket {
             .await?
             .upload_id()
             .await)
+    }
+
+    async fn complete_multipart_upload<'a>(
+        &self,
+        key: impl Into<ObjectStorageKey<'a>>,
+        upload_id: Self::MultipartUploadId,
+        etags: &[ETag],
+    ) -> Result<(), Self::Error> {
+        let uploaded_parts =
+            etags.iter().enumerate().map(|(part_idx, etag)| {
+                // The caller guarantees etags to contain <= MAX_MULTIPART_PARTS
+                // elements, so we can directly cast the part_idx into a u16.
+                let part_number = part_idx as u16 + 1;
+                worker::UploadedPart::new(part_number, etag.to_string())
+            });
+
+        self.inner
+            .resume_multipart_upload(CacheBucketKey(key.into()), upload_id)?
+            .complete(uploaded_parts)
+            .into_send()
+            .await
+            .map(|_object| ())
+    }
+
+    fn max_multipart_parts(&self) -> Option<usize> {
+        Some(MAX_MULTIPART_PARTS)
     }
 }
 

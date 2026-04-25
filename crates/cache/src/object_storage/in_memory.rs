@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
+use nix_types::sub60::nar_multiparts::ETag;
 use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
 
 use crate::ObjectStorage;
@@ -14,15 +15,44 @@ pub struct InMemoryObjectStorage(Arc<Mutex<InMemoryObjectStorageInner>>);
 
 #[derive(Default)]
 struct InMemoryObjectStorageInner {
-    nars: HashMap<NarFileName, Bytes>,
-    nar_infos: HashMap<NarInfoFileName, Bytes>,
-    nar_multiparts: HashMap<StoreBasename, NarMultipartState>,
+    nars: HashMap<NarFileName, ObjectState>,
+    nar_infos: HashMap<NarInfoFileName, ObjectState>,
+    nar_multiparts: HashMap<StoreBasename, ObjectState>,
 }
 
-enum NarMultipartState {
+enum ObjectState {
     Complete(Bytes),
-    #[expect(unused)]
     Incomplete(Vec<Option<Bytes>>),
+}
+
+/// The type of error returned by [`InMemoryObjectStorage`].
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
+)]
+pub enum InMemoryObjectStorageError {
+    /// The multipart upload was completed before being started.
+    #[display("multipart upload was not started")]
+    MultipartUploadNotStarted,
+
+    /// The multipart upload has already been completed.
+    #[display("multipart upload is already complete")]
+    MultipartUploadAlreadyComplete,
+
+    /// A multipart upload part was missing when completing the upload.
+    #[display("multipart upload is missing bytes for part {_0}")]
+    MissingMultipartUploadPart(usize),
+
+    /// Multipart upload completion had fewer ETags than uploaded part slots.
+    #[display(
+        "multipart upload completion has too few ETags: {_0} for {_1} parts"
+    )]
+    TooFewMultipartUploadEtags(usize, usize),
+
+    /// Multipart upload completion had more ETags than uploaded part slots.
+    #[display(
+        "multipart upload completion has too many ETags: {_0} for {_1} parts"
+    )]
+    TooManyMultipartUploadEtags(usize, usize),
 }
 
 impl InMemoryObjectStorage {
@@ -36,54 +66,67 @@ impl InMemoryObjectStorage {
     }
 }
 
+impl InMemoryObjectStorageInner {
+    fn get(&mut self, key: ObjectStorageKey<'_>) -> Option<&ObjectState> {
+        match key {
+            ObjectStorageKey::Nar(key) => self.nars.get(key),
+            ObjectStorageKey::NarInfo(key) => self.nar_infos.get(key),
+            ObjectStorageKey::NarMultipart(key) => self.nar_multiparts.get(key),
+        }
+    }
+
+    fn get_mut(
+        &mut self,
+        key: ObjectStorageKey<'_>,
+    ) -> Option<&mut ObjectState> {
+        match key {
+            ObjectStorageKey::Nar(key) => self.nars.get_mut(key),
+            ObjectStorageKey::NarInfo(key) => self.nar_infos.get_mut(key),
+            ObjectStorageKey::NarMultipart(key) => {
+                self.nar_multiparts.get_mut(key)
+            },
+        }
+    }
+
+    fn insert(&mut self, key: ObjectStorageKey<'_>, obj: ObjectState) {
+        match key {
+            ObjectStorageKey::Nar(nar_file_name) => {
+                self.nars.insert(nar_file_name.clone(), obj);
+            },
+            ObjectStorageKey::NarInfo(narinfo_file_name) => {
+                self.nar_infos.insert(narinfo_file_name.clone(), obj);
+            },
+            ObjectStorageKey::NarMultipart(store_basename) => {
+                self.nar_multiparts.insert(store_basename.clone(), obj);
+            },
+        }
+    }
+}
+
 impl ObjectStorage for InMemoryObjectStorage {
     type MultipartUploadId = String;
-    type Error = core::convert::Infallible;
+    type Error = InMemoryObjectStorageError;
 
     async fn contains_key<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<bool, Self::Error> {
-        Ok(self.with_inner(|inner| match key.into() {
-            ObjectStorageKey::Nar(nar_file_name) => {
-                inner.nars.contains_key(nar_file_name)
-            },
-            ObjectStorageKey::NarInfo(narinfo_file_name) => {
-                inner.nar_infos.contains_key(narinfo_file_name)
-            },
-            ObjectStorageKey::NarMultipart(store_basename) => {
-                inner.nar_multiparts.get(store_basename).is_some_and(|state| {
-                    matches!(state, NarMultipartState::Complete(_))
-                })
-            },
+        Ok(self.with_inner(|inner| {
+            inner
+                .get(key.into())
+                .is_some_and(|state| matches!(state, ObjectState::Complete(_)))
         }))
-    }
-
-    async fn create_multipart_upload<'a>(
-        &self,
-        _: impl Into<ObjectStorageKey<'a>> + Send,
-    ) -> Result<Self::MultipartUploadId, Self::Error> {
-        Ok("in-memory".to_owned())
     }
 
     async fn get<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<Option<Bytes>, Self::Error> {
-        Ok(self.with_inner(|inner| match key.into() {
-            ObjectStorageKey::Nar(nar_file_name) => {
-                inner.nars.get(nar_file_name).cloned()
-            },
-            ObjectStorageKey::NarInfo(narinfo_file_name) => {
-                inner.nar_infos.get(narinfo_file_name).cloned()
-            },
-            ObjectStorageKey::NarMultipart(store_basename) => inner
-                .nar_multiparts
-                .get(store_basename)
-                .and_then(|state| match state {
-                    NarMultipartState::Complete(bytes) => Some(bytes.clone()),
-                    NarMultipartState::Incomplete(_) => None,
-                }),
+        Ok(self.with_inner(|inner| {
+            inner.get(key.into()).and_then(|state| match state {
+                ObjectState::Complete(bytes) => Some(bytes.clone()),
+                ObjectState::Incomplete(_) => None,
+            })
         }))
     }
 
@@ -92,29 +135,80 @@ impl ObjectStorage for InMemoryObjectStorage {
         key: impl Into<ObjectStorageKey<'a>>,
         bytes: impl AsRef<[u8]>,
     ) -> Result<(), Self::Error> {
-        self.with_inner(|inner| match key.into() {
-            ObjectStorageKey::Nar(nar_file_name) => {
-                inner.nars.insert(
-                    nar_file_name.clone(),
-                    bytes.as_ref().to_owned().into(),
-                );
-            },
-            ObjectStorageKey::NarInfo(narinfo_file_name) => {
-                inner.nar_infos.insert(
-                    narinfo_file_name.clone(),
-                    bytes.as_ref().to_owned().into(),
-                );
-            },
-            ObjectStorageKey::NarMultipart(store_basename) => {
-                inner.nar_multiparts.insert(
-                    store_basename.clone(),
-                    NarMultipartState::Complete(
-                        bytes.as_ref().to_owned().into(),
-                    ),
-                );
-            },
+        self.with_inner(|inner| {
+            inner.insert(
+                key.into(),
+                ObjectState::Complete(bytes.as_ref().to_owned().into()),
+            )
         });
 
         Ok(())
+    }
+
+    async fn create_multipart_upload<'a>(
+        &self,
+        key: impl Into<ObjectStorageKey<'a>> + Send,
+    ) -> Result<Self::MultipartUploadId, Self::Error> {
+        self.with_inner(|inner| {
+            inner.insert(key.into(), ObjectState::Incomplete(Vec::new()))
+        });
+
+        Ok("in-memory".to_owned())
+    }
+
+    async fn complete_multipart_upload<'a>(
+        &self,
+        key: impl Into<ObjectStorageKey<'a>> + Send,
+        _: Self::MultipartUploadId,
+        etags: &[ETag],
+    ) -> Result<(), Self::Error> {
+        self.with_inner(|inner| {
+            let state = inner
+                .get_mut(key.into())
+                .ok_or(InMemoryObjectStorageError::MultipartUploadNotStarted)?;
+
+            let ObjectState::Incomplete(parts) = state else {
+                return Err(
+                    InMemoryObjectStorageError::MultipartUploadAlreadyComplete,
+                );
+            };
+
+            if etags.len() < parts.len() {
+                return Err(
+                    InMemoryObjectStorageError::TooFewMultipartUploadEtags(
+                        etags.len(),
+                        parts.len(),
+                    ),
+                );
+            }
+
+            if etags.len() > parts.len() {
+                return Err(
+                    InMemoryObjectStorageError::TooManyMultipartUploadEtags(
+                        etags.len(),
+                        parts.len(),
+                    ),
+                );
+            }
+
+            let mut bytes = Vec::new();
+
+            for (part_idx, maybe_part) in parts.iter_mut().enumerate() {
+                let part = maybe_part.take().ok_or(
+                    InMemoryObjectStorageError::MissingMultipartUploadPart(
+                        part_idx + 1,
+                    ),
+                )?;
+                bytes.extend_from_slice(&part);
+            }
+
+            *state = ObjectState::Complete(Bytes::copy_from_slice(&bytes));
+
+            Ok(())
+        })
+    }
+
+    fn max_multipart_parts(&self) -> Option<usize> {
+        None
     }
 }

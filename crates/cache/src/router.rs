@@ -5,6 +5,7 @@ use crate::layers::user_cache;
 use crate::routes::{
     nar_head,
     nar_multiparts,
+    nar_multiparts_complete,
     nar_multiparts_parts,
     nar_put,
     narinfo_get,
@@ -26,6 +27,10 @@ pub fn router(ctx: impl Context) -> Router {
         .route(
             nar_multiparts_parts::ROUTE,
             nar_multiparts_parts::router(ctx.clone()),
+        )
+        .route(
+            nar_multiparts_complete::ROUTE,
+            nar_multiparts_complete::router(ctx.clone()),
         );
 
     Router::new()
