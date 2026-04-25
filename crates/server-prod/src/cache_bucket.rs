@@ -1,12 +1,26 @@
 use core::fmt;
 use core::num::NonZeroU32;
+use core::time::Duration;
 use std::sync::{LazyLock, OnceLock};
+use std::time::SystemTime;
 
+use aws_credential_types::Credentials;
+use aws_sigv4::http_request::{
+    PayloadChecksumKind,
+    PercentEncodingMode,
+    SignableBody,
+    SignableRequest,
+    SigningInstructions,
+    SigningSettings,
+    UriPathNormalizationMode,
+};
+use aws_sigv4::sign::v4;
 use axum::http;
 use cache::object_gateway::{MultipartUploadUrlRequest, ObjectUrlRequest};
 use cache::object_storage::ObjectStorageKey;
 use cache::{ObjectGateway, ObjectStorage};
 use nix_types::sub60::nar_multiparts::ETag;
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use worker::send::IntoSendFuture;
 
 const MAX_MULTIPART_PARTS: usize = 10_000;
@@ -14,6 +28,13 @@ const MAX_MULTIPART_PARTS: usize = 10_000;
 /// 16 MiB.
 const PART_SIZE: NonZeroU32 =
     NonZeroU32::new(16 * 1024 * 1024).expect("multipart part size is non-zero");
+
+const S3_COPY_SOURCE_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'/')
+    .remove(b'_')
+    .remove(b'~');
 
 static PUBLIC_ENDPOINT: LazyLock<url::Url> = LazyLock::new(|| {
     url::Url::parse("https://r2.cache.sub60.dev").expect("valid URL")
@@ -53,6 +74,7 @@ struct CacheBucketS3Credentials {
     secret_access_key: String,
 }
 
+#[derive(Copy, Clone)]
 struct CacheBucketKey<'a>(ObjectStorageKey<'a>);
 
 impl CacheBucket {
@@ -63,6 +85,54 @@ impl CacheBucket {
                 .expect("R2 bucket binding not found"),
             env,
             s3_creds: OnceLock::new(),
+        }
+    }
+
+    async fn copy<'src, 'dst>(
+        &self,
+        src: CacheBucketKey<'src>,
+        dest: CacheBucketKey<'dst>,
+    ) -> Result<(), worker::Error> {
+        let copy_source = format!(
+            "/{}/{}",
+            env!("R2_BUCKET_NAME"),
+            utf8_percent_encode(&src.to_string(), S3_COPY_SOURCE_ENCODE_SET),
+        );
+
+        let object_url =
+            S3_ENDPOINT.join(&dest.to_string()).expect("combined URL is valid");
+
+        let signing_instructions =
+            sign_s3_copy_request(self.s3_creds(), &object_url, &copy_source);
+
+        let headers = worker::Headers::new();
+        headers.set("x-amz-copy-source", &copy_source)?;
+        for (name, value) in signing_instructions.headers() {
+            headers.set(name, value)?;
+        }
+
+        let request = {
+            let mut init = worker::RequestInit::new();
+            init.with_method(worker::Method::Put).with_headers(headers);
+            worker::Request::new_with_init(object_url.as_str(), &init)?
+        };
+
+        let mut response =
+            worker::Fetch::Request(request).send().into_send().await?;
+
+        let status_code = response.status_code();
+
+        if (200..300).contains(&status_code) {
+            Ok(())
+        } else {
+            let body =
+                response.text().into_send().await.unwrap_or_else(|err| {
+                    format!("<failed to read response body: {err}>")
+                });
+
+            Err(worker::Error::RustError(format!(
+                "R2 CopyObject failed with status {status_code}: {body}"
+            )))
         }
     }
 
@@ -137,6 +207,17 @@ impl ObjectStorage for CacheBucket {
             .map(|_obj| ())
     }
 
+    async fn r#move<'src, 'dst>(
+        &self,
+        source: impl Into<ObjectStorageKey<'src>> + Send,
+        destination: impl Into<ObjectStorageKey<'dst>> + Send,
+    ) -> Result<(), Self::Error> {
+        let src = CacheBucketKey(source.into());
+        let dest = CacheBucketKey(destination.into());
+        self.copy(src, dest).await?;
+        self.inner.delete(src).into_send().await
+    }
+
     async fn create_multipart_upload<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
@@ -180,6 +261,54 @@ impl ObjectStorage for CacheBucket {
     fn part_size(&self) -> NonZeroU32 {
         PART_SIZE
     }
+}
+
+fn sign_s3_copy_request(
+    credentials: &CacheBucketS3Credentials,
+    url: &url::Url,
+    copy_source: &str,
+) -> SigningInstructions {
+    let identity = Credentials::new(
+        &credentials.access_key_id,
+        &credentials.secret_access_key,
+        None,
+        None,
+        "cache-bucket",
+    )
+    .into();
+
+    let mut signing_settings = SigningSettings::default();
+    signing_settings.payload_checksum_kind = PayloadChecksumKind::XAmzSha256;
+    signing_settings.percent_encoding_mode = PercentEncodingMode::Single;
+    signing_settings.uri_path_normalization_mode =
+        UriPathNormalizationMode::Disabled;
+
+    let signing_params = v4::SigningParams::builder()
+        .identity(&identity)
+        .region("auto")
+        .name("s3")
+        .time(
+            // SystemTime::now() panics on WASM.
+            SystemTime::UNIX_EPOCH
+                + Duration::from_millis(js_sys::Date::now() as u64),
+        )
+        .settings(signing_settings)
+        .build()
+        .expect("R2 CopyObject signing params are fully specified")
+        .into();
+
+    let headers = [("x-amz-copy-source", copy_source)];
+    let signable_request = SignableRequest::new(
+        http::Method::PUT.as_str(),
+        url.as_str(),
+        headers.into_iter(),
+        SignableBody::Bytes(&[]),
+    )
+    .expect("R2 CopyObject URL is a valid signable URI");
+
+    aws_sigv4::http_request::sign(signable_request, &signing_params)
+        .map(|output| output.into_parts().0)
+        .expect("R2 CopyObject request is signable")
 }
 
 impl ObjectGateway for CacheBucket {

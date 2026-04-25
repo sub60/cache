@@ -31,6 +31,16 @@ pub trait ObjectStorage: Sync {
         bytes: impl AsRef<[u8]> + Send,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
 
+    /// Moves an object from one key to another.
+    ///
+    /// If an object already exists under the destination key, it should be
+    /// overwritten.
+    fn r#move<'src, 'dst>(
+        &self,
+        source: impl Into<ObjectStorageKey<'src>> + Send,
+        destination: impl Into<ObjectStorageKey<'dst>> + Send,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+
     /// Returns whether the object storage contains the given key.
     fn contains_key<'a>(
         &self,

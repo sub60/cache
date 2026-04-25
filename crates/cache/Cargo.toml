@@ -5,7 +5,7 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
-axum = { workspace = true }
+axum = { workspace = true, features = ["query"] }
 cauchy = { workspace = true }
 compact_str = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }

@@ -31,6 +31,10 @@ enum ObjectState {
     Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
 )]
 pub enum InMemoryObjectStorageError {
+    /// The source object for a move operation does not exist.
+    #[display("move source object was not found")]
+    MoveSourceNotFound,
+
     /// The multipart upload was completed before being started.
     #[display("multipart upload was not started")]
     MultipartUploadNotStarted,
@@ -102,6 +106,20 @@ impl InMemoryObjectStorageInner {
             },
         }
     }
+
+    fn remove(&mut self, key: ObjectStorageKey<'_>) -> Option<ObjectState> {
+        match key {
+            ObjectStorageKey::Nar(nar_file_name) => {
+                self.nars.remove(nar_file_name)
+            },
+            ObjectStorageKey::NarInfo(narinfo_file_name) => {
+                self.nar_infos.remove(narinfo_file_name)
+            },
+            ObjectStorageKey::NarMultipart(store_basename) => {
+                self.nar_multiparts.remove(store_basename)
+            },
+        }
+    }
 }
 
 impl ObjectStorage for InMemoryObjectStorage {
@@ -144,6 +162,22 @@ impl ObjectStorage for InMemoryObjectStorage {
         });
 
         Ok(())
+    }
+
+    async fn r#move<'src, 'dst>(
+        &self,
+        source: impl Into<ObjectStorageKey<'src>> + Send,
+        destination: impl Into<ObjectStorageKey<'dst>> + Send,
+    ) -> Result<(), Self::Error> {
+        self.with_inner(|inner| {
+            let object = inner
+                .remove(source.into())
+                .ok_or(InMemoryObjectStorageError::MoveSourceNotFound)?;
+
+            inner.insert(destination.into(), object);
+
+            Ok(())
+        })
     }
 
     async fn create_multipart_upload<'a>(
