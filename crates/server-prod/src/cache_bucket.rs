@@ -35,7 +35,7 @@ const NARINFO_CONTENT_TYPE: &str = "text/x-nix-narinfo";
 const PART_SIZE: NonZeroU32 =
     NonZeroU32::new(16 * 1024 * 1024).expect("multipart part size is non-zero");
 
-const S3_COPY_SOURCE_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
+const S3_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'.')
     .remove(b'/')
@@ -99,14 +99,10 @@ impl CacheBucket {
         src: CacheBucketKey<'src>,
         dest: CacheBucketKey<'dst>,
     ) -> Result<(), worker::Error> {
-        let copy_source = format!(
-            "/{}/{}",
-            env!("R2_BUCKET_NAME"),
-            utf8_percent_encode(&src.to_string(), S3_COPY_SOURCE_ENCODE_SET),
-        );
+        let copy_source =
+            format!("/{}/{}", env!("R2_BUCKET_NAME"), src.percent_encode());
 
-        let object_url =
-            S3_ENDPOINT.join(&dest.to_string()).expect("combined URL is valid");
+        let object_url = dest.s3_url();
 
         let signing_instructions =
             sign_s3_copy_request(self.s3_creds(), &object_url, &copy_source);
@@ -177,6 +173,26 @@ impl CacheBucketKey<'_> {
             content_type: Some(self.content_type().to_owned()),
             ..Default::default()
         }
+    }
+
+    fn percent_encode(self) -> String {
+        let key_str = self.to_string();
+
+        match self.0 {
+            // Keys for NARs and NARInfos are guaranteed to only contain
+            // URL-safe characters, so we don't need to encode it further.
+            ObjectStorageKey::Nar(_) | ObjectStorageKey::NarInfo(_) => key_str,
+            // Multipart NARs are keyed by store basename, and the name part in
+            // the basename can contain arbitrary characters, so we need to
+            // percent-encode it.
+            ObjectStorageKey::NarMultipart(_) => {
+                utf8_percent_encode(&key_str, S3_ENCODE_SET).to_string()
+            },
+        }
+    }
+
+    fn s3_url(self) -> url::Url {
+        S3_ENDPOINT.join(&self.percent_encode()).expect("combined URL is valid")
     }
 }
 
@@ -352,13 +368,9 @@ impl ObjectGateway for CacheBucket {
         // proxy, which would otherwise enforce a 100MiB body size limit
         // (there's still a 5GiB limit on single-part uploads though).
         if access_request.method == http::Method::PUT {
-            let url = S3_ENDPOINT
-                .join(&CacheBucketKey(access_request.key).to_string())
-                .expect("combined URL is valid");
-
             sign_s3_presigned_url(
                 self.s3_creds(),
-                &url,
+                &bucket_key.s3_url(),
                 &access_request.method,
                 access_request.min_ttl,
                 &[(
@@ -380,9 +392,7 @@ impl ObjectGateway for CacheBucket {
         &self,
         request: MultipartUploadUrlRequest<'_, String>,
     ) -> url::Url {
-        let mut url = S3_ENDPOINT
-            .join(&CacheBucketKey(request.key).to_string())
-            .expect("combined URL is valid");
+        let mut url = CacheBucketKey(request.key).s3_url();
 
         url.query_pairs_mut()
             .append_pair("partNumber", &request.part_number.to_string())
