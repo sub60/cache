@@ -17,12 +17,19 @@ use crate::{Context, ObjectGateway};
 
 pub(crate) const ROUTE: &str = "/nar-multiparts/{upload_id}/parts";
 
+#[derive(serde::Deserialize)]
+struct NarMultipartsPartsPath<UploadId> {
+    upload_id: UploadId,
+}
+
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
     routing::post(async move |path, body| handler(path, body, &mut ctx).await)
 }
 
 async fn handler<Ctx: Context>(
-    Path(upload_id): Path<MultipartUploadId<Ctx>>,
+    Path(NarMultipartsPartsPath { upload_id }): Path<
+        NarMultipartsPartsPath<MultipartUploadId<Ctx>>,
+    >,
     FromStrBody(body): FromStrBody<PartsRequestBody>,
     ctx: &mut Ctx,
 ) -> impl IntoResponse + use<Ctx> {

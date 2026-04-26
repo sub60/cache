@@ -15,6 +15,11 @@ use crate::{Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/nar-multiparts/{upload_id}/complete";
 
+#[derive(serde::Deserialize)]
+struct NarMultipartsCompletePath<UploadId> {
+    upload_id: UploadId,
+}
+
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarMultipartsCompleteError<ObjectStorageError> {
     #[display("multipart upload completion must include at least one part")]
@@ -30,7 +35,9 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    Path(upload_id): Path<MultipartUploadId<Ctx>>,
+    Path(NarMultipartsCompletePath { upload_id }): Path<
+        NarMultipartsCompletePath<MultipartUploadId<Ctx>>,
+    >,
     FromStrBody(body): FromStrBody<CompleteRequestBody>,
     ctx: &mut Ctx,
 ) -> Result<StatusCode, NarMultipartsCompleteError<ObjectStorageError<Ctx>>> {
