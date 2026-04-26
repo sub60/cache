@@ -21,6 +21,24 @@ let
   packageName = "server-prod";
   packagePathInWorkspace = "crates/server-prod";
 
+  worker-build_0_8_1 = worker-build.overrideAttrs (_: rec {
+    version = "0.8.1";
+
+    src = fetchCrate {
+      pname = "worker-build";
+      inherit version;
+      hash = "sha256-Df87FvodwFeI3UNdFSPqO2oDbnlEg0gWB8ZA1tk/NHo=";
+    };
+
+    cargoDeps = rustPlatform.fetchCargoVendor {
+      inherit src version;
+      pname = "worker-build";
+      hash = "sha256-YGt+D7f5VUVnftc9TAeSjbh7a5YwXdFgm+XiaQwoiDA=";
+    };
+
+    buildAndTestSubdir = null;
+  });
+
   src = lib.cleanSourceWith {
     src = ../.;
     filter =
@@ -130,7 +148,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     cargoShim
     rustcShim
-    worker-build
+    worker-build_0_8_1
   ];
 
   env = {
