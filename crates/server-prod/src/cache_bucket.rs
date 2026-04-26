@@ -22,9 +22,14 @@ use cache::object_storage::ObjectStorageKey;
 use cache::{ObjectGateway, ObjectStorage};
 use nix_types::sub60::nar_multiparts::Etag;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+use worker::HttpMetadata;
 use worker::send::IntoSendFuture;
 
 const MAX_MULTIPART_PARTS: usize = 10_000;
+
+const NAR_CONTENT_TYPE: &str = "application/x-nix-nar";
+
+const NARINFO_CONTENT_TYPE: &str = "text/x-nix-narinfo";
 
 /// 16 MiB.
 const PART_SIZE: NonZeroU32 =
@@ -157,6 +162,24 @@ impl CacheBucketS3Credentials {
     }
 }
 
+impl CacheBucketKey<'_> {
+    fn content_type(self) -> &'static str {
+        match self.0 {
+            ObjectStorageKey::Nar(_) | ObjectStorageKey::NarMultipart(_) => {
+                NAR_CONTENT_TYPE
+            },
+            ObjectStorageKey::NarInfo(_) => NARINFO_CONTENT_TYPE,
+        }
+    }
+
+    fn http_metadata(self) -> HttpMetadata {
+        HttpMetadata {
+            content_type: Some(self.content_type().to_owned()),
+            ..Default::default()
+        }
+    }
+}
+
 impl ObjectStorage for CacheBucket {
     type MultipartUploadId = String;
     type Error = worker::Error;
@@ -200,8 +223,11 @@ impl ObjectStorage for CacheBucket {
         key: impl Into<ObjectStorageKey<'a>>,
         bytes: impl AsRef<[u8]>,
     ) -> Result<(), Self::Error> {
+        let bucket_key = CacheBucketKey(key.into());
+
         self.inner
-            .put(CacheBucketKey(key.into()), bytes.as_ref().to_vec())
+            .put(bucket_key, bytes.as_ref().to_vec())
+            .http_metadata(bucket_key.http_metadata())
             .execute()
             .into_send()
             .await
@@ -223,9 +249,12 @@ impl ObjectStorage for CacheBucket {
         &self,
         key: impl Into<ObjectStorageKey<'a>>,
     ) -> Result<Self::MultipartUploadId, Self::Error> {
+        let bucket_key = CacheBucketKey(key.into());
+
         Ok(self
             .inner
-            .create_multipart_upload(CacheBucketKey(key.into()))
+            .create_multipart_upload(bucket_key)
+            .http_metadata(bucket_key.http_metadata())
             .execute()
             .into_send()
             .await?
@@ -316,6 +345,8 @@ impl ObjectGateway for CacheBucket {
     type Storage = Self;
 
     fn object_url(&self, access_request: ObjectUrlRequest<'_>) -> url::Url {
+        let bucket_key = CacheBucketKey(access_request.key);
+
         // Writes go through the S3-compatible endpoint and are authenticated
         // via a presigned URL. The S3 endpoint also bypasses Cloudflare's edge
         // proxy, which would otherwise enforce a 100MiB body size limit
@@ -330,6 +361,10 @@ impl ObjectGateway for CacheBucket {
                 &url,
                 &access_request.method,
                 access_request.min_ttl,
+                &[(
+                    http::header::CONTENT_TYPE.as_str(),
+                    bucket_key.content_type(),
+                )],
             )
         }
         // Reads go through our public R2 domain, which is fronted by
@@ -358,6 +393,7 @@ impl ObjectGateway for CacheBucket {
             &url,
             &http::Method::PUT,
             request.min_ttl,
+            &[],
         )
     }
 
@@ -366,11 +402,13 @@ impl ObjectGateway for CacheBucket {
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 fn sign_s3_presigned_url(
     credentials: &CacheBucketS3Credentials,
     url: &url::Url,
     method: &http::Method,
     min_ttl: Duration,
+    headers: &[(&str, &str)],
 ) -> url::Url {
     let identity = Credentials::new(
         &credentials.access_key_id,
@@ -405,7 +443,7 @@ fn sign_s3_presigned_url(
     let signable_request = SignableRequest::new(
         method.as_str(),
         url.as_str(),
-        [].into_iter(),
+        headers.iter().copied(),
         SignableBody::UnsignedPayload,
     )
     .expect("S3 presigned URL is a valid signable URI");
