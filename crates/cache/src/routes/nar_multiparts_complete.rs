@@ -21,6 +21,7 @@ enum NarMultipartsCompleteError<ObjectStorageError> {
     EmptyUpload,
     #[display("multipart upload has too many parts: {_0} (maximum {_1})")]
     TooManyParts(usize, usize),
+    #[display("couldn't complete multipart upload: {_0}")]
     CompleteMultipartUpload(ObjectStorageError),
 }
 

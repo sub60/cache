@@ -6,7 +6,7 @@ use core::error::Error;
 use core::num::NonZeroU32;
 
 pub use in_memory::{InMemoryObjectStorage, InMemoryObjectStorageError};
-use nix_types::sub60::nar_multiparts::ETag;
+use nix_types::sub60::nar_multiparts::Etag;
 use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
 use serde::de::DeserializeOwned;
 
@@ -61,7 +61,7 @@ pub trait ObjectStorage: Sync {
         &self,
         key: impl Into<ObjectStorageKey<'a>> + Send,
         upload_id: Self::MultipartUploadId,
-        etags: &[ETag],
+        etags: &[Etag],
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
 
     /// Returns the maximum number of parts supported by multipart uploads.

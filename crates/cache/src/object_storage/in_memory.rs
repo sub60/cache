@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
-use nix_types::sub60::nar_multiparts::ETag;
+use nix_types::sub60::nar_multiparts::Etag;
 use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
 
 use crate::ObjectStorage;
@@ -47,15 +47,15 @@ pub enum InMemoryObjectStorageError {
     #[display("multipart upload is missing bytes for part {_0}")]
     MissingMultipartUploadPart(usize),
 
-    /// Multipart upload completion had fewer ETags than uploaded part slots.
+    /// Multipart upload completion had fewer Etags than uploaded part slots.
     #[display(
-        "multipart upload completion has too few ETags: {_0} for {_1} parts"
+        "multipart upload completion has too few Etags: {_0} for {_1} parts"
     )]
     TooFewMultipartUploadEtags(usize, usize),
 
-    /// Multipart upload completion had more ETags than uploaded part slots.
+    /// Multipart upload completion had more Etags than uploaded part slots.
     #[display(
-        "multipart upload completion has too many ETags: {_0} for {_1} parts"
+        "multipart upload completion has too many Etags: {_0} for {_1} parts"
     )]
     TooManyMultipartUploadEtags(usize, usize),
 }
@@ -195,7 +195,7 @@ impl ObjectStorage for InMemoryObjectStorage {
         &self,
         key: impl Into<ObjectStorageKey<'a>> + Send,
         _: Self::MultipartUploadId,
-        etags: &[ETag],
+        etags: &[Etag],
     ) -> Result<(), Self::Error> {
         self.with_inner(|inner| {
             let state = inner
