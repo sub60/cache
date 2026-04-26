@@ -10,6 +10,7 @@ use aws_sigv4::http_request::{
     PercentEncodingMode,
     SignableBody,
     SignableRequest,
+    SignatureLocation,
     SigningInstructions,
     SigningSettings,
     UriPathNormalizationMode,
@@ -324,27 +325,12 @@ impl ObjectGateway for CacheBucket {
                 .join(&CacheBucketKey(access_request.key).to_string())
                 .expect("combined URL is valid");
 
-            let now = chrono::DateTime::from_timestamp_millis(
-                js_sys::Date::now() as i64,
-            )
-            .expect("current time is a valid timestamp");
-
-            let creds = self.s3_creds();
-
-            s3v4::pre_signed_url(
-                &creds.access_key_id,
-                &creds.secret_access_key,
-                access_request.min_ttl.as_secs(),
+            sign_s3_presigned_url(
+                self.s3_creds(),
                 &url,
-                access_request.method.as_str(),
-                "UNSIGNED-PAYLOAD",
-                "auto",
-                &now,
-                "s3",
+                &access_request.method,
+                access_request.min_ttl,
             )
-            .expect("presigning should not fail")
-            .parse()
-            .expect("presigned URL is a valid URI")
         }
         // Reads go through our public R2 domain, which is fronted by
         // Cloudflare's edge proxy and gives us CDN caching.
@@ -367,31 +353,77 @@ impl ObjectGateway for CacheBucket {
             .append_pair("partNumber", &request.part_number.to_string())
             .append_pair("uploadId", request.upload_id);
 
-        let now =
-            chrono::DateTime::from_timestamp_millis(js_sys::Date::now() as i64)
-                .expect("current time is a valid timestamp");
-
-        let creds = self.s3_creds();
-
-        s3v4::pre_signed_url(
-            &creds.access_key_id,
-            &creds.secret_access_key,
-            request.min_ttl.as_secs(),
+        sign_s3_presigned_url(
+            self.s3_creds(),
             &url,
-            http::Method::PUT.as_str(),
-            "UNSIGNED-PAYLOAD",
-            "auto",
-            &now,
-            "s3",
+            &http::Method::PUT,
+            request.min_ttl,
         )
-        .expect("presigning should not fail")
-        .parse()
-        .expect("presigned URL is a valid URI")
     }
 
     fn storage(&self) -> &Self {
         self
     }
+}
+
+fn sign_s3_presigned_url(
+    credentials: &CacheBucketS3Credentials,
+    url: &url::Url,
+    method: &http::Method,
+    min_ttl: Duration,
+) -> url::Url {
+    let identity = Credentials::new(
+        &credentials.access_key_id,
+        &credentials.secret_access_key,
+        None,
+        None,
+        "cache-bucket",
+    )
+    .into();
+
+    let mut signing_settings = SigningSettings::default();
+    signing_settings.signature_location = SignatureLocation::QueryParams;
+    signing_settings.expires_in = Some(min_ttl);
+    signing_settings.percent_encoding_mode = PercentEncodingMode::Single;
+    signing_settings.uri_path_normalization_mode =
+        UriPathNormalizationMode::Disabled;
+
+    let signing_params = v4::SigningParams::builder()
+        .identity(&identity)
+        .region("auto")
+        .name("s3")
+        .time(
+            // SystemTime::now() panics on WASM.
+            SystemTime::UNIX_EPOCH
+                + Duration::from_millis(js_sys::Date::now() as u64),
+        )
+        .settings(signing_settings)
+        .build()
+        .expect("S3 presigning params are fully specified")
+        .into();
+
+    let signable_request = SignableRequest::new(
+        method.as_str(),
+        url.as_str(),
+        [].into_iter(),
+        SignableBody::UnsignedPayload,
+    )
+    .expect("S3 presigned URL is a valid signable URI");
+
+    let (signing_instructions, _signature) =
+        aws_sigv4::http_request::sign(signable_request, &signing_params)
+            .map(|output| output.into_parts())
+            .expect("S3 presigned URL is signable");
+
+    let mut request = http::Request::builder()
+        .method(method)
+        .uri(url.as_str())
+        .body(())
+        .expect("S3 presigned URL request is valid");
+
+    signing_instructions.apply_to_request_http1x(&mut request);
+
+    request.uri().to_string().parse().expect("S3 presigned URL is valid")
 }
 
 impl fmt::Display for CacheBucketKey<'_> {
