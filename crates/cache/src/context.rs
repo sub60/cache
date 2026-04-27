@@ -1,9 +1,5 @@
 //! TODO: docs.
 
-mod composed;
-
-pub use composed::ComposedContext;
-
 use crate::object_gateway::ObjectGateway;
 use crate::{CacheDb, Cdn, ObjectStorage};
 

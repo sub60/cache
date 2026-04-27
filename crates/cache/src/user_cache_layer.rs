@@ -4,7 +4,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use nix_types::sub60::{CacheName, UserName};
 
-use crate::layers::RouteLayer;
+use crate::route_layer::RouteLayer;
 use crate::{CacheDb, Context};
 
 pub(crate) const ROUTE: &str = "/{user}/{cache}";

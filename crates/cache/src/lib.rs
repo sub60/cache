@@ -9,11 +9,12 @@ mod cache_infos;
 pub mod cdn;
 pub mod context;
 mod from_str_body;
-mod layers;
 pub mod object_gateway;
 pub mod object_storage;
+mod route_layer;
 mod router;
 mod routes;
+mod user_cache_layer;
 
 pub use cache_db::CacheDb;
 pub use cache_infos::CacheInfos;

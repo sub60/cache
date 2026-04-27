@@ -1,12 +1,9 @@
 //! TODO: docs.
 
-mod into_router;
-
 use core::num::NonZeroU16;
 use core::time::Duration;
 
 use axum::http;
-pub use into_router::IntoRouterObjectGateway;
 
 use crate::ObjectStorage;
 use crate::object_storage::ObjectStorageKey;

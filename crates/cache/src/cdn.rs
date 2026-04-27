@@ -1,11 +1,8 @@
 //! TODO: docs.
 
-mod noop;
-
 use core::time::Duration;
 
 use axum::http::{HeaderName, HeaderValue};
-pub use noop::NoOpCdn;
 
 /// TODO: docs.
 pub trait Cdn {

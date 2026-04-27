@@ -1,11 +1,8 @@
 //! TODO: docs.
 
-mod in_memory;
-
 use core::error::Error;
 use core::num::NonZeroU32;
 
-pub use in_memory::{InMemoryObjectStorage, InMemoryObjectStorageError};
 use nix_types::sub60::nar_multiparts::Etag;
 use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
 use serde::de::DeserializeOwned;

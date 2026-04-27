@@ -1,13 +1,15 @@
 use core::fmt;
 
 use axum::Router;
-use cache::cdn::{self, NoOpCdn};
-use cache::context::ComposedContext;
-use cache::object_gateway::IntoRouterObjectGateway;
-use cache::object_storage::InMemoryObjectStorage;
-use cache::{Context, ObjectStorage};
+use cache::{Context, ObjectStorage, cdn};
 
-use crate::common::InMemoryCacheDatabase;
+use crate::common::{
+    ComposedContext,
+    InMemoryCacheDb,
+    InMemoryObjectStorage,
+    IntoRouterObjectGateway,
+    NoOpCdn,
+};
 
 const OBJECT_GATEWAY_PATH: &str = "/objects";
 
@@ -21,7 +23,7 @@ const OBJECT_GATEWAY_PATH: &str = "/objects";
 pub(crate) struct TestContext<Cdn = NoOpCdn, ObjStorage = InMemoryObjectStorage>
 {
     inner: ComposedContext<
-        InMemoryCacheDatabase,
+        InMemoryCacheDb,
         Cdn,
         IntoRouterObjectGateway<ObjStorage>,
     >,
@@ -34,7 +36,7 @@ impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
         ObjStorage: Clone,
         IntoRouterObjectGateway<ObjStorage>: Into<Router>,
         ComposedContext<
-            InMemoryCacheDatabase,
+            InMemoryCacheDb,
             Cdn,
             IntoRouterObjectGateway<ObjStorage>,
         >: Context<
@@ -46,7 +48,7 @@ impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
         cache::router(self.inner.clone()).merge(object_gateway)
     }
 
-    pub fn db_mut(&mut self) -> &mut InMemoryCacheDatabase {
+    pub fn db_mut(&mut self) -> &mut InMemoryCacheDb {
         self.inner.cache_db_mut()
     }
 }
@@ -71,7 +73,7 @@ where
     ObjStorage: ObjectStorage + Clone + Send + Sync + 'static,
     ObjStorage::MultipartUploadId: fmt::Display,
 {
-    type CacheDb = InMemoryCacheDatabase;
+    type CacheDb = InMemoryCacheDb;
     type Cdn = Cdn;
     type ObjectGateway = IntoRouterObjectGateway<ObjStorage>;
 
