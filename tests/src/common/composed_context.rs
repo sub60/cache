@@ -1,4 +1,4 @@
-use cache::{CacheDb, Context, ObjectGateway};
+use sub60_cache::{CacheDb, Context, ObjectGateway};
 
 /// A composable [`Context`] implementation that simply holds the various
 /// associated types as fields.
@@ -37,7 +37,7 @@ impl<Db, Cdn, ObjGateway> ComposedContext<Db, Cdn, ObjGateway> {
     }
 
     /// TODO: docs.
-    pub fn with_cdn<NewCdn: cache::Cdn>(
+    pub fn with_cdn<NewCdn: sub60_cache::Cdn>(
         self,
         cdn: NewCdn,
     ) -> ComposedContext<Db, NewCdn, ObjGateway> {
@@ -63,7 +63,6 @@ impl<Db, Cdn, ObjGateway> ComposedContext<Db, Cdn, ObjGateway> {
     }
 
     /// TODO: docs.
-    #[expect(unused)]
     pub fn with_want_mass_query(mut self, want_mass_query: bool) -> Self {
         self.want_mass_query = want_mass_query;
         self
@@ -84,7 +83,7 @@ impl Default for ComposedContext<(), (), ()> {
 impl<Db, Cdn, ObjGateway> Context for ComposedContext<Db, Cdn, ObjGateway>
 where
     Db: CacheDb,
-    Cdn: cache::Cdn,
+    Cdn: sub60_cache::Cdn,
     ObjGateway: ObjectGateway,
     Self: Clone + Send + Sync + 'static,
 {

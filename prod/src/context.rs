@@ -9,7 +9,7 @@ pub(crate) struct Context {
     pub(crate) cdn: CloudflareCdn,
 }
 
-impl cache::Context for Context {
+impl sub60_cache::Context for Context {
     type CacheDb = D1CacheDatabase;
     type Cdn = CloudflareCdn;
     type ObjectGateway = CacheBucket;

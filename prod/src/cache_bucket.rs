@@ -17,11 +17,14 @@ use aws_sigv4::http_request::{
 };
 use aws_sigv4::sign::v4;
 use axum::http;
-use cache::object_gateway::{MultipartUploadUrlRequest, ObjectUrlRequest};
-use cache::object_storage::ObjectStorageKey;
-use cache::{ObjectGateway, ObjectStorage};
 use nix_types::sub60::nar_multiparts::Etag;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+use sub60_cache::object_gateway::{
+    MultipartUploadUrlRequest,
+    ObjectUrlRequest,
+};
+use sub60_cache::object_storage::ObjectStorageKey;
+use sub60_cache::{ObjectGateway, ObjectStorage};
 use worker::HttpMetadata;
 use worker::send::IntoSendFuture;
 

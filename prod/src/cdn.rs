@@ -2,8 +2,8 @@ use core::iter;
 use core::time::Duration;
 
 use axum::http::{HeaderName, HeaderValue, header};
-use cache::Cdn;
 use compact_str::format_compact;
+use sub60_cache::Cdn;
 
 /// The [`Cdn`] implementation for Cloudflare.
 #[derive(Debug, Clone)]

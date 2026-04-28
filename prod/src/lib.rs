@@ -27,5 +27,5 @@ async fn fetch(
         cdn: cdn::CloudflareCdn,
     };
 
-    cache::router(context).call(req).await
+    sub60_cache::router(context).call(req).await
 }

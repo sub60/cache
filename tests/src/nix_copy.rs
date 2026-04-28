@@ -1,16 +1,10 @@
 use core::net::Ipv4Addr;
 
-use cache::{Context, ObjectStorage};
 use nix_types::{NarFileName, NarInfoFileName};
+use sub60_cache::{Context, ObjectStorage};
 use tokio::net::TcpListener;
 
-use crate::common::{
-    MockNixClient,
-    NixClient,
-    NixStore,
-    RealNixClient,
-    TestContext,
-};
+use crate::{MockNixClient, NixClient, NixStore, RealNixClient, TestContext};
 
 #[tokio::test]
 async fn copy_to_cache_mock() {
@@ -45,7 +39,7 @@ async fn copy_to_cache_real() {
     let local_addr = listener.local_addr().unwrap();
     tokio::spawn(axum::serve(listener, test_ctx.app_router()).into_future());
 
-    let nix = RealNixClient::new();
+    let nix = RealNixClient::create();
 
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
 
@@ -106,7 +100,7 @@ async fn copy_from_cache_real() {
     let local_addr = listener.local_addr().unwrap();
     tokio::spawn(axum::serve(listener, test_ctx.app_router()).into_future());
 
-    let nix = RealNixClient::new();
+    let nix = RealNixClient::create();
 
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
 

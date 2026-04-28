@@ -25,6 +25,7 @@ pub trait NixClient: Sized {
         options: CopyOptions<true, Self>,
     ) -> impl Future<Output = Result<(), Self::CopyError>>;
 
+    /// TODO: docs.
     fn store(&self) -> &Self::Store;
 
     /// TODO: docs.
@@ -45,14 +46,21 @@ pub trait NixClient: Sized {
 
 /// TODO: docs.
 pub struct CopyOptions<const HAS_CACHE_URI: bool, Client: NixClient> {
+    /// TODO: docs.
     pub cache_uri:
         Option<(<Client as NixClient>::CacheHost, UserName, CacheName)>,
+
+    /// TODO: docs.
     pub direction: CopyDirection,
 }
 
+/// TODO: docs.
 #[derive(Debug, Copy, Clone)]
 pub enum CopyDirection {
+    /// TODO: docs.
     From,
+
+    /// TODO: docs.
     To,
 }
 
@@ -118,12 +126,14 @@ impl<Client: NixClient> CopyOptions<false, Client> {
 }
 
 impl<Client: NixClient> CopyOptions<true, Client> {
+    /// TODO: docs.
     pub fn cache_uri(
         self,
     ) -> (<Client as NixClient>::CacheHost, UserName, CacheName) {
         self.cache_uri.expect("cache URI is set")
     }
 
+    /// TODO: docs.
     pub fn into_cli_args(self) -> impl Iterator<Item = impl AsRef<str>>
     where
         Client::CacheHost: Into<url::Url>,

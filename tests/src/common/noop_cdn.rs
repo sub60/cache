@@ -2,8 +2,8 @@ use core::iter;
 use core::time::Duration;
 
 use axum::http::{HeaderName, HeaderValue};
-use cache::Cdn;
 use cauchy::Debug;
+use sub60_cache::Cdn;
 
 /// A [`Cdn`] implementation that does nothing.
 #[derive(Debug, Copy, Clone, Default)]

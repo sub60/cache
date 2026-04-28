@@ -1,0 +1,26 @@
+[package]
+name = "sub60-cache-prod"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+aws-credential-types = "1"
+aws-sigv4 = { version = "1", features = ["sign-http", "http1"] }
+axum = { workspace = true }
+chrono = { version = "0.4", default-features = false }
+compact_str = { workspace = true }
+js-sys = "0.3"
+nix-types = { workspace = true }
+percent-encoding = "2"
+sqlx-d1 = { version = "0.4", features = ["macros"] }
+sub60-cache = { workspace = true }
+tower-service = { workspace = true }
+url = { workspace = true }
+worker = { version = "0.8", features = ["d1", "http"] }
+
+[lints]
+workspace = true

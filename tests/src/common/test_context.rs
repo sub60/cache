@@ -1,7 +1,7 @@
 use core::fmt;
 
 use axum::Router;
-use cache::{Context, ObjectStorage, cdn};
+use sub60_cache::{Context, ObjectStorage, cdn};
 
 use crate::common::{
     ComposedContext,
@@ -20,8 +20,7 @@ const OBJECT_GATEWAY_PATH: &str = "/objects";
 /// configured object storage, so it can be converted into a [`Router`] by
 /// calling [`app_router()`](TestContext::app_router).
 #[derive(Clone)]
-pub(crate) struct TestContext<Cdn = NoOpCdn, ObjStorage = InMemoryObjectStorage>
-{
+pub struct TestContext<Cdn = NoOpCdn, ObjStorage = InMemoryObjectStorage> {
     inner: ComposedContext<
         InMemoryCacheDb,
         Cdn,
@@ -30,6 +29,7 @@ pub(crate) struct TestContext<Cdn = NoOpCdn, ObjStorage = InMemoryObjectStorage>
 }
 
 impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
+    /// TODO: docs.
     pub fn app_router(&self) -> Router
     where
         Cdn: cdn::Cdn,
@@ -45,9 +45,10 @@ impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
             >,
     {
         let object_gateway = self.inner.object_gateway().clone();
-        cache::router(self.inner.clone()).merge(object_gateway)
+        sub60_cache::router(self.inner.clone()).merge(object_gateway)
     }
 
+    /// TODO: docs.
     pub fn db_mut(&mut self) -> &mut InMemoryCacheDb {
         self.inner.cache_db_mut()
     }

@@ -28,9 +28,10 @@ pub struct RealNixStore {
 pub struct CacheHost(url::Url);
 
 impl RealNixClient {
+    /// TODO: docs.
     #[track_caller]
-    pub fn new() -> Self {
-        Self { store: RealNixStore::new() }
+    pub fn create() -> Self {
+        Self { store: RealNixStore::create() }
     }
 
     async fn run(
@@ -43,7 +44,7 @@ impl RealNixClient {
 
 impl RealNixStore {
     #[track_caller]
-    fn new() -> Self {
+    fn create() -> Self {
         let dir =
             tempfile::tempdir().expect("failed to create temporary directory");
 

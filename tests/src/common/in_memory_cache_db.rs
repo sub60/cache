@@ -3,14 +3,15 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use axum::http;
-use cache::{CacheDb, CacheInfos};
 use nix_types::sub60::{CacheName, UserName};
 use nix_types::{CacheSigningKey, KeyOrSignatureName};
+use sub60_cache::{CacheDb, CacheInfos};
 
 type CacheId = (UserName, CacheName);
 
+/// TODO: docs.
 #[derive(Clone, Default)]
-pub(crate) struct InMemoryCacheDb {
+pub struct InMemoryCacheDb {
     inner: Arc<Mutex<InMemoryCacheDbInner>>,
 }
 
@@ -20,7 +21,7 @@ struct InMemoryCacheDbInner {
     caches: HashMap<CacheId, CacheInfos<CacheId>>,
 }
 
-pub(crate) enum Never {}
+pub enum Never {}
 
 impl InMemoryCacheDb {
     /// Adds a user to the DB.

@@ -1,12 +1,13 @@
-use crate::common::{NixClient, NixStore, RealNixClient};
-use crate::server_prod::MiniflareServer;
+use sub60_cache_tests::{NixClient, NixStore, RealNixClient};
+
+use crate::MiniflareServer;
 
 #[tokio::test]
 #[cfg_attr(not(nix_in_path), ignore = "requires `nix` in $PATH")]
 async fn copy_to_and_from_cache() {
     let mf = MiniflareServer::spawn();
 
-    let nix = RealNixClient::new();
+    let nix = RealNixClient::create();
 
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
 

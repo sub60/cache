@@ -8,7 +8,7 @@
 }:
 
 let
-  sqlxDir = "crates/server-prod/.sqlx";
+  sqlxDir = "prod/.sqlx";
 in
 craneLib.mkCargoDerivation {
   inherit (prod) src cargoArtifacts;

@@ -291,21 +291,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cache"
-version = "0.0.0"
-dependencies = [
- "axum",
- "cauchy",
- "compact_str",
- "derive_more",
- "nix-types",
- "serde",
- "smol_str",
- "tower-layer",
- "tower-service",
-]
-
-[[package]]
 name = "castaway"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1548,25 +1533,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "server-prod"
-version = "0.0.0"
-dependencies = [
- "aws-credential-types",
- "aws-sigv4",
- "axum",
- "cache",
- "chrono",
- "compact_str",
- "js-sys",
- "nix-types",
- "percent-encoding",
- "sqlx-d1",
- "tower-service",
- "url",
- "worker",
-]
-
-[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1820,6 +1786,79 @@ dependencies = [
 ]
 
 [[package]]
+name = "sub60-cache"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "cauchy",
+ "compact_str",
+ "derive_more",
+ "nix-types",
+ "serde",
+ "smol_str",
+ "tower-layer",
+ "tower-service",
+]
+
+[[package]]
+name = "sub60-cache-prod"
+version = "0.0.0"
+dependencies = [
+ "aws-credential-types",
+ "aws-sigv4",
+ "axum",
+ "chrono",
+ "compact_str",
+ "js-sys",
+ "nix-types",
+ "percent-encoding",
+ "sqlx-d1",
+ "sub60-cache",
+ "tower-service",
+ "url",
+ "worker",
+]
+
+[[package]]
+name = "sub60-cache-prod-tests"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "cauchy",
+ "derive_more",
+ "either",
+ "futures",
+ "nix-types",
+ "serde",
+ "sha2 0.11.0",
+ "sub60-cache",
+ "sub60-cache-tests",
+ "tempfile",
+ "tokio",
+ "tower-service",
+ "url",
+]
+
+[[package]]
+name = "sub60-cache-tests"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "cauchy",
+ "derive_more",
+ "either",
+ "futures",
+ "nix-types",
+ "serde",
+ "sha2 0.11.0",
+ "sub60-cache",
+ "tempfile",
+ "tokio",
+ "tower-service",
+ "url",
+]
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1864,25 +1903,6 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "tests"
-version = "0.0.0"
-dependencies = [
- "axum",
- "cache",
- "cauchy",
- "derive_more",
- "either",
- "futures",
- "nix-types",
- "serde",
- "sha2 0.11.0",
- "tempfile",
- "tokio",
- "tower-service",
- "url",
 ]
 
 [[package]]

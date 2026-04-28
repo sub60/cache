@@ -3,12 +3,14 @@ use nix_types::{NarInfo, StorePath};
 
 /// TODO: docs.
 pub trait NixStore: Sized {
+    /// TODO: docs.
     fn add_file(
         &self,
         file_name: &str,
         file_contents: &[u8],
     ) -> impl Future<Output = StorePath>;
 
+    /// TODO: docs.
     fn delete(&self, store_path: &StorePath) -> impl Future<Output = ()>;
 
     /// Returns the [`NarInfo`] and the (possibly compressed) NAR bytes for

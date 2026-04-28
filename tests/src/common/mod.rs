@@ -9,21 +9,18 @@ mod noop_cdn;
 mod real_nix;
 mod test_context;
 
-pub(crate) use composed_context::ComposedContext;
-pub(crate) use in_memory_cache_db::InMemoryCacheDb;
-pub(crate) use in_memory_object_storage::InMemoryObjectStorage;
-pub(crate) use into_router_object_gateway::IntoRouterObjectGateway;
-#[expect(unused_imports)]
-pub(crate) use mock_nix::{MockNixClient, MockNixStore};
-#[expect(unused_imports)]
-pub(crate) use nix_client::{
+pub use composed_context::ComposedContext;
+pub use in_memory_cache_db::InMemoryCacheDb;
+pub use in_memory_object_storage::InMemoryObjectStorage;
+pub use into_router_object_gateway::IntoRouterObjectGateway;
+pub use mock_nix::{MockNixClient, MockNixStore};
+pub use nix_client::{
     CopyDirection,
     CopyFutureBuilder,
     CopyOptions,
     NixClient,
 };
-pub(crate) use nix_store::NixStore;
-pub(crate) use noop_cdn::NoOpCdn;
-#[expect(unused_imports)]
-pub(crate) use real_nix::{RealNixClient, RealNixStore};
-pub(crate) use test_context::TestContext;
+pub use nix_store::NixStore;
+pub use noop_cdn::NoOpCdn;
+pub use real_nix::{RealNixClient, RealNixStore};
+pub use test_context::TestContext;

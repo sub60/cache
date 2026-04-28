@@ -18,8 +18,8 @@
 }:
 
 let
-  packageName = "server-prod";
-  packagePathInWorkspace = "crates/server-prod";
+  packageName = "sub60-cache-prod";
+  packagePathInWorkspace = "prod";
 
   worker-build_0_8_1 = worker-build.overrideAttrs (_: rec {
     version = "0.8.1";
@@ -40,13 +40,12 @@ let
   });
 
   src = lib.cleanSourceWith {
-    src = ../.;
+    src = ../../.;
     filter =
       path: type:
       (craneLib.filterCargoSources path type)
       || (
-        type == "regular"
-        && builtins.match ".*/crates/server-prod/\.sqlx/query-.*\.json$" path != null
+        type == "regular" && builtins.match ".*/\.sqlx/query-.*\.json$" path != null
       );
   };
 
@@ -120,7 +119,7 @@ let
   # from Cargo.lock and build the CLI to match.
   wasm-bindgen-cli =
     let
-      cargoLock = builtins.fromTOML (builtins.readFile ../Cargo.lock);
+      cargoLock = builtins.fromTOML (builtins.readFile ../../Cargo.lock);
       wasmBindgenVersion =
         (builtins.head (
           builtins.filter (p: p.name == "wasm-bindgen") cargoLock.package

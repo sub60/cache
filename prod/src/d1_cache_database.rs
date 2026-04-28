@@ -1,9 +1,9 @@
 use core::{fmt, str};
 
 use axum::http;
-use cache::{CacheDb, CacheInfos};
 use nix_types::CacheSigningKey;
 use nix_types::sub60::{CacheName, UserName};
+use sub60_cache::{CacheDb, CacheInfos};
 
 #[derive(Clone)]
 pub(crate) struct D1CacheDatabase {

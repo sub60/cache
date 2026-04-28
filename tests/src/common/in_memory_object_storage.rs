@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
-use cache::ObjectStorage;
-use cache::object_storage::ObjectStorageKey;
 use nix_types::sub60::nar_multiparts::Etag;
 use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
+use sub60_cache::ObjectStorage;
+use sub60_cache::object_storage::ObjectStorageKey;
 
 /// An [`ObjectStorage`] trait that stores the object in memory using a
 /// `HashMap`.

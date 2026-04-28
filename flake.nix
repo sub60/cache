@@ -1,7 +1,5 @@
 {
   inputs = {
-    cache-db.url = "git+ssh://git@github.com/sub60/cache-db.git";
-    crane.url = "github:ipetkov/crane";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
@@ -11,18 +9,14 @@
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    wrangler.url = "github:emrldnix/wrangler";
   };
 
   outputs =
     {
       self,
-      cache-db,
-      crane,
       nixpkgs,
       rust-overlay,
       treefmt-nix,
-      wrangler,
       ...
     }:
     let
@@ -64,58 +58,11 @@
         };
     in
     {
-      lib = {
-        cloudflareAccountId = "0218f60551cfad9349da6d43dbb1add3";
-        cloudflareWorkerName = "cache";
-        r2BucketName = "cache";
-      };
-
-      packages = forEachSystem (
-        system: pkgs:
-        let
-          toolchain = mkToolchain pkgs;
-          craneLib = (crane.mkLib pkgs).overrideToolchain (_: toolchain);
-        in
-        {
-          deploy = pkgs.callPackage ./nix/deploy.nix {
-            inherit self cache-db;
-          };
-          miniflare-server = pkgs.callPackage ./nix/miniflare-server.nix {
-            inherit self;
-          };
-          prod = pkgs.callPackage ./nix/prod.nix {
-            inherit
-              self
-              cache-db
-              craneLib
-              toolchain
-              ;
-          };
-          prod-sqlx = pkgs.callPackage ./nix/prod-sqlx.nix {
-            inherit cache-db craneLib;
-            prod = self.packages.${system}.prod;
-          };
-          update-sqlx = pkgs.callPackage ./nix/update-sqlx.nix {
-            prod-sqlx = self.packages.${system}.prod-sqlx;
-          };
-        }
-      );
-
+      # Workaround for https://github.com/NixOS/nix/issues/8881 so that we
+      # can run individual checks with `nix run .#check-<foo>`.
       apps = forEachSystem (
         system: pkgs:
-        {
-          deploy = {
-            type = "app";
-            program = nixpkgs.lib.getExe self.packages.${system}.deploy;
-          };
-          update-sqlx = {
-            type = "app";
-            program = nixpkgs.lib.getExe self.packages.${system}.update-sqlx;
-          };
-        }
-        # Workaround for https://github.com/NixOS/nix/issues/8881 so that we
-        # can run individual checks with `nix run .#check-<foo>`.
-        // (nixpkgs.lib.mapAttrs' (name: check: {
+        (nixpkgs.lib.mapAttrs' (name: check: {
           name = "check-${name}";
           value = {
             type = "app";
@@ -140,9 +87,7 @@
                   "rustfmt"
                 ];
               })
-              wrangler.packages.${system}.default
             ];
-            env = self.packages.${system}.prod.devShellEnv;
           };
         }
       );
@@ -157,13 +102,4 @@
         }
       );
     };
-
-  nixConfig = {
-    extra-substituters = [
-      "https://wrangler.cachix.org"
-    ];
-    extra-trusted-public-keys = [
-      "wrangler.cachix.org-1:N/FIcG2qBQcolSpklb2IMDbsfjZKWg+ctxx0mSMXdSs="
-    ];
-  };
 }
