@@ -8,10 +8,10 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 use nix_types::StoreBasename;
-use nix_types::sub60::nar_multiparts::NarMultipartsResponseBody;
 
 use crate::context::ObjectStorageError;
 use crate::from_str_body::FromStrBody;
+use crate::nar_multiparts::NarMultipartsResponseBody;
 use crate::object_gateway::MultipartUploadUrlRequest;
 use crate::object_storage::ObjectStorageKey;
 use crate::{Context, ObjectGateway, ObjectStorage};

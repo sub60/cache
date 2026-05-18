@@ -3,9 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use axum::http;
-use nix_types::sub60::{CacheName, UserName};
 use nix_types::{CacheSigningKey, KeyOrSignatureName};
-use sub60_cache::{CacheDb, CacheInfos};
+use sub60_cache::{CacheDb, CacheInfos, CacheName, UserName};
 
 type CacheId = (UserName, CacheName);
 

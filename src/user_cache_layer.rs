@@ -2,10 +2,9 @@ use axum::extract::{Path, Request};
 use axum::http::StatusCode;
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use nix_types::sub60::{CacheName, UserName};
 
 use crate::route_layer::RouteLayer;
-use crate::{CacheDb, Context};
+use crate::{CacheDb, CacheName, Context, UserName};
 
 pub(crate) const ROUTE: &str = "/{user}/{cache}";
 

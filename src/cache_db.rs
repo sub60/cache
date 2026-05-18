@@ -1,9 +1,8 @@
 use core::fmt;
 
 use axum::http;
-use nix_types::sub60::{CacheName, UserName};
 
-use crate::CacheInfos;
+use crate::{CacheInfos, CacheName, UserName};
 
 /// TODO: docs.
 pub trait CacheDb {

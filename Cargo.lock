@@ -1202,7 +1202,6 @@ dependencies = [
 [[package]]
 name = "nix-types"
 version = "0.1.0"
-source = "git+ssh://git@github.com/sub60/nix-types.git#41755f2105ba6219c67649a283dc1f121f65de01"
 dependencies = [
  "base64",
  "cauchy",
@@ -1211,10 +1210,8 @@ dependencies = [
  "memchr",
  "rand_core 0.10.0",
  "serde",
- "serde_json",
  "smallvec",
  "smol_str",
- "url",
 ]
 
 [[package]]
@@ -1795,9 +1792,12 @@ dependencies = [
  "derive_more",
  "nix-types",
  "serde",
+ "serde_json",
+ "smallvec",
  "smol_str",
  "tower-layer",
  "tower-service",
+ "url",
 ]
 
 [[package]]

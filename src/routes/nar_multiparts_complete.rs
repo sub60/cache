@@ -6,10 +6,10 @@ use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
-use nix_types::sub60::nar_multiparts::CompleteRequestBody;
 
 use crate::context::{MultipartUploadId, ObjectStorageError};
 use crate::from_str_body::FromStrBody;
+use crate::nar_multiparts::CompleteRequestBody;
 use crate::object_storage::ObjectStorageKey;
 use crate::{Context, ObjectStorage};
 

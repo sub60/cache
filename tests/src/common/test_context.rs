@@ -1,7 +1,7 @@
 use core::fmt;
 
 use axum::Router;
-use sub60_cache::{Context, ObjectStorage, cdn};
+use sub60_cache::{Context, ObjectStorage};
 
 use crate::common::{
     ComposedContext,
@@ -32,7 +32,7 @@ impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
     /// TODO: docs.
     pub fn app_router(&self) -> Router
     where
-        Cdn: cdn::Cdn,
+        Cdn: sub60_cache::Cdn,
         ObjStorage: Clone,
         IntoRouterObjectGateway<ObjStorage>: Into<Router>,
         ComposedContext<
@@ -70,7 +70,7 @@ impl Default for TestContext {
 
 impl<Cdn, ObjStorage> Context for TestContext<Cdn, ObjStorage>
 where
-    Cdn: cdn::Cdn + Clone + Send + Sync + 'static,
+    Cdn: sub60_cache::Cdn + Clone + Send + Sync + 'static,
     ObjStorage: ObjectStorage + Clone + Send + Sync + 'static,
     ObjStorage::MultipartUploadId: fmt::Display,
 {

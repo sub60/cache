@@ -3,7 +3,7 @@ use core::fmt;
 use core::pin::Pin;
 
 use nix_types::StorePath;
-use nix_types::sub60::{CacheName, UserName};
+use sub60_cache::{CacheName, UserName};
 
 use crate::common::NixStore;
 

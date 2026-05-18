@@ -4,11 +4,11 @@ use crate::object_gateway::ObjectGateway;
 use crate::{CacheDb, Cdn, ObjectStorage};
 
 /// TODO: docs.
-pub type MultipartUploadId<Ctx> =
+pub(crate) type MultipartUploadId<Ctx> =
     <<<Ctx as Context>::ObjectGateway as ObjectGateway>::Storage as ObjectStorage>::MultipartUploadId;
 
 /// TODO: docs.
-pub type ObjectStorageError<Ctx> =
+pub(crate) type ObjectStorageError<Ctx> =
     <<<Ctx as Context>::ObjectGateway as ObjectGateway>::Storage as ObjectStorage>::Error;
 
 /// A trait whose associated types abstract over all the aspects of the cache

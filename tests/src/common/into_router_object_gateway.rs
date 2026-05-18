@@ -8,12 +8,13 @@ use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, put};
 use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
-use sub60_cache::object_gateway::{
+use sub60_cache::{
     MultipartUploadUrlRequest,
+    ObjectGateway,
+    ObjectStorage,
+    ObjectStorageKey,
     ObjectUrlRequest,
 };
-use sub60_cache::object_storage::ObjectStorageKey;
-use sub60_cache::{ObjectGateway, ObjectStorage};
 
 /// TODO: docs.
 #[derive(Clone)]

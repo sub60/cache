@@ -3,9 +3,10 @@
 use core::error::Error;
 use core::num::NonZeroU32;
 
-use nix_types::sub60::nar_multiparts::Etag;
 use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
 use serde::de::DeserializeOwned;
+
+use crate::nar_multiparts::Etag;
 
 /// TODO: docs.
 pub trait ObjectStorage: Sync {

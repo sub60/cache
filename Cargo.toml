@@ -1,5 +1,5 @@
 [workspace]
-members = ["tests", "prod", "prod/tests"]
+members = ["nix-types", "tests", "prod", "prod/tests"]
 resolver = "3"
 
 [workspace.package]
@@ -7,6 +7,7 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace.dependencies]
+# 3rd-party dependencies.
 axum = { version = "0.8", default-features = false }
 base64 = "0.22"
 cauchy = { git = "https://github.com/nomad/cauchy.git" }
@@ -17,12 +18,10 @@ ed25519-dalek = "2"
 either = "1"
 futures = "0.3"
 memchr = "2"
-nix-types = { git = "ssh://git@github.com/sub60/nix-types.git", features = [
-  "sub60",
-] }
 os_pipe = "1"
 rand_core = "0.10"
 serde = "1"
+serde_json = "1"
 sha2 = "0.11"
 smallvec = "1"
 smol_str = "0.3"
@@ -32,6 +31,8 @@ tower-layer = "0.3"
 tower-service = "0.3"
 url = "2"
 
+# Internal dependencies.
+nix-types = { path = "./nix-types" }
 sub60-cache = { path = "." }
 sub60-cache-tests = { path = "./tests" }
 
@@ -77,9 +78,12 @@ compact_str = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 nix-types = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+smallvec = { workspace = true, features = ["serde"] }
 smol_str = { workspace = true, features = ["serde"] }
 tower-layer = { workspace = true }
 tower-service = { workspace = true }
+url = { workspace = true, features = ["serde"] }
 
 [lints]
 workspace = true
