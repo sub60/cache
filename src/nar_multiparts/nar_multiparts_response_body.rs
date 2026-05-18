@@ -1,6 +1,7 @@
 use core::fmt;
 use core::num::NonZeroU32;
 use core::str::FromStr;
+use core::time::Duration;
 
 use crate::nar_multiparts::{FmtWrite, UploadId};
 
@@ -19,6 +20,10 @@ pub struct NarMultipartsResponseBody {
 
     /// TODO: docs.
     pub parts_urls: [url::Url; 4],
+
+    /// The expiration timestamp of this batch of upload URLs, expressed as the
+    /// elapsed time since the UNIX epoch.
+    pub expiration_ts: Duration,
 }
 
 impl fmt::Display for NarMultipartsResponseBody {

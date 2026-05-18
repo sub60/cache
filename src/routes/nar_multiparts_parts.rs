@@ -13,7 +13,7 @@ use crate::from_str_body::FromStrBody;
 use crate::nar_multiparts::{PartsRequestBody, PartsResponseBody};
 use crate::object_gateway::MultipartUploadUrlRequest;
 use crate::object_storage::ObjectStorageKey;
-use crate::{Context, ObjectGateway};
+use crate::{Clock, Context, ObjectGateway};
 
 pub(crate) const ROUTE: &str = "/nar-multiparts/{upload_id}/parts";
 
@@ -39,6 +39,10 @@ async fn handler<Ctx: Context>(
 
     let storage_key = ObjectStorageKey::NarMultipart(&body.store_basename);
 
+    let now = ctx.clock().unix_ts();
+
+    let min_ttl = Duration::from_mins(10);
+
     let urls = body
         .part_numbers
         .into_iter()
@@ -48,7 +52,7 @@ async fn handler<Ctx: Context>(
                     key: storage_key,
                     part_number,
                     upload_id: &upload_id,
-                    min_ttl: Duration::from_mins(10),
+                    min_ttl,
                 })
                 .as_ref()
                 .parse()
@@ -56,5 +60,8 @@ async fn handler<Ctx: Context>(
         })
         .collect();
 
-    (StatusCode::OK, PartsResponseBody { urls }.to_string())
+    (
+        StatusCode::OK,
+        PartsResponseBody { expiration_ts: now + min_ttl, urls }.to_string(),
+    )
 }

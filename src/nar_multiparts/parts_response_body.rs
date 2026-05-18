@@ -1,3 +1,4 @@
+use core::time::Duration;
 use core::{fmt, str};
 
 use smallvec::SmallVec;
@@ -16,9 +17,13 @@ pub type PartsResponseBodyFromStrError = serde_json::Error;
 pub struct PartsResponseBody {
     /// The pre-signed URLs whose order matches the one of the
     /// [part numbers](PartsRequestBody::part_numbers) in the
-    /// [`PartsRequestBody`], i.e. the first URL is for the first part number
+    /// [`PartsRequestBody`], i.e. the first URL is for the first part number,
     /// the second URL is for the part number item, and so on.
     pub urls: SmallVec<[Url; 8]>,
+
+    /// The expiration timestamp of this batch of upload URLs, expressed as the
+    /// elapsed time since the UNIX epoch.
+    pub expiration_ts: Duration,
 }
 
 impl fmt::Display for PartsResponseBody {
