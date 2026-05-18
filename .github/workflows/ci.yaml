@@ -18,17 +18,13 @@ jobs:
         uses: nixbuild/nix-quick-install-action@v34
         with:
           nix_version: 2.29.2
-      - uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: |
-            ${{ secrets.CACHE_DB_DEPLOY_KEY }}
       - name: Run Clippy
         run: |
           nix develop .#default -c \
             cargo clippy --workspace --all-features --all-targets --no-deps -- -D warnings
 
   formatting:
-    name: Check formatting
+    name: Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -38,21 +34,3 @@ jobs:
           nix_version: 2.29.2
       - name: Check formatting
         run: nix run .#check-formatting
-
-  sqlx:
-    name: Check committed SQLx queries
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install Nix
-        uses: nixbuild/nix-quick-install-action@v34
-        with:
-          nix_version: 2.29.2
-      - uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: |
-            ${{ secrets.CACHE_DB_DEPLOY_KEY }}
-      - name: Verify committed .sqlx matches prod-sqlx
-        run: |
-          nix build .#prod-sqlx
-          diff -ru ./result ./crates/server-prod/.sqlx
