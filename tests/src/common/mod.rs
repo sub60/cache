@@ -1,4 +1,3 @@
-mod composed_context;
 mod in_memory_cache_db;
 mod in_memory_object_storage;
 mod into_router_object_gateway;
@@ -7,9 +6,9 @@ mod nix_client;
 mod nix_store;
 mod noop_cdn;
 mod real_nix;
+mod system_clock;
 mod test_context;
 
-pub use composed_context::ComposedContext;
 pub use in_memory_cache_db::InMemoryCacheDb;
 pub use in_memory_object_storage::InMemoryObjectStorage;
 pub use into_router_object_gateway::IntoRouterObjectGateway;
@@ -23,4 +22,5 @@ pub use nix_client::{
 pub use nix_store::NixStore;
 pub use noop_cdn::NoOpCdn;
 pub use real_nix::{RealNixClient, RealNixStore};
+pub use system_clock::SystemClock;
 pub use test_context::TestContext;

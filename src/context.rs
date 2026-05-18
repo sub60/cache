@@ -1,7 +1,6 @@
 //! TODO: docs.
 
-use crate::object_gateway::ObjectGateway;
-use crate::{CacheDb, Cdn, ObjectStorage};
+use crate::{CacheDb, Cdn, Clock, ObjectGateway, ObjectStorage};
 
 /// TODO: docs.
 pub(crate) type MultipartUploadId<Ctx> =
@@ -20,6 +19,9 @@ pub trait Context: Clone + Send + Sync + 'static {
     /// The CDN that sits in front of the cache server.
     type Cdn: Cdn;
 
+    /// TODO: docs.
+    type Clock: Clock;
+
     /// The gateway to the object storage that holds the NARs and NARInfos.
     type ObjectGateway: ObjectGateway;
 
@@ -28,6 +30,9 @@ pub trait Context: Clone + Send + Sync + 'static {
 
     /// Returns a reference to the CDN.
     fn cdn(&self) -> &Self::Cdn;
+
+    /// Returns a reference to the clock.
+    fn clock(&self) -> &Self::Clock;
 
     /// Returns a reference to the object gateway.
     fn object_gateway(&self) -> &Self::ObjectGateway;

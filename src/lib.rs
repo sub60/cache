@@ -10,6 +10,7 @@ mod cache_db;
 mod cache_infos;
 mod cache_name;
 mod cdn;
+mod clock;
 mod context;
 mod from_str_body;
 pub mod nar_multiparts;
@@ -25,6 +26,7 @@ pub use cache_db::CacheDb;
 pub use cache_infos::CacheInfos;
 pub use cache_name::{CacheName, CacheNameFromStrError};
 pub use cdn::Cdn;
+pub use clock::Clock;
 pub use context::Context;
 pub use object_gateway::{
     MultipartUploadUrlRequest,

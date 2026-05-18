@@ -1,21 +1,4 @@
 allow-unwrap-in-tests = true
-allowed-duplicate-crates = [
-  "block-buffer",
-  "const-oid",
-  "cpufeatures",
-  "crypto-common",
-  "digest",
-  "getrandom",
-  "hashbrown",
-  "hmac",
-  "http",
-  "http-body",
-  "matchit",
-  "r-efi",
-  "rand_core",
-  "sha2",
-  "windows-sys",
-]
 allowed-wildcard-imports = ["super"]
 too-many-arguments-threshold = 4
 too-many-lines-threshold = 60
