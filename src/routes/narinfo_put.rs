@@ -6,7 +6,7 @@ use core::{fmt, str};
 
 use axum::Extension;
 use axum::body::Bytes;
-use axum::extract::{Path, Query};
+use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
@@ -16,11 +16,10 @@ use nix_types::{
     NarInfoFileName,
     NarInfoFileNameFromStrError,
     NarInfoFromStrError,
-    StoreBasename,
     StoreHash,
 };
 
-use crate::context::{MultipartUploadId, ObjectStorageError};
+use crate::context::ObjectStorageError;
 use crate::object_storage::ObjectStorageKey;
 use crate::{CacheDb, CacheInfos, Context, ObjectStorage};
 
@@ -29,11 +28,6 @@ pub(crate) const ROUTE: &str = crate::routes::narinfo_get::ROUTE;
 #[derive(serde::Deserialize)]
 struct NarInfoPutPath {
     narinfo_file_name: NarInfoFileName,
-}
-
-#[derive(serde::Deserialize)]
-struct NarInfoPutQuery<UploadId> {
-    upload_id: Option<UploadId>,
 }
 
 /// The type of error that can occur when handling a PUT request to the NARInfo
@@ -50,11 +44,6 @@ enum NarInfoPutRequestError<ObjectStorageError> {
     /// the NAR file.
     #[display("error checking for existence of NAR: {_0}")]
     CheckNarExistence(ObjectStorageError),
-
-    /// The object storage returned an error when moving a multipart-uploaded
-    /// NAR into place.
-    #[display("error moving NAR into place: {_0}")]
-    MoveMultipartNar(ObjectStorageError),
 
     /// The NARInfo in the body of the request was not valid UTF-8.
     #[display("NARInfo in request body is not valid UTF-8: {_0}")]
@@ -77,10 +66,6 @@ enum NarInfoPutRequestError<ObjectStorageError> {
     #[display("NAR at '{_0}' not found")]
     NarNotFound(NarFileName),
 
-    /// The multipart-uploaded NAR file was not found in the object storage.
-    #[display("multipart NAR for store path '{_0}' not found")]
-    MultipartNarNotFound(StoreBasename),
-
     /// The NARInfo we got from the client did not parse into a valid
     /// [`NarInfo`].
     ParseNarInfo(#[from] NarInfoFromStrError<<DiscardUrl as FromStr>::Err>),
@@ -94,17 +79,13 @@ enum NarInfoPutRequestError<ObjectStorageError> {
 struct DiscardUrl;
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::put(
-        async move |Path(path), Query(query), Extension(cache_infos), body| {
-            handler(path, query, cache_infos, body, &mut ctx).await
-        },
-    )
+    routing::put(async move |Path(path), Extension(cache_infos), body| {
+        handler(path, cache_infos, body, &mut ctx).await
+    })
 }
 
-#[expect(clippy::too_many_arguments)]
 async fn handler<Ctx: Context>(
     NarInfoPutPath { narinfo_file_name }: NarInfoPutPath,
-    NarInfoPutQuery { upload_id }: NarInfoPutQuery<MultipartUploadId<Ctx>>,
     cache_infos: CacheInfos<<Ctx::CacheDb as CacheDb>::CacheId>,
     body: Bytes,
     ctx: &mut Ctx,
@@ -126,35 +107,14 @@ async fn handler<Ctx: Context>(
 
     let object_storage = ctx.object_storage();
 
-    let is_multipart_upload = upload_id.is_some();
-
     let nar_file_name = NarFileName::from(&narinfo);
 
-    let object_key = if is_multipart_upload {
-        ObjectStorageKey::NarMultipart(narinfo.store_path.basename())
-    } else {
-        ObjectStorageKey::Nar(&nar_file_name)
-    };
-
     if !object_storage
-        .contains_key(object_key)
+        .contains_key(ObjectStorageKey::Nar(&nar_file_name))
         .await
         .map_err(NarInfoPutRequestError::CheckNarExistence)?
     {
-        return Err(if is_multipart_upload {
-            NarInfoPutRequestError::MultipartNarNotFound(
-                narinfo.store_path.basename().clone(),
-            )
-        } else {
-            NarInfoPutRequestError::NarNotFound(nar_file_name)
-        });
-    }
-
-    if is_multipart_upload {
-        object_storage
-            .r#move(object_key, ObjectStorageKey::Nar(&nar_file_name))
-            .await
-            .map_err(NarInfoPutRequestError::MoveMultipartNar)?;
+        return Err(NarInfoPutRequestError::NarNotFound(nar_file_name));
     }
 
     // Sign the fingerprint with our private key and append the signature to the
@@ -165,11 +125,11 @@ async fn handler<Ctx: Context>(
 
     narinfo.signatures.push(cache_signature);
 
-    object_storage
-        .set(&narinfo_file_name, narinfo.to_string())
-        .await
-        .map(|()| StatusCode::CREATED)
-        .map_err(NarInfoPutRequestError::StoreNarInfo)
+    match object_storage.insert(&narinfo_file_name, narinfo.to_string()).await {
+        Ok(true) => Ok(StatusCode::CREATED),
+        Ok(false) => Ok(StatusCode::OK),
+        Err(err) => Err(NarInfoPutRequestError::StoreNarInfo(err)),
+    }
 }
 
 impl<ObjectStorageError> NarInfoPutRequestError<ObjectStorageError> {
@@ -179,11 +139,10 @@ impl<ObjectStorageError> NarInfoPutRequestError<ObjectStorageError> {
             | Self::NarInfoNotUtf8(_)
             | Self::NarInfoStoreHashMismatch { .. }
             | Self::NarNotFound(_)
-            | Self::MultipartNarNotFound(_)
             | Self::ParseNarInfo(_) => StatusCode::BAD_REQUEST,
-            Self::CheckNarExistence(_)
-            | Self::MoveMultipartNar(_)
-            | Self::StoreNarInfo(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::CheckNarExistence(_) | Self::StoreNarInfo(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            },
         }
     }
 }

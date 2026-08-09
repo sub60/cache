@@ -1,9 +1,10 @@
 //! TODO: docs.
 
 use core::error::Error;
+use core::fmt;
 use core::num::NonZeroU32;
 
-use nix_types::{NarFileName, NarInfoFileName, StoreBasename};
+use nix_types::{NarFileName, NarInfoFileName};
 use serde::de::DeserializeOwned;
 
 use crate::nar_multiparts::Etag;
@@ -11,33 +12,28 @@ use crate::nar_multiparts::Etag;
 /// TODO: docs.
 pub trait ObjectStorage: Sync {
     /// TODO: docs.
-    type MultipartUploadId: Into<String> + DeserializeOwned + Send;
+    type MultipartUploadId: Clone + fmt::Display + DeserializeOwned + Send;
 
     /// TODO: docs.
-    type Error: Error;
+    type Error: Error + Send;
 
     /// TODO: docs.
     fn get<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>> + Send,
-    ) -> impl Future<Output = Result<Option<impl AsRef<[u8]>>, Self::Error>> + Send;
+    ) -> impl Future<
+        Output = Result<Option<impl AsRef<[u8]> + Send>, Self::Error>,
+    > + Send;
 
-    /// TODO: docs.
-    fn set<'a>(
+    /// Inserts an object if no object with the same key already exists.
+    ///
+    /// Returns `true` if the object was inserted, or `false` if an object with
+    /// the same key already existed.
+    fn insert<'a>(
         &self,
         key: impl Into<ObjectStorageKey<'a>> + Send,
         bytes: impl AsRef<[u8]> + Send,
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
-
-    /// Moves an object from one key to another.
-    ///
-    /// If an object already exists under the destination key, it should be
-    /// overwritten.
-    fn r#move<'src, 'dst>(
-        &self,
-        source: impl Into<ObjectStorageKey<'src>> + Send,
-        destination: impl Into<ObjectStorageKey<'dst>> + Send,
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Returns whether the object storage contains the given key.
     fn contains_key<'a>(
@@ -51,7 +47,17 @@ pub trait ObjectStorage: Sync {
         key: impl Into<ObjectStorageKey<'a>> + Send,
     ) -> impl Future<Output = Result<Self::MultipartUploadId, Self::Error>> + Send;
 
+    /// Aborts a multipart upload for the object with the given key.
+    fn abort_multipart_upload<'a>(
+        &self,
+        key: impl Into<ObjectStorageKey<'a>> + Send,
+        upload_id: Self::MultipartUploadId,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+
     /// Completes a multipart upload for the object with the given key.
+    ///
+    /// Returns `true` if the object was inserted, or `false` if an object with
+    /// the same key already existed.
     ///
     /// Implementors can assume `etags.len()` is less than or equal to
     /// [`Self::max_multipart_parts()`], when a maximum is returned.
@@ -60,7 +66,7 @@ pub trait ObjectStorage: Sync {
         key: impl Into<ObjectStorageKey<'a>> + Send,
         upload_id: Self::MultipartUploadId,
         etags: &[Etag],
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Returns the maximum number of parts supported by multipart uploads.
     fn max_multipart_parts(&self) -> Option<usize>;
@@ -77,9 +83,6 @@ pub enum ObjectStorageKey<'a> {
 
     /// TODO: docs.
     NarInfo(&'a NarInfoFileName),
-
-    /// TODO: docs.
-    NarMultipart(&'a StoreBasename),
 }
 
 impl<'a> From<&'a NarFileName> for ObjectStorageKey<'a> {
@@ -91,11 +94,5 @@ impl<'a> From<&'a NarFileName> for ObjectStorageKey<'a> {
 impl<'a> From<&'a NarInfoFileName> for ObjectStorageKey<'a> {
     fn from(narinfo_file_name: &'a NarInfoFileName) -> Self {
         Self::NarInfo(narinfo_file_name)
-    }
-}
-
-impl<'a> From<&'a StoreBasename> for ObjectStorageKey<'a> {
-    fn from(store_basename: &'a StoreBasename) -> Self {
-        Self::NarMultipart(store_basename)
     }
 }

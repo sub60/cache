@@ -1,7 +1,7 @@
 use core::fmt;
 use core::str::FromStr;
 
-use nix_types::StoreBasename;
+use nix_types::NarFileName;
 use smallvec::SmallVec;
 
 use crate::nar_multiparts::{Etag, FmtWrite};
@@ -20,8 +20,8 @@ pub struct CompleteRequestBody {
     /// returned by uploading part 1, the second one by uploading part 2, etc.
     pub etags: SmallVec<[Etag; 8]>,
 
-    /// TODO: docs.
-    pub store_basename: StoreBasename,
+    /// The name of the NAR being uploaded.
+    pub nar_file_name: NarFileName,
 }
 
 impl fmt::Display for CompleteRequestBody {

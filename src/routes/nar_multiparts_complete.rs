@@ -22,12 +22,14 @@ struct NarMultipartsCompletePath<UploadId> {
 
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarMultipartsCompleteError<ObjectStorageError> {
+    #[display("couldn't abort redundant multipart upload: {_0}")]
+    AbortMultipartUpload(ObjectStorageError),
+    #[display("couldn't complete multipart upload: {_0}")]
+    CompleteMultipartUpload(ObjectStorageError),
     #[display("multipart upload completion must include at least one part")]
     EmptyUpload,
     #[display("multipart upload has too many parts: {_0} (maximum {_1})")]
     TooManyParts(usize, usize),
-    #[display("couldn't complete multipart upload: {_0}")]
-    CompleteMultipartUpload(ObjectStorageError),
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
@@ -58,23 +60,32 @@ async fn handler<Ctx: Context>(
         ));
     }
 
-    let storage_key = ObjectStorageKey::NarMultipart(&body.store_basename);
+    let storage_key = ObjectStorageKey::Nar(&body.nar_file_name);
 
-    object_storage
-        .complete_multipart_upload(storage_key, upload_id, &body.etags)
+    let did_insert = object_storage
+        .complete_multipart_upload(storage_key, upload_id.clone(), &body.etags)
         .await
-        .map(|()| StatusCode::OK)
-        .map_err(NarMultipartsCompleteError::CompleteMultipartUpload)
+        .map_err(NarMultipartsCompleteError::CompleteMultipartUpload)?;
+
+    if !did_insert {
+        object_storage
+            .abort_multipart_upload(storage_key, upload_id)
+            .await
+            .map_err(NarMultipartsCompleteError::AbortMultipartUpload)?;
+    }
+
+    Ok(StatusCode::OK)
 }
 
 impl<ObjectStorageError> NarMultipartsCompleteError<ObjectStorageError> {
     fn status_code(&self) -> StatusCode {
         match self {
+            Self::AbortMultipartUpload(_)
+            | Self::CompleteMultipartUpload(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            },
             Self::EmptyUpload | Self::TooManyParts(..) => {
                 StatusCode::BAD_REQUEST
-            },
-            Self::CompleteMultipartUpload(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
             },
         }
     }

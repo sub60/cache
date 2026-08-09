@@ -1,7 +1,7 @@
 use core::num::NonZeroU16;
 use core::{fmt, str};
 
-use nix_types::StoreBasename;
+use nix_types::NarFileName;
 use smallvec::SmallVec;
 
 use crate::nar_multiparts::FmtWrite;
@@ -17,8 +17,8 @@ pub struct PartsRequestBody {
     /// in any order, but there shouldn't be any duplicates.
     pub part_numbers: SmallVec<[NonZeroU16; 8]>,
 
-    /// TODO: docs.
-    pub store_basename: StoreBasename,
+    /// The name of the NAR being uploaded.
+    pub nar_file_name: NarFileName,
 }
 
 impl fmt::Display for PartsRequestBody {

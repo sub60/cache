@@ -37,7 +37,7 @@ async fn handler<Ctx: Context>(
 
     let object_gateway = ctx.object_gateway();
 
-    let storage_key = ObjectStorageKey::NarMultipart(&body.store_basename);
+    let storage_key = ObjectStorageKey::Nar(&body.nar_file_name);
 
     let now = ctx.clock().unix_ts();
 

@@ -7,7 +7,7 @@ use core::{array, fmt};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
-use nix_types::StoreBasename;
+use nix_types::NarFileName;
 
 use crate::context::ObjectStorageError;
 use crate::from_str_body::FromStrBody;
@@ -28,7 +28,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    FromStrBody(store_basename): FromStrBody<StoreBasename>,
+    FromStrBody(nar_file_name): FromStrBody<NarFileName>,
     ctx: &mut Ctx,
 ) -> Result<
     impl IntoResponse + use<Ctx>,
@@ -36,7 +36,7 @@ async fn handler<Ctx: Context>(
 > {
     // TODO: validate that the user has write permissions for that cache.
 
-    let storage_key = ObjectStorageKey::NarMultipart(&store_basename);
+    let storage_key = ObjectStorageKey::Nar(&nar_file_name);
 
     let object_gateway = ctx.object_gateway();
 
@@ -66,7 +66,7 @@ async fn handler<Ctx: Context>(
     Ok((
         StatusCode::OK,
         NarMultipartsResponseBody {
-            upload_id: upload_id.into(),
+            upload_id: upload_id.to_string(),
             part_size: object_gateway.storage().part_size(),
             parts_urls,
             expiration_ts: now + min_ttl,

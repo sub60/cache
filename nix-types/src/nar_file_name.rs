@@ -83,6 +83,15 @@ impl FromStr for NarFileName {
     }
 }
 
+impl serde::Serialize for NarFileName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_str(self)
+    }
+}
+
 impl<'de> serde::de::Deserialize<'de> for NarFileName {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

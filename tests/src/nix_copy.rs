@@ -74,8 +74,8 @@ async fn copy_from_cache_mock() {
     // Pre-populate the object storage with the NAR and NARInfo so the cache
     // server can serve them.
     let obj_storage = test_ctx.object_storage();
-    obj_storage.set(&nar_key, nar_bytes).await.unwrap();
-    obj_storage.set(&narinfo_key, narinfo.to_string()).await.unwrap();
+    obj_storage.insert(&nar_key, nar_bytes).await.unwrap();
+    obj_storage.insert(&narinfo_key, narinfo.to_string()).await.unwrap();
 
     // Remove the store path force Nix to fetch from the cache.
     nix.store().delete(&store_path).await;
@@ -113,8 +113,8 @@ async fn copy_from_cache_real() {
     // Pre-populate the object storage with the NAR and NARInfo so the cache
     // server can serve them.
     let obj_storage = test_ctx.object_storage();
-    obj_storage.set(&nar_key, nar_bytes).await.unwrap();
-    obj_storage.set(&narinfo_key, narinfo.to_string()).await.unwrap();
+    obj_storage.insert(&nar_key, nar_bytes).await.unwrap();
+    obj_storage.insert(&narinfo_key, narinfo.to_string()).await.unwrap();
 
     // Remove the store path force Nix to fetch from the cache.
     nix.store().delete(&store_path).await;
