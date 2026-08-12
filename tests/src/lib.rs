@@ -5,6 +5,7 @@
 #![feature(generic_const_exprs)]
 
 mod common;
+mod multipart;
 mod nix_copy;
 
 pub use common::*;

@@ -67,14 +67,16 @@ async fn handler<Ctx: Context>(
         .await
         .map_err(NarMultipartsCompleteError::CompleteMultipartUpload)?;
 
-    if !did_insert {
+    if did_insert {
+        Ok(StatusCode::CREATED)
+    } else {
         object_storage
             .abort_multipart_upload(storage_key, upload_id)
             .await
             .map_err(NarMultipartsCompleteError::AbortMultipartUpload)?;
-    }
 
-    Ok(StatusCode::OK)
+        Ok(StatusCode::OK)
+    }
 }
 
 impl<ObjectStorageError> NarMultipartsCompleteError<ObjectStorageError> {
