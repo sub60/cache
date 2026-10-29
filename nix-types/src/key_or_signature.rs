@@ -194,9 +194,9 @@ mod tests {
 
     #[test]
     fn cache_signing_key_from_str() {
-        let key = "cache.sub60.dev/noib3/dotfiles-1:\
-                   +SYP16zDBSBu7o+W+pdjSURr6KKFql0y2UXnYOPsqpk=";
+        let key = "cache.example.org-1:\
+                   CBMkUz1hLHjc0nP54+12CJ8AfO4a0aXCs0I3Ao/HBRY=";
         let parsed = key.parse::<CacheSigningKey>().unwrap();
-        assert_eq!(parsed.name, "cache.sub60.dev/noib3/dotfiles-1");
+        assert_eq!(parsed.name, "cache.example.org-1");
     }
 }

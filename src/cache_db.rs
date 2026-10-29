@@ -7,9 +7,6 @@ use crate::{CacheInfos, CacheName, UserName};
 /// TODO: docs.
 pub trait CacheDb {
     /// TODO: docs.
-    type CacheId: Clone + Send + Sync + 'static;
-
-    /// TODO: docs.
     type Error: fmt::Display + Into<http::StatusCode>;
 
     /// TODO: docs.
@@ -17,7 +14,5 @@ pub trait CacheDb {
         &self,
         user: UserName,
         cache: CacheName,
-    ) -> impl Future<
-        Output = Result<Option<CacheInfos<Self::CacheId>>, Self::Error>,
-    > + Send;
+    ) -> impl Future<Output = Result<Option<CacheInfos>, Self::Error>> + Send;
 }

@@ -1,7 +1,7 @@
 use core::net::Ipv4Addr;
 
 use nix_types::{NarFileName, NarInfoFileName};
-use sub60_cache::{Context, ObjectStorage};
+use sub60_cache::{Context, ObjectStorage, ObjectStorageKey};
 use tokio::net::TcpListener;
 
 use crate::{MockNixClient, NixClient, NixStore, RealNixClient, TestContext};
@@ -10,7 +10,7 @@ use crate::{MockNixClient, NixClient, NixStore, RealNixClient, TestContext};
 async fn copy_to_cache_mock() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_user("user");
-    test_ctx.db_mut().add_cache("user", "cache");
+    let cache = test_ctx.db_mut().add_cache("user", "cache");
 
     let nix = MockNixClient::default();
 
@@ -24,7 +24,11 @@ async fn copy_to_cache_mock() {
     let narinfo_key = NarInfoFileName { store_hash: store_path.into_hash() };
 
     assert!(
-        test_ctx.object_storage().contains_key(&narinfo_key).await.unwrap()
+        test_ctx
+            .object_storage()
+            .contains_key(ObjectStorageKey::NarInfo(&cache.id, &narinfo_key))
+            .await
+            .unwrap()
     );
 }
 
@@ -32,7 +36,7 @@ async fn copy_to_cache_mock() {
 async fn copy_to_cache_real() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_user("user");
-    test_ctx.db_mut().add_cache("user", "cache");
+    let cache = test_ctx.db_mut().add_cache("user", "cache");
 
     // Start the cache server on a OS-assigned port.
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
@@ -51,7 +55,11 @@ async fn copy_to_cache_real() {
     let narinfo_key = NarInfoFileName { store_hash: store_path.into_hash() };
 
     assert!(
-        test_ctx.object_storage().contains_key(&narinfo_key).await.unwrap()
+        test_ctx
+            .object_storage()
+            .contains_key(ObjectStorageKey::NarInfo(&cache.id, &narinfo_key))
+            .await
+            .unwrap()
     );
 }
 
@@ -59,7 +67,7 @@ async fn copy_to_cache_real() {
 async fn copy_from_cache_mock() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_user("user");
-    test_ctx.db_mut().add_cache("user", "cache");
+    let cache = test_ctx.db_mut().add_cache("user", "cache");
 
     let nix = MockNixClient::default();
 
@@ -74,8 +82,17 @@ async fn copy_from_cache_mock() {
     // Pre-populate the object storage with the NAR and NARInfo so the cache
     // server can serve them.
     let obj_storage = test_ctx.object_storage();
-    obj_storage.insert(&nar_key, nar_bytes).await.unwrap();
-    obj_storage.insert(&narinfo_key, narinfo.to_string()).await.unwrap();
+    obj_storage
+        .insert(ObjectStorageKey::Nar(&nar_key), nar_bytes)
+        .await
+        .unwrap();
+    obj_storage
+        .insert(
+            ObjectStorageKey::NarInfo(&cache.id, &narinfo_key),
+            narinfo.to_string(),
+        )
+        .await
+        .unwrap();
 
     // Remove the store path force Nix to fetch from the cache.
     nix.store().delete(&store_path).await;
@@ -93,7 +110,7 @@ async fn copy_from_cache_mock() {
 async fn copy_from_cache_real() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_user("user");
-    test_ctx.db_mut().add_cache("user", "cache");
+    let cache = test_ctx.db_mut().add_cache("user", "cache");
 
     // Start the cache server on a OS-assigned port.
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
@@ -113,8 +130,17 @@ async fn copy_from_cache_real() {
     // Pre-populate the object storage with the NAR and NARInfo so the cache
     // server can serve them.
     let obj_storage = test_ctx.object_storage();
-    obj_storage.insert(&nar_key, nar_bytes).await.unwrap();
-    obj_storage.insert(&narinfo_key, narinfo.to_string()).await.unwrap();
+    obj_storage
+        .insert(ObjectStorageKey::Nar(&nar_key), nar_bytes)
+        .await
+        .unwrap();
+    obj_storage
+        .insert(
+            ObjectStorageKey::NarInfo(&cache.id, &narinfo_key),
+            narinfo.to_string(),
+        )
+        .await
+        .unwrap();
 
     // Remove the store path force Nix to fetch from the cache.
     nix.store().delete(&store_path).await;

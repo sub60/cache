@@ -1,12 +1,11 @@
 use core::fmt;
+use core::time::Duration;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use axum::http;
 use nix_types::{CacheSigningKey, KeyOrSignatureName};
-use sub60_cache::{CacheDb, CacheInfos, CacheName, UserName};
-
-type CacheId = (UserName, CacheName);
+use sub60_cache::{CacheDb, CacheId, CacheInfos, CacheName, UserName};
 
 /// TODO: docs.
 #[derive(Clone, Default)]
@@ -17,7 +16,7 @@ pub struct InMemoryCacheDb {
 #[derive(Default)]
 struct InMemoryCacheDbInner {
     users: HashSet<UserName>,
-    caches: HashMap<CacheId, CacheInfos<CacheId>>,
+    caches: HashMap<(UserName, CacheName), CacheInfos>,
 }
 
 pub enum Never {}
@@ -42,7 +41,9 @@ impl InMemoryCacheDb {
         });
     }
 
-    /// Adds a cache to the DB and returns its ID.
+    /// Adds a cache to the DB and returns its infos.
+    ///
+    /// Every cache gets its own signing key, named `{user}/{name}-1`.
     ///
     /// # Panics
     ///
@@ -53,7 +54,7 @@ impl InMemoryCacheDb {
         &mut self,
         user: impl TryInto<UserName, Error: fmt::Debug>,
         name: impl TryInto<CacheName, Error: fmt::Debug>,
-    ) -> CacheId {
+    ) -> CacheInfos {
         let user = user.try_into().expect("invalid user name");
         let name = name.try_into().expect("invalid cache name");
 
@@ -62,22 +63,25 @@ impl InMemoryCacheDb {
                 panic!("user does not exist in cache database");
             }
 
-            let cache_id = (user, name);
-            if inner.caches.contains_key(&cache_id) {
+            let key_name = format!("{}/{}-1", &*user, &*name);
+
+            let user_and_name = (user, name);
+            if inner.caches.contains_key(&user_and_name) {
                 panic!("cache already exists in cache database");
             }
 
-            inner.caches.insert(
-                cache_id.clone(),
-                CacheInfos {
-                    id: cache_id.clone(),
-                    priority: 40,
-                    signing_key: dummy_signing_key(),
-                    store_dir: "/nix/store".into(),
-                },
-            );
+            let seed = inner.caches.len() as u8;
 
-            cache_id
+            let cache_infos = CacheInfos {
+                id: CacheId::new(Duration::ZERO, [seed; 10]),
+                priority: 40,
+                signing_key: dummy_signing_key(&key_name, seed),
+                store_dir: "/nix/store".into(),
+            };
+
+            inner.caches.insert(user_and_name, cache_infos.clone());
+
+            cache_infos
         })
     }
 
@@ -90,22 +94,21 @@ impl InMemoryCacheDb {
 }
 
 impl CacheDb for InMemoryCacheDb {
-    type CacheId = CacheId;
     type Error = Never;
 
     async fn get_infos(
         &self,
         user: UserName,
         cache: CacheName,
-    ) -> Result<Option<CacheInfos<Self::CacheId>>, Self::Error> {
+    ) -> Result<Option<CacheInfos>, Self::Error> {
         Ok(self.with_inner(|inner| inner.caches.get(&(user, cache)).cloned()))
     }
 }
 
-fn dummy_signing_key() -> CacheSigningKey {
+fn dummy_signing_key(name: &str, seed: u8) -> CacheSigningKey {
     CacheSigningKey::new(
-        "test-cache-1".parse::<KeyOrSignatureName>().expect("valid name"),
-        [0; 32],
+        name.parse::<KeyOrSignatureName>().expect("valid name"),
+        [seed; 32],
     )
 }
 

@@ -7,6 +7,7 @@
 extern crate alloc;
 
 mod cache_db;
+mod cache_id;
 mod cache_infos;
 mod cache_name;
 mod cdn;
@@ -23,6 +24,7 @@ mod user_cache_layer;
 mod user_name;
 
 pub use cache_db::CacheDb;
+pub use cache_id::{CacheId, CacheIdFromStrError};
 pub use cache_infos::CacheInfos;
 pub use cache_name::{CacheName, CacheNameFromStrError};
 pub use cdn::Cdn;

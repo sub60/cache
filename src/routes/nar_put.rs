@@ -50,7 +50,7 @@ async fn handler<Ctx: Context>(
 
     if object_gateway
         .storage()
-        .contains_key(&nar_file_name)
+        .contains_key(ObjectStorageKey::Nar(&nar_file_name))
         .await
         .map_err(NarPutRequestError::ObjectStorage)?
     {

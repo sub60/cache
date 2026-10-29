@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use axum::body::Bytes;
 use nix_types::{NarFileName, NarInfoFileName};
 use sub60_cache::nar_multiparts::Etag;
-use sub60_cache::{ObjectStorage, ObjectStorageKey};
+use sub60_cache::{CacheId, ObjectStorage, ObjectStorageKey};
 
 /// The ID of an in-memory multipart upload.
 pub type MultipartUploadId = u64;
@@ -18,7 +18,7 @@ pub struct InMemoryObjectStorage(Arc<Mutex<InMemoryObjectStorageInner>>);
 #[derive(Default)]
 struct InMemoryObjectStorageInner {
     nars: HashMap<NarFileName, Bytes>,
-    nar_infos: HashMap<NarInfoFileName, Bytes>,
+    nar_infos: HashMap<(CacheId, NarInfoFileName), Bytes>,
     multipart_uploads: HashMap<MultipartUploadId, MultipartUpload>,
     next_upload_id: MultipartUploadId,
 }
@@ -31,7 +31,7 @@ struct MultipartUpload {
 #[derive(Clone, PartialEq, Eq)]
 enum OwnedObjectStorageKey {
     Nar(NarFileName),
-    NarInfo(NarInfoFileName),
+    NarInfo(CacheId, NarInfoFileName),
 }
 
 /// The type of error returned by [`InMemoryObjectStorage`].
@@ -105,7 +105,9 @@ impl InMemoryObjectStorageInner {
     fn get(&self, key: ObjectStorageKey<'_>) -> Option<&Bytes> {
         match key {
             ObjectStorageKey::Nar(key) => self.nars.get(key),
-            ObjectStorageKey::NarInfo(key) => self.nar_infos.get(key),
+            ObjectStorageKey::NarInfo(cache_id, narinfo_file_name) => {
+                self.nar_infos.get(&(*cache_id, narinfo_file_name.clone()))
+            },
         }
     }
 
@@ -114,8 +116,9 @@ impl InMemoryObjectStorageInner {
             ObjectStorageKey::Nar(nar_file_name) => {
                 self.nars.insert(nar_file_name.clone(), bytes);
             },
-            ObjectStorageKey::NarInfo(narinfo_file_name) => {
-                self.nar_infos.insert(narinfo_file_name.clone(), bytes);
+            ObjectStorageKey::NarInfo(cache_id, narinfo_file_name) => {
+                self.nar_infos
+                    .insert((*cache_id, narinfo_file_name.clone()), bytes);
             },
         }
     }
@@ -127,8 +130,8 @@ impl From<ObjectStorageKey<'_>> for OwnedObjectStorageKey {
             ObjectStorageKey::Nar(nar_file_name) => {
                 Self::Nar(nar_file_name.clone())
             },
-            ObjectStorageKey::NarInfo(narinfo_file_name) => {
-                Self::NarInfo(narinfo_file_name.clone())
+            ObjectStorageKey::NarInfo(cache_id, narinfo_file_name) => {
+                Self::NarInfo(*cache_id, narinfo_file_name.clone())
             },
         }
     }
@@ -138,27 +141,26 @@ impl ObjectStorage for InMemoryObjectStorage {
     type MultipartUploadId = MultipartUploadId;
     type Error = InMemoryObjectStorageError;
 
-    async fn contains_key<'a>(
+    async fn contains_key(
         &self,
-        key: impl Into<ObjectStorageKey<'a>>,
+        key: ObjectStorageKey<'_>,
     ) -> Result<bool, Self::Error> {
-        Ok(self.with_inner(|inner| inner.get(key.into()).is_some()))
+        Ok(self.with_inner(|inner| inner.get(key).is_some()))
     }
 
-    async fn get<'a>(
+    async fn get(
         &self,
-        key: impl Into<ObjectStorageKey<'a>>,
+        key: ObjectStorageKey<'_>,
     ) -> Result<Option<Bytes>, Self::Error> {
-        Ok(self.with_inner(|inner| inner.get(key.into()).cloned()))
+        Ok(self.with_inner(|inner| inner.get(key).cloned()))
     }
 
-    async fn insert<'a>(
+    async fn insert(
         &self,
-        key: impl Into<ObjectStorageKey<'a>>,
+        key: ObjectStorageKey<'_>,
         bytes: impl AsRef<[u8]>,
     ) -> Result<bool, Self::Error> {
         self.with_inner(|inner| {
-            let key = key.into();
             if inner.get(key).is_some() {
                 return Ok(false);
             }
@@ -168,24 +170,24 @@ impl ObjectStorage for InMemoryObjectStorage {
         })
     }
 
-    async fn create_multipart_upload<'a>(
+    async fn create_multipart_upload(
         &self,
-        key: impl Into<ObjectStorageKey<'a>> + Send,
+        key: ObjectStorageKey<'_>,
     ) -> Result<Self::MultipartUploadId, Self::Error> {
         Ok(self.with_inner(|inner| {
             let upload_id = inner.next_upload_id;
             inner.next_upload_id += 1;
             inner.multipart_uploads.insert(
                 upload_id,
-                MultipartUpload { key: key.into().into(), parts: Vec::new() },
+                MultipartUpload { key: key.into(), parts: Vec::new() },
             );
             upload_id
         }))
     }
 
-    async fn abort_multipart_upload<'a>(
+    async fn abort_multipart_upload(
         &self,
-        key: impl Into<ObjectStorageKey<'a>> + Send,
+        key: ObjectStorageKey<'_>,
         upload_id: Self::MultipartUploadId,
     ) -> Result<(), Self::Error> {
         self.with_inner(|inner| {
@@ -194,7 +196,7 @@ impl ObjectStorage for InMemoryObjectStorage {
                 .get(&upload_id)
                 .ok_or(InMemoryObjectStorageError::MultipartUploadNotStarted)?;
 
-            if upload.key != key.into().into() {
+            if upload.key != key.into() {
                 return Err(
                     InMemoryObjectStorageError::MultipartUploadKeyMismatch,
                 );
@@ -205,15 +207,13 @@ impl ObjectStorage for InMemoryObjectStorage {
         })
     }
 
-    async fn complete_multipart_upload<'a>(
+    async fn complete_multipart_upload(
         &self,
-        key: impl Into<ObjectStorageKey<'a>> + Send,
+        key: ObjectStorageKey<'_>,
         upload_id: Self::MultipartUploadId,
         etags: &[Etag],
     ) -> Result<bool, Self::Error> {
         self.with_inner(|inner| {
-            let key = key.into();
-
             if inner.get(key).is_some() {
                 return Ok(false);
             }

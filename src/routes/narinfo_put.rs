@@ -21,7 +21,7 @@ use nix_types::{
 
 use crate::context::ObjectStorageError;
 use crate::object_storage::ObjectStorageKey;
-use crate::{CacheDb, CacheInfos, Context, ObjectStorage};
+use crate::{CacheInfos, Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = crate::routes::narinfo_get::ROUTE;
 
@@ -86,7 +86,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 
 async fn handler<Ctx: Context>(
     NarInfoPutPath { narinfo_file_name }: NarInfoPutPath,
-    cache_infos: CacheInfos<<Ctx::CacheDb as CacheDb>::CacheId>,
+    cache_infos: CacheInfos,
     body: Bytes,
     ctx: &mut Ctx,
 ) -> Result<StatusCode, NarInfoPutRequestError<ObjectStorageError<Ctx>>> {
@@ -125,7 +125,10 @@ async fn handler<Ctx: Context>(
 
     narinfo.signatures.push(cache_signature);
 
-    match object_storage.insert(&narinfo_file_name, narinfo.to_string()).await {
+    let narinfo_key =
+        ObjectStorageKey::NarInfo(&cache_infos.id, &narinfo_file_name);
+
+    match object_storage.insert(narinfo_key, narinfo.to_string()).await {
         Ok(true) => Ok(StatusCode::CREATED),
         Ok(false) => Ok(StatusCode::OK),
         Err(err) => Err(NarInfoPutRequestError::StoreNarInfo(err)),

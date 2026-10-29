@@ -27,6 +27,7 @@ tempfile = "3"
 tokio = { version = "1", default-features = false }
 tower-layer = "0.3"
 tower-service = "0.3"
+ulid = { version = "3", default-features = false }
 url = "2"
 
 # Internal dependencies.
@@ -80,6 +81,7 @@ smallvec = { workspace = true, features = ["serde"] }
 smol_str = { workspace = true, features = ["serde"] }
 tower-layer = { workspace = true }
 tower-service = { workspace = true }
+ulid = { workspace = true }
 url = { workspace = true, features = ["serde"] }
 
 [lints]

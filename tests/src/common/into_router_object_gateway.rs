@@ -9,6 +9,7 @@ use axum::response::IntoResponse;
 use axum::routing::{get, put};
 use nix_types::{NarFileName, NarInfoFileName};
 use sub60_cache::{
+    CacheId,
     MultipartUploadUrlRequest,
     ObjectGateway,
     ObjectStorage,
@@ -66,7 +67,7 @@ where
                     return (StatusCode::BAD_REQUEST, msg).into_response();
                 },
             };
-            match storage.get(&object_key).await {
+            match storage.get((&object_key).into()).await {
                 Ok(Some(object)) => {
                     Response::new(object.as_ref().to_owned().into())
                 },
@@ -86,7 +87,7 @@ where
                     return (StatusCode::BAD_REQUEST, msg).into_response();
                 },
             };
-            match gateway.storage.insert(&object_key, &object).await {
+            match gateway.storage.insert((&object_key).into(), &object).await {
                 Ok(true) => StatusCode::CREATED.into_response(),
                 Ok(false) => StatusCode::NO_CONTENT.into_response(),
                 Err(err) => {
@@ -168,8 +169,8 @@ fn object_key_display(key: ObjectStorageKey) -> impl fmt::Display {
         ObjectStorageKey::Nar(nar_file_name) => {
             format!("nar/{nar_file_name}")
         },
-        ObjectStorageKey::NarInfo(narinfo_file_name) => {
-            format!("narinfo/{narinfo_file_name}")
+        ObjectStorageKey::NarInfo(cache_id, narinfo_file_name) => {
+            format!("narinfo/{cache_id}/{narinfo_file_name}")
         },
     }
 }
@@ -183,17 +184,26 @@ fn object_key_from_str(s: &str) -> Result<OwnedObjectStorageKey, String> {
             .parse()
             .map(OwnedObjectStorageKey::Nar)
             .map_err(|err| format!("invalid NarFileName in key: {err}")),
-        "narinfo" => key
-            .parse()
-            .map(OwnedObjectStorageKey::NarInfo)
-            .map_err(|err| format!("invalid NarInfoFileName in key: {err}")),
+        "narinfo" => {
+            let (cache_id, narinfo_file_name) = key
+                .split_once('/')
+                .ok_or_else(|| format!("invalid NARInfo key format: {key}"))?;
+            let cache_id = cache_id
+                .parse()
+                .map_err(|err| format!("invalid CacheId in key: {err}"))?;
+            let narinfo_file_name =
+                narinfo_file_name.parse().map_err(|err| {
+                    format!("invalid NarInfoFileName in key: {err}")
+                })?;
+            Ok(OwnedObjectStorageKey::NarInfo(cache_id, narinfo_file_name))
+        },
         _ => Err(format!("invalid key kind: {key_kind}")),
     }
 }
 
 enum OwnedObjectStorageKey {
     Nar(NarFileName),
-    NarInfo(NarInfoFileName),
+    NarInfo(CacheId, NarInfoFileName),
 }
 
 impl<'a> From<&'a OwnedObjectStorageKey> for ObjectStorageKey<'a> {
@@ -202,8 +212,8 @@ impl<'a> From<&'a OwnedObjectStorageKey> for ObjectStorageKey<'a> {
             OwnedObjectStorageKey::Nar(nar_file_name) => {
                 Self::Nar(nar_file_name)
             },
-            OwnedObjectStorageKey::NarInfo(narinfo_file_name) => {
-                Self::NarInfo(narinfo_file_name)
+            OwnedObjectStorageKey::NarInfo(cache_id, narinfo_file_name) => {
+                Self::NarInfo(cache_id, narinfo_file_name)
             },
         }
     }

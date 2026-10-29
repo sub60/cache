@@ -6,6 +6,7 @@
 
 mod common;
 mod multipart;
+mod narinfo;
 mod nix_copy;
 
 pub use common::*;

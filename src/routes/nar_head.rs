@@ -6,7 +6,7 @@ use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
 
 use crate::routes::nar_put::NarPutPath;
-use crate::{Context, ObjectStorage};
+use crate::{Context, ObjectStorage, ObjectStorageKey};
 
 pub(crate) const ROUTE: &str = crate::routes::nar_put::ROUTE;
 
@@ -19,7 +19,7 @@ async fn handler<Ctx: Context>(
     ctx: &mut Ctx,
 ) -> Result<StatusCode, impl IntoResponse + use<Ctx>> {
     ctx.object_storage()
-        .contains_key(&nar_file_name)
+        .contains_key(ObjectStorageKey::Nar(&nar_file_name))
         .await
         .map(
             |exists| {

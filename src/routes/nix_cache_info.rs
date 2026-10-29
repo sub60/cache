@@ -10,7 +10,7 @@ use axum::routing::{self, MethodRouter};
 use nix_types::NixCacheInfo;
 use smol_str::SmolStr;
 
-use crate::{CacheDb, CacheInfos, Cdn as _, Context};
+use crate::{CacheInfos, Cdn as _, Context};
 
 pub(crate) const ROUTE: &str = "/nix-cache-info";
 
@@ -27,7 +27,7 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 }
 
 async fn handler<Ctx: Context>(
-    cache_infos: CacheInfos<<Ctx::CacheDb as CacheDb>::CacheId>,
+    cache_infos: CacheInfos,
     ctx: &mut Ctx,
 ) -> NixCacheInfoResponse<Ctx::Cdn> {
     NixCacheInfoResponse {

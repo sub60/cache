@@ -7,6 +7,7 @@ use core::num::NonZeroU32;
 use nix_types::{NarFileName, NarInfoFileName};
 use serde::de::DeserializeOwned;
 
+use crate::CacheId;
 use crate::nar_multiparts::Etag;
 
 /// TODO: docs.
@@ -18,9 +19,9 @@ pub trait ObjectStorage: Sync {
     type Error: Error + Send;
 
     /// TODO: docs.
-    fn get<'a>(
+    fn get(
         &self,
-        key: impl Into<ObjectStorageKey<'a>> + Send,
+        key: ObjectStorageKey<'_>,
     ) -> impl Future<
         Output = Result<Option<impl AsRef<[u8]> + Send>, Self::Error>,
     > + Send;
@@ -29,28 +30,28 @@ pub trait ObjectStorage: Sync {
     ///
     /// Returns `true` if the object was inserted, or `false` if an object with
     /// the same key already existed.
-    fn insert<'a>(
+    fn insert(
         &self,
-        key: impl Into<ObjectStorageKey<'a>> + Send,
+        key: ObjectStorageKey<'_>,
         bytes: impl AsRef<[u8]> + Send,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Returns whether the object storage contains the given key.
-    fn contains_key<'a>(
+    fn contains_key(
         &self,
-        key: impl Into<ObjectStorageKey<'a>> + Send,
+        key: ObjectStorageKey<'_>,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Creates a new multipart upload ID for an object with the given key.
-    fn create_multipart_upload<'a>(
+    fn create_multipart_upload(
         &self,
-        key: impl Into<ObjectStorageKey<'a>> + Send,
+        key: ObjectStorageKey<'_>,
     ) -> impl Future<Output = Result<Self::MultipartUploadId, Self::Error>> + Send;
 
     /// Aborts a multipart upload for the object with the given key.
-    fn abort_multipart_upload<'a>(
+    fn abort_multipart_upload(
         &self,
-        key: impl Into<ObjectStorageKey<'a>> + Send,
+        key: ObjectStorageKey<'_>,
         upload_id: Self::MultipartUploadId,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
 
@@ -61,9 +62,9 @@ pub trait ObjectStorage: Sync {
     ///
     /// Implementors can assume `etags.len()` is less than or equal to
     /// [`Self::max_multipart_parts()`], when a maximum is returned.
-    fn complete_multipart_upload<'a>(
+    fn complete_multipart_upload(
         &self,
-        key: impl Into<ObjectStorageKey<'a>> + Send,
+        key: ObjectStorageKey<'_>,
         upload_id: Self::MultipartUploadId,
         etags: &[Etag],
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
@@ -81,18 +82,10 @@ pub enum ObjectStorageKey<'a> {
     /// TODO: docs.
     Nar(&'a NarFileName),
 
-    /// TODO: docs.
-    NarInfo(&'a NarInfoFileName),
-}
-
-impl<'a> From<&'a NarFileName> for ObjectStorageKey<'a> {
-    fn from(nar_file_name: &'a NarFileName) -> Self {
-        Self::Nar(nar_file_name)
-    }
-}
-
-impl<'a> From<&'a NarInfoFileName> for ObjectStorageKey<'a> {
-    fn from(narinfo_file_name: &'a NarInfoFileName) -> Self {
-        Self::NarInfo(narinfo_file_name)
-    }
+    /// A NARInfo of a given cache.
+    ///
+    /// This variant includes the cache ID because unlike NARs, which are
+    /// content-addressed and shared by all caches, NARInfos are scoped to a
+    /// single cache.
+    NarInfo(&'a CacheId, &'a NarInfoFileName),
 }

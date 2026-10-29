@@ -1,10 +1,12 @@
 use nix_types::CacheSigningKey;
 use smol_str::SmolStr;
 
+use crate::CacheId;
+
 /// TODO: docs.
 #[derive(Clone)]
-pub struct CacheInfos<CacheId> {
-    /// The cache's ID in the database.
+pub struct CacheInfos {
+    /// The cache's stable ID.
     pub id: CacheId,
 
     /// The cache's `Priority` returned by the `/nix-cache-info` endpoint

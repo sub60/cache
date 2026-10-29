@@ -4,6 +4,7 @@ use core::str::FromStr;
 use core::time::Duration;
 use core::{fmt, str};
 
+use axum::Extension;
 use axum::body::Body;
 use axum::extract::Path;
 use axum::http::{self, HeaderValue, StatusCode, header};
@@ -14,7 +15,7 @@ use nix_types::{NarFileName, NarInfo, NarInfoFileName, NarInfoFromStrError};
 
 use crate::context::ObjectStorageError;
 use crate::object_gateway::{ObjectGateway, ObjectUrlRequest};
-use crate::{Cdn, Context, ObjectStorage};
+use crate::{CacheInfos, Cdn, Context, ObjectStorage, ObjectStorageKey};
 
 pub(crate) const ROUTE: &str = "/{narinfo_file_name}";
 
@@ -60,11 +61,14 @@ enum NarInfoGetResponseError<ObjectStorageError> {
 struct EmptyString;
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::get(async move |path| handler(path, &mut ctx).await)
+    routing::get(async move |path, Extension(cache_infos)| {
+        handler(path, cache_infos, &mut ctx).await
+    })
 }
 
 async fn handler<Ctx: Context>(
     Path(NarInfoGetPath { narinfo_file_name }): Path<NarInfoGetPath>,
+    cache_infos: CacheInfos,
     ctx: &mut Ctx,
 ) -> Result<
     NarInfoGetResponse<Ctx::Cdn>,
@@ -73,7 +77,7 @@ async fn handler<Ctx: Context>(
     let object_storage = ctx.object_storage();
 
     let Some(narinfo_bytes) = object_storage
-        .get(&narinfo_file_name)
+        .get(ObjectStorageKey::NarInfo(&cache_infos.id, &narinfo_file_name))
         .await
         .map_err(NarInfoGetResponseError::GetNarInfo)?
     else {
@@ -89,7 +93,7 @@ async fn handler<Ctx: Context>(
     let nar_filename = NarFileName::from(&narinfo_without_url);
 
     let nar_url = ctx.object_gateway().object_url(ObjectUrlRequest {
-        key: (&nar_filename).into(),
+        key: ObjectStorageKey::Nar(&nar_filename),
         method: http::Method::GET,
         min_ttl: Duration::from_hours(1),
     });
