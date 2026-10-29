@@ -1,5 +1,6 @@
 {
   inputs = {
+    nix-jettison.url = "git+ssh://git@github.com/noib3/nix-jettison.git";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
@@ -14,6 +15,7 @@
   outputs =
     {
       self,
+      nix-jettison,
       nixpkgs,
       rust-overlay,
       treefmt-nix,
@@ -56,6 +58,15 @@
             "${./rustfmt.toml}"
           ];
         };
+
+      workspaces = forEachSystem (
+        _system: pkgs:
+        nix-jettison.lib.loadWorkspace {
+          inherit pkgs;
+          src = self;
+          toolchain = mkToolchain pkgs;
+        }
+      );
     in
     {
       # Workaround for https://github.com/NixOS/nix/issues/8881 so that we
@@ -97,9 +108,26 @@
       );
 
       checks = forEachSystem (
-        _system: pkgs: {
+        system: pkgs: {
+          clippy = workspaces.${system}.clippy.override {
+            allFeatures = true;
+            allTargets = true;
+            clippyArgs = [
+              "-D"
+              "warnings"
+            ];
+          };
           formatting = (mkTreefmt pkgs).config.build.check self;
         }
       );
     };
+
+  nixConfig = {
+    extra-substituters = [
+      "https://cache.sub60.dev/noib3/nix-jettison"
+    ];
+    extra-trusted-public-keys = [
+      "cache.sub60.dev/noib3/nix-jettison-1:yFjuL2ZV5kv1FDUlU76T6yEh6/i7Ud3qF+QxgdZt0Ko="
+    ];
+  };
 }

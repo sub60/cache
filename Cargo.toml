@@ -68,6 +68,7 @@ private_intra_doc_links = "deny"
 name = "sub60-cache"
 version.workspace = true
 edition.workspace = true
+autotests = false
 
 [dependencies]
 axum = { workspace = true, features = ["query"] }

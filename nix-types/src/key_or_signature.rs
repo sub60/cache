@@ -194,8 +194,8 @@ mod tests {
 
     #[test]
     fn cache_signing_key_from_str() {
-        let key = "cache.example.org-1:\
-                   CBMkUz1hLHjc0nP54+12CJ8AfO4a0aXCs0I3Ao/HBRY=";
+        let key =
+            "cache.example.org-1:CBMkUz1hLHjc0nP54+12CJ8AfO4a0aXCs0I3Ao/HBRY=";
         let parsed = key.parse::<CacheSigningKey>().unwrap();
         assert_eq!(parsed.name, "cache.example.org-1");
     }
