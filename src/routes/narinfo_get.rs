@@ -86,9 +86,17 @@ async fn handler<Ctx: Context>(
         ));
     };
 
-    let narinfo_without_url = str::from_utf8(narinfo_bytes.as_ref())
+    let mut narinfo_without_url = str::from_utf8(narinfo_bytes.as_ref())
         .map_err(NarInfoGetResponseError::NarInfoNotUtf8)?
         .parse::<NarInfo<EmptyString>>()?;
+
+    // NARInfos are stored unsigned, so we sign them on the fly with the cache's
+    // current signing key.
+    let cache_signature = cache_infos
+        .signing_key
+        .sign(narinfo_without_url.fingerprint().to_string().as_bytes());
+
+    narinfo_without_url.signatures.push(cache_signature);
 
     let nar_filename = NarFileName::from(&narinfo_without_url);
 

@@ -68,6 +68,35 @@ async fn each_cache_signs_its_own_copy_of_a_shared_store_path() {
     assert_eq!(&*bar_narinfo.signatures, &[bar_signature]);
 }
 
+#[tokio::test]
+async fn narinfo_is_signed_with_the_current_signing_key() {
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_user("user");
+    test_ctx.db_mut().add_cache("user", "foo");
+
+    let nix = MockNixClient::default();
+
+    let store_path = nix.store().add_file("hello-world", b"hello world").await;
+
+    nix.copy([store_path.clone()])
+        .to(test_ctx.app_router(), "user", "foo")
+        .await
+        .unwrap();
+
+    let foo = test_ctx.db_mut().rotate_signing_key("user", "foo");
+
+    let mut app = test_ctx.app_router();
+
+    let narinfo =
+        parse_narinfo(get_narinfo(&mut app, "user/foo", &store_path).await)
+            .await;
+
+    let signature =
+        foo.signing_key.sign(narinfo.fingerprint().to_string().as_bytes());
+
+    assert_eq!(&*narinfo.signatures, &[signature]);
+}
+
 async fn get_narinfo(
     app: &mut axum::Router,
     base: &str,

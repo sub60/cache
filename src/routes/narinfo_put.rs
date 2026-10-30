@@ -94,7 +94,7 @@ async fn handler<Ctx: Context>(
     // TODO: validate that the store dir in the NARInfo's StorePath matches the
     // cache's storeDir.
 
-    let mut narinfo = str::from_utf8(&body)
+    let narinfo = str::from_utf8(&body)
         .map_err(NarInfoPutRequestError::NarInfoNotUtf8)?
         .parse::<NarInfo<DiscardUrl>>()?;
 
@@ -116,14 +116,6 @@ async fn handler<Ctx: Context>(
     {
         return Err(NarInfoPutRequestError::NarNotFound(nar_file_name));
     }
-
-    // Sign the fingerprint with our private key and append the signature to the
-    // NARInfo before storing it.
-    let cache_signature = cache_infos
-        .signing_key
-        .sign(narinfo.fingerprint().to_string().as_bytes());
-
-    narinfo.signatures.push(cache_signature);
 
     let narinfo_key =
         ObjectStorageKey::NarInfo(&cache_infos.id, &narinfo_file_name);
