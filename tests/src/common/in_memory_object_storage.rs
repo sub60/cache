@@ -189,12 +189,11 @@ impl ObjectStorage for InMemoryObjectStorage {
         &self,
         key: ObjectStorageKey<'_>,
         upload_id: Self::MultipartUploadId,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<bool, Self::Error> {
         self.with_inner(|inner| {
-            let upload = inner
-                .multipart_uploads
-                .get(&upload_id)
-                .ok_or(InMemoryObjectStorageError::MultipartUploadNotStarted)?;
+            let Some(upload) = inner.multipart_uploads.get(&upload_id) else {
+                return Ok(false);
+            };
 
             if upload.key != key.into() {
                 return Err(
@@ -203,7 +202,7 @@ impl ObjectStorage for InMemoryObjectStorage {
             }
 
             inner.multipart_uploads.remove(&upload_id);
-            Ok(())
+            Ok(true)
         })
     }
 

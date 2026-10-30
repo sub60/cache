@@ -49,11 +49,14 @@ pub trait ObjectStorage: Sync {
     ) -> impl Future<Output = Result<Self::MultipartUploadId, Self::Error>> + Send;
 
     /// Aborts a multipart upload for the object with the given key.
+    ///
+    /// Returns `true` if the upload was aborted, or `false` if it didn't exist
+    /// (e.g. because it had already been completed or aborted).
     fn abort_multipart_upload(
         &self,
         key: ObjectStorageKey<'_>,
         upload_id: Self::MultipartUploadId,
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Completes a multipart upload for the object with the given key.
     ///
