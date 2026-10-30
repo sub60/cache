@@ -59,6 +59,48 @@ async fn completion_distinguishes_insert_from_race_loss() {
     assert_eq!(second_response, StatusCode::OK);
 }
 
+#[tokio::test]
+async fn initiation_skips_existing_nars() {
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_user("user");
+    test_ctx.db_mut().add_cache("user", "cache");
+
+    let nix = MockNixClient::default();
+    let store_path = nix.store().add_file("hello-world", b"hello world").await;
+    let (narinfo, nar_bytes) =
+        nix.store().nar_info_and_bytes(&store_path).await;
+    let nar_file_name = NarFileName::from(&narinfo);
+
+    let mut app = test_ctx.app_router();
+
+    let response = initiate_upload(&mut app, &nar_file_name).await;
+    assert_eq!(response, StatusCode::OK);
+
+    test_ctx
+        .object_storage()
+        .insert(ObjectStorageKey::Nar(&nar_file_name), nar_bytes)
+        .await
+        .unwrap();
+
+    let response = initiate_upload(&mut app, &nar_file_name).await;
+    assert_eq!(response, StatusCode::NO_CONTENT);
+}
+
+async fn initiate_upload(
+    app: &mut axum::Router,
+    nar_file_name: &NarFileName,
+) -> StatusCode {
+    let request = Request::builder()
+        .method(Method::POST)
+        .uri("/user/cache/nar-multiparts")
+        .body(Body::from(nar_file_name.to_string()))
+        .expect("valid request");
+
+    match app.call(request).await {
+        Ok(response) => response.status(),
+    }
+}
+
 async fn complete_upload(
     app: &mut axum::Router,
     upload_id: u64,

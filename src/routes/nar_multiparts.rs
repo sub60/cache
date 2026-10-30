@@ -4,6 +4,7 @@ use core::num::NonZeroU16;
 use core::time::Duration;
 use core::{array, fmt};
 
+use axum::body::Body;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{self, MethodRouter};
@@ -18,8 +19,17 @@ use crate::{Clock, Context, ObjectGateway, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/nar-multiparts";
 
+/// The response returned to POST requests to the NAR multiparts route.
+#[derive(Debug)]
+#[expect(clippy::large_enum_variant)]
+enum NarMultipartsResponse {
+    AlreadyExists,
+    Created(NarMultipartsResponseBody),
+}
+
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarMultipartsError<ObjectStorageError> {
+    CheckNarExistence(ObjectStorageError),
     CreateMultipartUpload(ObjectStorageError),
 }
 
@@ -30,15 +40,24 @@ pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
 async fn handler<Ctx: Context>(
     FromStrBody(nar_file_name): FromStrBody<NarFileName>,
     ctx: &mut Ctx,
-) -> Result<
-    impl IntoResponse + use<Ctx>,
-    NarMultipartsError<ObjectStorageError<Ctx>>,
-> {
+) -> Result<NarMultipartsResponse, NarMultipartsError<ObjectStorageError<Ctx>>>
+{
     // TODO: validate that the user has write permissions for that cache.
 
     let storage_key = ObjectStorageKey::Nar(&nar_file_name);
 
     let object_gateway = ctx.object_gateway();
+
+    // NARs are content-addressed, so if one already exists under this key
+    // there's no need to upload it again.
+    if object_gateway
+        .storage()
+        .contains_key(storage_key)
+        .await
+        .map_err(NarMultipartsError::CheckNarExistence)?
+    {
+        return Ok(NarMultipartsResponse::AlreadyExists);
+    }
 
     let upload_id = object_gateway
         .storage()
@@ -63,22 +82,33 @@ async fn handler<Ctx: Context>(
             .expect("valid URL")
     });
 
-    Ok((
-        StatusCode::OK,
-        NarMultipartsResponseBody {
-            upload_id: upload_id.to_string(),
-            part_size: object_gateway.storage().part_size(),
-            parts_urls,
-            expiration_ts: now + min_ttl,
-        }
-        .to_string(),
-    ))
+    Ok(NarMultipartsResponse::Created(NarMultipartsResponseBody {
+        upload_id: upload_id.to_string(),
+        part_size: object_gateway.storage().part_size(),
+        parts_urls,
+        expiration_ts: now + min_ttl,
+    }))
 }
 
 impl<ObjectStorageError> NarMultipartsError<ObjectStorageError> {
     fn status_code(&self) -> StatusCode {
         match self {
-            Self::CreateMultipartUpload(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::CheckNarExistence(_) | Self::CreateMultipartUpload(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            },
+        }
+    }
+}
+
+impl IntoResponse for NarMultipartsResponse {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            Self::AlreadyExists => {
+                (StatusCode::NO_CONTENT, Body::empty()).into_response()
+            },
+            Self::Created(body) => {
+                (StatusCode::OK, body.to_string()).into_response()
+            },
         }
     }
 }
