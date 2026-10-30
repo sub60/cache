@@ -11,7 +11,7 @@ use crate::context::{MultipartUploadId, ObjectStorageError};
 use crate::from_str_body::FromStrBody;
 use crate::nar_multiparts::CompleteRequestBody;
 use crate::object_storage::ObjectStorageKey;
-use crate::{Context, ObjectStorage};
+use crate::{CompleteMultipartUploadError, Context, ObjectStorage};
 
 pub(crate) const ROUTE: &str = "/nar-multiparts/{upload_id}/complete";
 
@@ -25,7 +25,7 @@ enum NarMultipartsCompleteError<ObjectStorageError> {
     #[display("couldn't abort redundant multipart upload: {_0}")]
     AbortMultipartUpload(ObjectStorageError),
     #[display("couldn't complete multipart upload: {_0}")]
-    CompleteMultipartUpload(ObjectStorageError),
+    CompleteMultipartUpload(CompleteMultipartUploadError<ObjectStorageError>),
     #[display("multipart upload completion must include at least one part")]
     EmptyUpload,
     #[display("multipart upload has too many parts: {_0} (maximum {_1})")]
@@ -82,13 +82,18 @@ async fn handler<Ctx: Context>(
 impl<ObjectStorageError> NarMultipartsCompleteError<ObjectStorageError> {
     fn status_code(&self) -> StatusCode {
         match self {
+            Self::CompleteMultipartUpload(
+                CompleteMultipartUploadError::NoSuchUpload,
+            ) => StatusCode::NOT_FOUND,
+            Self::CompleteMultipartUpload(
+                CompleteMultipartUploadError::InvalidParts(_),
+            )
+            | Self::EmptyUpload
+            | Self::TooManyParts(..) => StatusCode::BAD_REQUEST,
             Self::AbortMultipartUpload(_)
-            | Self::CompleteMultipartUpload(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            },
-            Self::EmptyUpload | Self::TooManyParts(..) => {
-                StatusCode::BAD_REQUEST
-            },
+            | Self::CompleteMultipartUpload(
+                CompleteMultipartUploadError::Storage(_),
+            ) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

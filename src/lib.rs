@@ -35,6 +35,10 @@ pub use object_gateway::{
     ObjectGateway,
     ObjectUrlRequest,
 };
-pub use object_storage::{ObjectStorage, ObjectStorageKey};
+pub use object_storage::{
+    CompleteMultipartUploadError,
+    ObjectStorage,
+    ObjectStorageKey,
+};
 pub use router::router;
 pub use user_name::{UserName, UserNameFromStrError};

@@ -5,7 +5,12 @@ use std::sync::{Arc, Mutex};
 use axum::body::Bytes;
 use nix_types::{NarFileName, NarInfoFileName};
 use sub60_cache::nar_multiparts::Etag;
-use sub60_cache::{CacheId, ObjectStorage, ObjectStorageKey};
+use sub60_cache::{
+    CacheId,
+    CompleteMultipartUploadError,
+    ObjectStorage,
+    ObjectStorageKey,
+};
 
 /// The ID of an in-memory multipart upload.
 pub type MultipartUploadId = u64;
@@ -211,48 +216,48 @@ impl ObjectStorage for InMemoryObjectStorage {
         key: ObjectStorageKey<'_>,
         upload_id: Self::MultipartUploadId,
         etags: &[Etag],
-    ) -> Result<bool, Self::Error> {
+    ) -> Result<bool, CompleteMultipartUploadError<Self::Error>> {
         self.with_inner(|inner| {
             if inner.get(key).is_some() {
                 return Ok(false);
             }
 
+            // Upload IDs are scoped to the key they were created for, so an
+            // upload created for a different key doesn't exist for this one.
             let upload = inner
                 .multipart_uploads
                 .get_mut(&upload_id)
-                .ok_or(InMemoryObjectStorageError::MultipartUploadNotStarted)?;
-
-            if upload.key != key.into() {
-                return Err(
-                    InMemoryObjectStorageError::MultipartUploadKeyMismatch,
-                );
-            }
+                .filter(|upload| upload.key == key.into())
+                .ok_or(CompleteMultipartUploadError::NoSuchUpload)?;
 
             if etags.len() < upload.parts.len() {
-                return Err(
+                return Err(CompleteMultipartUploadError::InvalidParts(
                     InMemoryObjectStorageError::TooFewMultipartUploadEtags(
                         etags.len(),
                         upload.parts.len(),
                     ),
-                );
+                ));
             }
 
             if etags.len() > upload.parts.len() {
-                return Err(
+                return Err(CompleteMultipartUploadError::InvalidParts(
                     InMemoryObjectStorageError::TooManyMultipartUploadEtags(
                         etags.len(),
                         upload.parts.len(),
                     ),
-                );
+                ));
             }
 
             let mut bytes = Vec::new();
             for (part_idx, maybe_part) in upload.parts.iter_mut().enumerate() {
-                let part = maybe_part.take().ok_or(
-                    InMemoryObjectStorageError::MissingMultipartUploadPart(
-                        part_idx + 1,
-                    ),
-                )?;
+                let part =
+                    maybe_part
+                        .take()
+                        .ok_or(CompleteMultipartUploadError::InvalidParts(
+                        InMemoryObjectStorageError::MissingMultipartUploadPart(
+                            part_idx + 1,
+                        ),
+                    ))?;
                 bytes.extend_from_slice(&part);
             }
 

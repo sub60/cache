@@ -60,6 +60,50 @@ async fn completion_distinguishes_insert_from_race_loss() {
 }
 
 #[tokio::test]
+async fn completion_of_unknown_upload_is_not_found() {
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_user("user");
+    test_ctx.db_mut().add_cache("user", "cache");
+
+    let nix = MockNixClient::default();
+    let store_path = nix.store().add_file("hello-world", b"hello world").await;
+    let (narinfo, _) = nix.store().nar_info_and_bytes(&store_path).await;
+    let nar_file_name = NarFileName::from(&narinfo);
+
+    let mut app = test_ctx.app_router();
+
+    let response =
+        complete_upload(&mut app, 42, nar_file_name, placeholder_etag()).await;
+    assert_eq!(response, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn completion_with_invalid_parts_is_bad_request() {
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_user("user");
+    test_ctx.db_mut().add_cache("user", "cache");
+
+    let nix = MockNixClient::default();
+    let store_path = nix.store().add_file("hello-world", b"hello world").await;
+    let (narinfo, _) = nix.store().nar_info_and_bytes(&store_path).await;
+    let nar_file_name = NarFileName::from(&narinfo);
+
+    // Create an upload without uploading any parts to it.
+    let upload_id = test_ctx
+        .object_storage()
+        .create_multipart_upload(ObjectStorageKey::Nar(&nar_file_name))
+        .await
+        .unwrap();
+
+    let mut app = test_ctx.app_router();
+
+    let response =
+        complete_upload(&mut app, upload_id, nar_file_name, placeholder_etag())
+            .await;
+    assert_eq!(response, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn initiation_skips_existing_nars() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_user("user");
@@ -99,6 +143,10 @@ async fn initiate_upload(
     match app.call(request).await {
         Ok(response) => response.status(),
     }
+}
+
+fn placeholder_etag() -> Etag {
+    "00000000000000000000000000000000".parse().expect("valid Etag")
 }
 
 async fn complete_upload(

@@ -70,13 +70,35 @@ pub trait ObjectStorage: Sync {
         key: ObjectStorageKey<'_>,
         upload_id: Self::MultipartUploadId,
         etags: &[Etag],
-    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
+    ) -> impl Future<
+        Output = Result<bool, CompleteMultipartUploadError<Self::Error>>,
+    > + Send;
 
     /// Returns the maximum number of parts supported by multipart uploads.
     fn max_multipart_parts(&self) -> Option<usize>;
 
     /// Returns the target size, in bytes, of each multipart upload part.
     fn part_size(&self) -> NonZeroU32;
+}
+
+/// The type of error returned by
+/// [`ObjectStorage::complete_multipart_upload()`].
+#[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
+pub enum CompleteMultipartUploadError<StorageError> {
+    /// The multipart upload doesn't exist, e.g. because it was never created,
+    /// it expired, or it was already completed or aborted.
+    #[display("multipart upload doesn't exist")]
+    NoSuchUpload,
+
+    /// The Etags don't describe a valid set of uploaded parts, e.g. because a
+    /// part was never uploaded or the parts have invalid sizes.
+    #[display("invalid multipart upload parts: {_0}")]
+    InvalidParts(StorageError),
+
+    /// Any other error, which is caused by a problem with the object storage
+    /// rather than with the request.
+    #[display("{_0}")]
+    Storage(StorageError),
 }
 
 /// TODO: docs..
