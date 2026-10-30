@@ -119,11 +119,11 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1793278211,
-        "narHash": "sha256-YKHVk/bmAPHxdb74zXPGEK8vrv9vLGgyJBCpp914PGs=",
+        "lastModified": 1793349080,
+        "narHash": "sha256-2nYd8td256y15OILf3r0SsJdejnVdHEuuMbLimnUY/U=",
         "ref": "refs/heads/main",
-        "rev": "998650d0b4335ae00cdab8dda5fac0283a7340ff",
-        "revCount": 636,
+        "rev": "d88a2bc1e1f42cf64b9ca132cb6f061c667a80ca",
+        "revCount": 638,
         "type": "git",
         "url": "ssh://git@github.com/noib3/nix-jettison.git"
       },
