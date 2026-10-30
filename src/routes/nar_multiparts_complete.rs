@@ -22,8 +22,6 @@ struct NarMultipartsCompletePath<UploadId> {
 
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarMultipartsCompleteError<ObjectStorageError> {
-    #[display("couldn't abort redundant multipart upload: {_0}")]
-    AbortMultipartUpload(ObjectStorageError),
     #[display("couldn't complete multipart upload: {_0}")]
     CompleteMultipartUpload(CompleteMultipartUploadError<ObjectStorageError>),
     #[display("multipart upload completion must include at least one part")]
@@ -68,15 +66,23 @@ async fn handler<Ctx: Context>(
         .map_err(NarMultipartsCompleteError::CompleteMultipartUpload)?;
 
     if did_insert {
-        Ok(StatusCode::CREATED)
-    } else {
-        object_storage
-            .abort_multipart_upload(storage_key, upload_id)
-            .await
-            .map_err(NarMultipartsCompleteError::AbortMultipartUpload)?;
-
-        Ok(StatusCode::OK)
+        return Ok(StatusCode::CREATED);
     }
+
+    // The NAR is already stored, so aborting this upload is just cleanup, and
+    // failing to do so shouldn't fail the request.
+    if let Err(err) = object_storage
+        .abort_multipart_upload(storage_key, upload_id.clone())
+        .await
+    {
+        tracing::warn!(
+            %upload_id,
+            nar_file_name = %body.nar_file_name,
+            "couldn't abort redundant multipart upload: {err}",
+        );
+    }
+
+    Ok(StatusCode::OK)
 }
 
 impl<ObjectStorageError> NarMultipartsCompleteError<ObjectStorageError> {
@@ -90,8 +96,7 @@ impl<ObjectStorageError> NarMultipartsCompleteError<ObjectStorageError> {
             )
             | Self::EmptyUpload
             | Self::TooManyParts(..) => StatusCode::BAD_REQUEST,
-            Self::AbortMultipartUpload(_)
-            | Self::CompleteMultipartUpload(
+            Self::CompleteMultipartUpload(
                 CompleteMultipartUploadError::Storage(_),
             ) => StatusCode::INTERNAL_SERVER_ERROR,
         }

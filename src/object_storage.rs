@@ -43,6 +43,12 @@ pub trait ObjectStorage: Sync {
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Creates a new multipart upload ID for an object with the given key.
+    ///
+    /// Multipart uploads can be abandoned without ever being completed or
+    /// aborted, e.g. by a client that stops halfway through an upload, or
+    /// when [`Self::abort_multipart_upload()`] fails. Implementors must
+    /// eventually clean up such uploads on their own, e.g. by expiring them
+    /// after some time.
     fn create_multipart_upload(
         &self,
         key: ObjectStorageKey<'_>,

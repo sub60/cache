@@ -20,6 +20,7 @@ mod object_storage;
 mod route_layer;
 mod router;
 mod routes;
+mod server_error_log_layer;
 mod user_cache_layer;
 mod user_name;
 

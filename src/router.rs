@@ -10,7 +10,7 @@ use crate::routes::{
     narinfo_put,
     nix_cache_info,
 };
-use crate::{Context, user_cache_layer};
+use crate::{Context, server_error_log_layer, user_cache_layer};
 
 /// Returns the axum [`Router`] defining the cache server's API.
 pub fn router(ctx: impl Context) -> Router {
@@ -39,4 +39,7 @@ pub fn router(ctx: impl Context) -> Router {
             user_cache_layer::ROUTE,
             cache_routes.route_layer(user_cache_layer::layer(ctx)),
         )
+        // Log server errors from every route, including the ones returned by
+        // the /{user}/{cache} layer.
+        .layer(server_error_log_layer::layer())
 }
