@@ -12,9 +12,9 @@ pub trait CacheDb {
     /// Returns the infos of the cache called `cache` in the namespace called
     /// `namespace`, or `None` if there isn't one.
     ///
-    /// The namespace must be looked up by name the same way
-    /// [`NamespaceName`]'s `PartialEq` impl compares names, i.e. ignoring
-    /// ASCII case.
+    /// Both must be looked up by name the same way [`NamespaceName`]'s and
+    /// [`CacheName`]'s `PartialEq` impls compare names, i.e. ignoring ASCII
+    /// case.
     fn get_infos(
         &self,
         namespace: NamespaceName,

@@ -33,27 +33,57 @@ async fn narinfo_is_only_served_by_the_cache_it_was_pushed_to() {
 }
 
 #[tokio::test]
-async fn namespace_lookup_ignores_case() {
+async fn cache_lookup_ignores_case() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_namespace("NixOS");
-    test_ctx.db_mut().add_cache("NixOS", "foo");
+    test_ctx.db_mut().add_cache("NixOS", "Foo");
 
     let nix = MockNixClient::default();
 
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
 
     nix.copy([store_path.clone()])
-        .to(test_ctx.app_router(), "NixOS", "foo")
+        .to(test_ctx.app_router(), "NixOS", "Foo")
         .await
         .unwrap();
 
     let mut app = test_ctx.app_router();
 
-    for namespace in ["NixOS", "nixos", "NIXOS"] {
-        let response =
-            get_narinfo(&mut app, &format!("{namespace}/foo"), &store_path)
-                .await;
-        assert_eq!(response.status(), StatusCode::OK, "{namespace}");
+    for base in ["NixOS/Foo", "nixos/foo", "NIXOS/FOO", "nixos/Foo"] {
+        let response = get_narinfo(&mut app, base, &store_path).await;
+        assert_eq!(response.status(), StatusCode::OK, "{base}");
+    }
+}
+
+#[tokio::test]
+async fn cache_names_can_contain_dots_and_start_with_any_character() {
+    let cache_names = [".foo", "foo.bar", "-", "_foo"];
+
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_namespace("namespace");
+    for cache_name in cache_names {
+        test_ctx.db_mut().add_cache("namespace", cache_name);
+    }
+
+    let nix = MockNixClient::default();
+
+    let store_path = nix.store().add_file("hello-world", b"hello world").await;
+
+    let mut app = test_ctx.app_router();
+
+    for cache_name in cache_names {
+        nix.copy([store_path.clone()])
+            .to(test_ctx.app_router(), "namespace", cache_name)
+            .await
+            .unwrap();
+
+        let response = get_narinfo(
+            &mut app,
+            &format!("namespace/{cache_name}"),
+            &store_path,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{cache_name}");
     }
 }
 
