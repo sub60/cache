@@ -1,11 +1,20 @@
 use core::fmt;
+use core::hash::{Hash, Hasher};
 use core::ops::Deref;
 use core::str::FromStr;
 
 use smol_str::SmolStr;
 
 /// The type representing the name of a namespace.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+///
+/// Valid names are between 1 and [`MAX_LEN`](Self::MAX_LEN) bytes long, and can
+/// only contain ASCII letters and digits, `-` and `_`. They must start with a
+/// letter or a digit.
+///
+/// Names keep the casing they were created with (e.g. `NixOS`). Two names that
+/// only differ in casing are considered equal as far as [`PartialEq`] and
+/// [`Hash`] are concerned.
+#[derive(Debug, Clone)]
 pub struct NamespaceName(SmolStr);
 
 /// The type of error that can occur when parsing a string into a
@@ -22,6 +31,15 @@ pub enum NamespaceNameFromStrError {
         NamespaceName::MAX_LEN
     )]
     TooLong,
+
+    /// The namespace name starts with a `-` or a `_`.
+    #[display(
+        "Namespace name must start with a letter or a digit, not '{character}'"
+    )]
+    InvalidFirstCharacter {
+        /// The first character.
+        character: char,
+    },
 
     /// The namespace name contains an invalid character at the given offset.
     #[display(
@@ -50,6 +68,12 @@ impl NamespaceName {
             return Err(NamespaceNameFromStrError::TooLong);
         }
 
+        if let Some(character @ ('-' | '_')) = s.chars().next() {
+            return Err(NamespaceNameFromStrError::InvalidFirstCharacter {
+                character,
+            });
+        }
+
         for (offset, character) in s.char_indices() {
             if !character.is_ascii_alphanumeric()
                 && character != '-'
@@ -63,6 +87,27 @@ impl NamespaceName {
         }
 
         Ok(())
+    }
+}
+
+impl PartialEq for NamespaceName {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq_ignore_ascii_case(&other.0)
+    }
+}
+
+impl Eq for NamespaceName {}
+
+impl Hash for NamespaceName {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Must be consistent with `PartialEq`, so names that only differ in
+        // casing must hash the same.
+        for byte in self.0.bytes() {
+            state.write_u8(byte.to_ascii_lowercase());
+        }
+        // Delimit the name like `str`'s `Hash` impl does, so that hashing a
+        // tuple of names doesn't depend on where one ends and the next starts.
+        state.write_u8(0xff);
     }
 }
 
@@ -105,5 +150,70 @@ impl<'de> serde::de::Deserialize<'de> for NamespaceName {
         let s = SmolStr::deserialize(deserializer)?;
         Self::validate(&s).map_err(serde::de::Error::custom)?;
         Ok(Self(s))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+    use std::hash::DefaultHasher;
+
+    use super::*;
+
+    fn name(s: &str) -> NamespaceName {
+        s.parse().unwrap()
+    }
+
+    fn hash_of(value: &impl Hash) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        value.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn must_start_with_letter_or_digit() {
+        for s in ["-", "_", "-foo", "_foo"] {
+            assert_eq!(
+                s.parse::<NamespaceName>().unwrap_err(),
+                NamespaceNameFromStrError::InvalidFirstCharacter {
+                    character: s.chars().next().unwrap(),
+                },
+                "{s}",
+            );
+        }
+    }
+
+    #[test]
+    fn can_contain_dash_and_underscore_after_first_character() {
+        for s in ["a-", "a_", "foo-bar_baz", "0foo"] {
+            assert!(s.parse::<NamespaceName>().is_ok(), "{s}");
+        }
+    }
+
+    #[test]
+    fn keeps_casing() {
+        assert_eq!(name("NixOS").to_string(), "NixOS");
+    }
+
+    #[test]
+    fn eq_ignores_case() {
+        assert_eq!(name("NixOS"), name("nixos"));
+        assert_eq!(name("NixOS"), name("NIXOS"));
+        assert_ne!(name("NixOS"), name("nixos-2"));
+    }
+
+    #[test]
+    fn hash_ignores_case() {
+        let names = HashSet::from([name("NixOS")]);
+        assert!(names.contains(&name("nixos")));
+        assert!(!names.contains(&name("nixos-2")));
+    }
+
+    #[test]
+    fn hash_delimits_names() {
+        assert_ne!(
+            hash_of(&(name("ab"), name("c"))),
+            hash_of(&(name("a"), name("bc"))),
+        );
     }
 }

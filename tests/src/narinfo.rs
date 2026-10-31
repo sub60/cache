@@ -33,6 +33,31 @@ async fn narinfo_is_only_served_by_the_cache_it_was_pushed_to() {
 }
 
 #[tokio::test]
+async fn namespace_lookup_ignores_case() {
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_namespace("NixOS");
+    test_ctx.db_mut().add_cache("NixOS", "foo");
+
+    let nix = MockNixClient::default();
+
+    let store_path = nix.store().add_file("hello-world", b"hello world").await;
+
+    nix.copy([store_path.clone()])
+        .to(test_ctx.app_router(), "NixOS", "foo")
+        .await
+        .unwrap();
+
+    let mut app = test_ctx.app_router();
+
+    for namespace in ["NixOS", "nixos", "NIXOS"] {
+        let response =
+            get_narinfo(&mut app, &format!("{namespace}/foo"), &store_path)
+                .await;
+        assert_eq!(response.status(), StatusCode::OK, "{namespace}");
+    }
+}
+
+#[tokio::test]
 async fn each_cache_signs_its_own_copy_of_a_shared_store_path() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_namespace("namespace");
