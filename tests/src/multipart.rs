@@ -12,8 +12,8 @@ use crate::{MockNixClient, NixClient, NixStore, TestContext};
 #[tokio::test]
 async fn completion_distinguishes_insert_from_race_loss() {
     let mut test_ctx = TestContext::default();
-    test_ctx.db_mut().add_user("user");
-    test_ctx.db_mut().add_cache("user", "cache");
+    test_ctx.db_mut().add_namespace("namespace");
+    test_ctx.db_mut().add_cache("namespace", "cache");
 
     let nix = MockNixClient::default();
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
@@ -62,8 +62,8 @@ async fn completion_distinguishes_insert_from_race_loss() {
 #[tokio::test]
 async fn completion_of_unknown_upload_is_not_found() {
     let mut test_ctx = TestContext::default();
-    test_ctx.db_mut().add_user("user");
-    test_ctx.db_mut().add_cache("user", "cache");
+    test_ctx.db_mut().add_namespace("namespace");
+    test_ctx.db_mut().add_cache("namespace", "cache");
 
     let nix = MockNixClient::default();
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
@@ -80,8 +80,8 @@ async fn completion_of_unknown_upload_is_not_found() {
 #[tokio::test]
 async fn completion_with_invalid_parts_is_bad_request() {
     let mut test_ctx = TestContext::default();
-    test_ctx.db_mut().add_user("user");
-    test_ctx.db_mut().add_cache("user", "cache");
+    test_ctx.db_mut().add_namespace("namespace");
+    test_ctx.db_mut().add_cache("namespace", "cache");
 
     let nix = MockNixClient::default();
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
@@ -106,8 +106,8 @@ async fn completion_with_invalid_parts_is_bad_request() {
 #[tokio::test]
 async fn initiation_skips_existing_nars() {
     let mut test_ctx = TestContext::default();
-    test_ctx.db_mut().add_user("user");
-    test_ctx.db_mut().add_cache("user", "cache");
+    test_ctx.db_mut().add_namespace("namespace");
+    test_ctx.db_mut().add_cache("namespace", "cache");
 
     let nix = MockNixClient::default();
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
@@ -136,7 +136,7 @@ async fn initiate_upload(
 ) -> StatusCode {
     let request = Request::builder()
         .method(Method::POST)
-        .uri("/user/cache/nar-multiparts")
+        .uri("/namespace/cache/nar-multiparts")
         .body(Body::from(nar_file_name.to_string()))
         .expect("valid request");
 
@@ -162,7 +162,7 @@ async fn complete_upload(
 
     let request = Request::builder()
         .method(Method::POST)
-        .uri(format!("/user/cache/nar-multiparts/{upload_id}/complete"))
+        .uri(format!("/namespace/cache/nar-multiparts/{upload_id}/complete"))
         .body(Body::from(body.to_string()))
         .expect("valid request");
 

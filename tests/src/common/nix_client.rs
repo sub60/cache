@@ -3,7 +3,7 @@ use core::fmt;
 use core::pin::Pin;
 
 use nix_types::StorePath;
-use sub60_cache::{CacheName, UserName};
+use sub60_cache::{CacheName, NamespaceName};
 
 use crate::common::NixStore;
 
@@ -48,7 +48,7 @@ pub trait NixClient: Sized {
 pub struct CopyOptions<const HAS_CACHE_URI: bool, Client: NixClient> {
     /// TODO: docs.
     pub cache_uri:
-        Option<(<Client as NixClient>::CacheHost, UserName, CacheName)>,
+        Option<(<Client as NixClient>::CacheHost, NamespaceName, CacheName)>,
 
     /// TODO: docs.
     pub direction: CopyDirection,
@@ -81,14 +81,18 @@ impl<'client, Client: NixClient> CopyFutureBuilder<'client, false, Client> {
     pub fn from(
         mut self,
         cache_host: impl Into<Client::CacheHost>,
-        user_name: impl TryInto<UserName, Error: fmt::Debug>,
+        namespace_name: impl TryInto<NamespaceName, Error: fmt::Debug>,
         cache_name: impl TryInto<CacheName, Error: fmt::Debug>,
     ) -> CopyFutureBuilder<'client, true, Client> {
         self.opts.direction = CopyDirection::From;
         CopyFutureBuilder {
             client: self.client,
             store_paths: self.store_paths,
-            opts: self.opts.with_cache_uri(cache_host, user_name, cache_name),
+            opts: self.opts.with_cache_uri(
+                cache_host,
+                namespace_name,
+                cache_name,
+            ),
         }
     }
 
@@ -97,14 +101,18 @@ impl<'client, Client: NixClient> CopyFutureBuilder<'client, false, Client> {
     pub fn to(
         mut self,
         cache_host: impl Into<Client::CacheHost>,
-        user_name: impl TryInto<UserName, Error: fmt::Debug>,
+        namespace_name: impl TryInto<NamespaceName, Error: fmt::Debug>,
         cache_name: impl TryInto<CacheName, Error: fmt::Debug>,
     ) -> CopyFutureBuilder<'client, true, Client> {
         self.opts.direction = CopyDirection::To;
         CopyFutureBuilder {
             client: self.client,
             store_paths: self.store_paths,
-            opts: self.opts.with_cache_uri(cache_host, user_name, cache_name),
+            opts: self.opts.with_cache_uri(
+                cache_host,
+                namespace_name,
+                cache_name,
+            ),
         }
     }
 }
@@ -113,13 +121,14 @@ impl<Client: NixClient> CopyOptions<false, Client> {
     fn with_cache_uri(
         self,
         cache_host: impl Into<Client::CacheHost>,
-        user_name: impl TryInto<UserName, Error: fmt::Debug>,
+        namespace_name: impl TryInto<NamespaceName, Error: fmt::Debug>,
         cache_name: impl TryInto<CacheName, Error: fmt::Debug>,
     ) -> CopyOptions<true, Client> {
-        let user_name = user_name.try_into().expect("invalid user name");
+        let namespace_name =
+            namespace_name.try_into().expect("invalid namespace name");
         let cache_name = cache_name.try_into().expect("invalid cache name");
         CopyOptions {
-            cache_uri: Some((cache_host.into(), user_name, cache_name)),
+            cache_uri: Some((cache_host.into(), namespace_name, cache_name)),
             direction: self.direction,
         }
     }
@@ -129,7 +138,7 @@ impl<Client: NixClient> CopyOptions<true, Client> {
     /// TODO: docs.
     pub fn cache_uri(
         self,
-    ) -> (<Client as NixClient>::CacheHost, UserName, CacheName) {
+    ) -> (<Client as NixClient>::CacheHost, NamespaceName, CacheName) {
         self.cache_uri.expect("cache URI is set")
     }
 
@@ -140,7 +149,7 @@ impl<Client: NixClient> CopyOptions<true, Client> {
     {
         let direction = self.direction;
 
-        let (host, user, cache) = self.cache_uri();
+        let (host, namespace, cache) = self.cache_uri();
 
         let mut cache_url = host.into();
 
@@ -148,7 +157,7 @@ impl<Client: NixClient> CopyOptions<true, Client> {
             let mut segments = cache_url
                 .path_segments_mut()
                 .expect("remote cache URL cannot be a base");
-            segments.push(&user);
+            segments.push(&namespace);
             segments.push(&cache);
         }
 

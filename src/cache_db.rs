@@ -2,7 +2,7 @@ use core::fmt;
 
 use axum::http;
 
-use crate::{CacheInfos, CacheName, UserName};
+use crate::{CacheInfos, CacheName, NamespaceName};
 
 /// TODO: docs.
 pub trait CacheDb {
@@ -12,7 +12,7 @@ pub trait CacheDb {
     /// TODO: docs.
     fn get_infos(
         &self,
-        user: UserName,
+        namespace: NamespaceName,
         cache: CacheName,
     ) -> impl Future<Output = Result<Option<CacheInfos>, Self::Error>> + Send;
 }

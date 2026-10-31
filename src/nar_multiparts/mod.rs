@@ -1,4 +1,4 @@
-//! Types related to the `/{user}/{cache}/nar-multiparts` endpoints.
+//! Types related to the `/{namespace}/{cache}/nar-multiparts` endpoints.
 
 mod complete_request_body;
 mod etag;

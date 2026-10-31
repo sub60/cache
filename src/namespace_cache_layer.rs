@@ -4,13 +4,13 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 
 use crate::route_layer::RouteLayer;
-use crate::{CacheDb, CacheName, Context, UserName};
+use crate::{CacheDb, CacheName, Context, NamespaceName};
 
-pub(crate) const ROUTE: &str = "/{user}/{cache}";
+pub(crate) const ROUTE: &str = "/{namespace}/{cache}";
 
 #[derive(serde::Deserialize)]
-struct UserCachePath {
-    user: UserName,
+struct NamespaceCachePath {
+    namespace: NamespaceName,
     cache: CacheName,
 }
 
@@ -22,13 +22,13 @@ pub(crate) fn layer(ctx: impl Context) -> impl RouteLayer {
 }
 
 async fn handler<Ctx: Context>(
-    Path(path): Path<UserCachePath>,
+    Path(path): Path<NamespaceCachePath>,
     mut req: Request,
     next: Next,
     ctx: &Ctx,
 ) -> Response {
     let cache_infos =
-        match ctx.cache_db().get_infos(path.user, path.cache).await {
+        match ctx.cache_db().get_infos(path.namespace, path.cache).await {
             Ok(Some(infos)) => infos,
             Ok(None) => {
                 return StatusCode::NOT_FOUND.into_response();

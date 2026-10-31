@@ -9,15 +9,15 @@ use crate::{MockNixClient, NixClient, NixStore, RealNixClient, TestContext};
 #[tokio::test]
 async fn copy_to_cache_mock() {
     let mut test_ctx = TestContext::default();
-    test_ctx.db_mut().add_user("user");
-    let cache = test_ctx.db_mut().add_cache("user", "cache");
+    test_ctx.db_mut().add_namespace("namespace");
+    let cache = test_ctx.db_mut().add_cache("namespace", "cache");
 
     let nix = MockNixClient::default();
 
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
 
     nix.copy([store_path.clone()])
-        .to(test_ctx.app_router(), "user", "cache")
+        .to(test_ctx.app_router(), "namespace", "cache")
         .await
         .unwrap();
 
@@ -35,8 +35,8 @@ async fn copy_to_cache_mock() {
 #[tokio::test]
 async fn copy_to_cache_real() {
     let mut test_ctx = TestContext::default();
-    test_ctx.db_mut().add_user("user");
-    let cache = test_ctx.db_mut().add_cache("user", "cache");
+    test_ctx.db_mut().add_namespace("namespace");
+    let cache = test_ctx.db_mut().add_cache("namespace", "cache");
 
     // Start the cache server on a OS-assigned port.
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
@@ -48,7 +48,7 @@ async fn copy_to_cache_real() {
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
 
     nix.copy([store_path.clone()])
-        .to(local_addr, "user", "cache")
+        .to(local_addr, "namespace", "cache")
         .await
         .unwrap();
 
@@ -66,8 +66,8 @@ async fn copy_to_cache_real() {
 #[tokio::test]
 async fn copy_from_cache_mock() {
     let mut test_ctx = TestContext::default();
-    test_ctx.db_mut().add_user("user");
-    let cache = test_ctx.db_mut().add_cache("user", "cache");
+    test_ctx.db_mut().add_namespace("namespace");
+    let cache = test_ctx.db_mut().add_cache("namespace", "cache");
 
     let nix = MockNixClient::default();
 
@@ -99,7 +99,7 @@ async fn copy_from_cache_mock() {
     assert!(!nix.store().contains(&store_path).await);
 
     nix.copy([store_path.clone()])
-        .from(test_ctx.app_router(), "user", "cache")
+        .from(test_ctx.app_router(), "namespace", "cache")
         .await
         .unwrap();
 
@@ -109,8 +109,8 @@ async fn copy_from_cache_mock() {
 #[tokio::test]
 async fn copy_from_cache_real() {
     let mut test_ctx = TestContext::default();
-    test_ctx.db_mut().add_user("user");
-    let cache = test_ctx.db_mut().add_cache("user", "cache");
+    test_ctx.db_mut().add_namespace("namespace");
+    let cache = test_ctx.db_mut().add_cache("namespace", "cache");
 
     // Start the cache server on a OS-assigned port.
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
@@ -147,7 +147,7 @@ async fn copy_from_cache_real() {
     assert!(!nix.store().contains(&store_path).await);
 
     nix.copy([store_path.clone()])
-        .from(local_addr, "user", "cache")
+        .from(local_addr, "namespace", "cache")
         .await
         .unwrap();
 

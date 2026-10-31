@@ -4,27 +4,28 @@ use core::str::FromStr;
 
 use smol_str::SmolStr;
 
-/// The type representing the name of a user.
+/// The type representing the name of a namespace.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct UserName(SmolStr);
+pub struct NamespaceName(SmolStr);
 
-/// The type of error that can occur when parsing a string into a [`UserName`].
+/// The type of error that can occur when parsing a string into a
+/// [`NamespaceName`].
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
-pub enum UserNameFromStrError {
+pub enum NamespaceNameFromStrError {
     /// The string was empty.
-    #[display("Username cannot be empty")]
+    #[display("Namespace name cannot be empty")]
     Empty,
 
-    /// The string was longer than the [maximum](UserName::MAX_LEN) length.
+    /// The string was longer than the [maximum](NamespaceName::MAX_LEN) length.
     #[display(
-        "Username cannot be longer than {} characters",
-        UserName::MAX_LEN
+        "Namespace name cannot be longer than {} characters",
+        NamespaceName::MAX_LEN
     )]
     TooLong,
 
-    /// The cache name contains an invalid character at the given offset.
+    /// The namespace name contains an invalid character at the given offset.
     #[display(
-        "Cache name contains an invalid character at offset {offset}: \
+        "Namespace name contains an invalid character at offset {offset}: \
          '{character}'"
     )]
     InvalidCharacter {
@@ -36,17 +37,17 @@ pub enum UserNameFromStrError {
     },
 }
 
-impl UserName {
-    /// The maximum length of a username, in bytes.
+impl NamespaceName {
+    /// The maximum length of a namespace name, in bytes.
     pub const MAX_LEN: usize = 64;
 
-    fn validate(s: &str) -> Result<(), UserNameFromStrError> {
+    fn validate(s: &str) -> Result<(), NamespaceNameFromStrError> {
         if s.is_empty() {
-            return Err(UserNameFromStrError::Empty);
+            return Err(NamespaceNameFromStrError::Empty);
         }
 
         if s.len() > Self::MAX_LEN {
-            return Err(UserNameFromStrError::TooLong);
+            return Err(NamespaceNameFromStrError::TooLong);
         }
 
         for (offset, character) in s.char_indices() {
@@ -54,7 +55,7 @@ impl UserName {
                 && character != '-'
                 && character != '_'
             {
-                return Err(UserNameFromStrError::InvalidCharacter {
+                return Err(NamespaceNameFromStrError::InvalidCharacter {
                     character,
                     offset,
                 });
@@ -65,14 +66,14 @@ impl UserName {
     }
 }
 
-impl fmt::Display for UserName {
+impl fmt::Display for NamespaceName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl FromStr for UserName {
-    type Err = UserNameFromStrError;
+impl FromStr for NamespaceName {
+    type Err = NamespaceNameFromStrError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::validate(s)?;
@@ -80,7 +81,7 @@ impl FromStr for UserName {
     }
 }
 
-impl TryFrom<&str> for UserName {
+impl TryFrom<&str> for NamespaceName {
     type Error = <Self as FromStr>::Err;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -88,7 +89,7 @@ impl TryFrom<&str> for UserName {
     }
 }
 
-impl Deref for UserName {
+impl Deref for NamespaceName {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -96,7 +97,7 @@ impl Deref for UserName {
     }
 }
 
-impl<'de> serde::de::Deserialize<'de> for UserName {
+impl<'de> serde::de::Deserialize<'de> for NamespaceName {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::de::Deserializer<'de>,

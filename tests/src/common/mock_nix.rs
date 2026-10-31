@@ -73,8 +73,8 @@ impl NixClient for MockNixClient {
         options: CopyOptions<true, Self>,
     ) -> Result<(), CopyError> {
         let direction = options.direction;
-        let (app, user, cache) = options.cache_uri();
-        let base = format!("/{user}/{cache}");
+        let (app, namespace, cache) = options.cache_uri();
+        let base = format!("/{namespace}/{cache}");
 
         let mut futures = store_paths
             .into_iter()

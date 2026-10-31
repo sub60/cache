@@ -14,6 +14,8 @@ mod cdn;
 mod clock;
 mod context;
 mod from_str_body;
+mod namespace_cache_layer;
+mod namespace_name;
 pub mod nar_multiparts;
 mod object_gateway;
 mod object_storage;
@@ -21,8 +23,6 @@ mod route_layer;
 mod router;
 mod routes;
 mod server_error_log_layer;
-mod user_cache_layer;
-mod user_name;
 
 pub use cache_db::CacheDb;
 pub use cache_id::{CacheId, CacheIdFromStrError};
@@ -31,6 +31,7 @@ pub use cache_name::{CacheName, CacheNameFromStrError};
 pub use cdn::Cdn;
 pub use clock::Clock;
 pub use context::Context;
+pub use namespace_name::{NamespaceName, NamespaceNameFromStrError};
 pub use object_gateway::{
     MultipartUploadUrlRequest,
     ObjectGateway,
@@ -42,4 +43,3 @@ pub use object_storage::{
     ObjectStorageKey,
 };
 pub use router::router;
-pub use user_name::{UserName, UserNameFromStrError};
