@@ -19,12 +19,14 @@ struct NixCacheInfoResponse<Cdn: crate::Cdn> {
     cache_headers: Cdn::CacheHeaders,
 }
 
-pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    endpoints::method_router::<nix_cache_info::Endpoint, _, _>(
-        async move |Extension(cache_infos)| {
-            handler(cache_infos, &mut ctx).await
-        },
-    )
+impl endpoints::Serve for nix_cache_info::Endpoint {
+    fn method_router(mut ctx: impl Context) -> MethodRouter {
+        endpoints::method_router::<Self, _, _>(
+            async move |Extension(cache_infos)| {
+                handler(cache_infos, &mut ctx).await
+            },
+        )
+    }
 }
 
 async fn handler<Ctx: Context>(

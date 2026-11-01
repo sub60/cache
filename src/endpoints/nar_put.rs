@@ -21,10 +21,12 @@ enum NarPutRequestError<ObjectStorageError> {
     ObjectStorage(ObjectStorageError),
 }
 
-pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    endpoints::method_router::<nar_put::Endpoint, _, _>(async move |path| {
-        handler(path, &mut ctx).await.map(into_response)
-    })
+impl endpoints::Serve for nar_put::Endpoint {
+    fn method_router(mut ctx: impl Context) -> MethodRouter {
+        endpoints::method_router::<Self, _, _>(async move |path| {
+            handler(path, &mut ctx).await.map(into_response)
+        })
+    }
 }
 
 async fn handler<Ctx: Context>(

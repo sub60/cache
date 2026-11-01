@@ -57,12 +57,14 @@ enum NarInfoGetResponseError<ObjectStorageError> {
 
 struct EmptyString;
 
-pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    endpoints::method_router::<narinfo_get::Endpoint, _, _>(
-        async move |path, Extension(cache_infos)| {
-            handler(path, cache_infos, &mut ctx).await
-        },
-    )
+impl endpoints::Serve for narinfo_get::Endpoint {
+    fn method_router(mut ctx: impl Context) -> MethodRouter {
+        endpoints::method_router::<Self, _, _>(
+            async move |path, Extension(cache_infos)| {
+                handler(path, cache_infos, &mut ctx).await
+            },
+        )
+    }
 }
 
 async fn handler<Ctx: Context>(

@@ -22,14 +22,14 @@ enum NarMultipartsCompleteError<ObjectStorageError> {
     TooManyParts(usize, usize),
 }
 
-pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    endpoints::method_router::<nar_multiparts_complete::Endpoint, _, _>(
-        async move |path, body| {
+impl endpoints::Serve for nar_multiparts_complete::Endpoint {
+    fn method_router(mut ctx: impl Context) -> MethodRouter {
+        endpoints::method_router::<Self, _, _>(async move |path, body| {
             handler(path, body, &mut ctx)
                 .await
                 .map(|response| response.status_code())
-        },
-    )
+        })
+    }
 }
 
 async fn handler<Ctx: Context>(

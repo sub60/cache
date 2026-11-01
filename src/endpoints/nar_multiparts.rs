@@ -23,10 +23,12 @@ enum NarMultipartsError<ObjectStorageError> {
     CreateMultipartUpload(ObjectStorageError),
 }
 
-pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    endpoints::method_router::<nar_multiparts::Endpoint, _, _>(
-        async move |body| handler(body, &mut ctx).await.map(into_response),
-    )
+impl endpoints::Serve for nar_multiparts::Endpoint {
+    fn method_router(mut ctx: impl Context) -> MethodRouter {
+        endpoints::method_router::<Self, _, _>(async move |body| {
+            handler(body, &mut ctx).await.map(into_response)
+        })
+    }
 }
 
 async fn handler<Ctx: Context>(

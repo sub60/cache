@@ -15,6 +15,12 @@ use axum::routing::{self, MethodFilter, MethodRouter};
 
 use crate::api::Endpoint;
 
+/// An endpoint the server handles.
+pub(crate) trait Serve: Endpoint {
+    /// Returns the [`MethodRouter`] handling the endpoint's requests.
+    fn method_router(ctx: impl crate::Context) -> MethodRouter;
+}
+
 /// Returns a [`MethodRouter`] routing the requests with the endpoint's method
 /// to the handler.
 fn method_router<E: Endpoint, H, T>(handler: H) -> MethodRouter

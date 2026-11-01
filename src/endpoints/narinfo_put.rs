@@ -70,14 +70,16 @@ enum NarInfoPutRequestError<ObjectStorageError> {
 /// field in the client-provided NARInfo.
 struct DiscardUrl;
 
-pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    endpoints::method_router::<narinfo_put::Endpoint, _, _>(
-        async move |path, Extension(cache_infos), body| {
-            handler(path, cache_infos, body, &mut ctx)
-                .await
-                .map(|response| response.status_code())
-        },
-    )
+impl endpoints::Serve for narinfo_put::Endpoint {
+    fn method_router(mut ctx: impl Context) -> MethodRouter {
+        endpoints::method_router::<Self, _, _>(
+            async move |path, Extension(cache_infos), body| {
+                handler(path, cache_infos, body, &mut ctx)
+                    .await
+                    .map(|response| response.status_code())
+            },
+        )
+    }
 }
 
 async fn handler<Ctx: Context>(

@@ -7,10 +7,12 @@ use axum::routing::MethodRouter;
 use crate::api::endpoints::nar_head;
 use crate::{Context, ObjectStorage, ObjectStorageKey, endpoints};
 
-pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    endpoints::method_router::<nar_head::Endpoint, _, _>(async move |path| {
-        handler(path, &mut ctx).await
-    })
+impl endpoints::Serve for nar_head::Endpoint {
+    fn method_router(mut ctx: impl Context) -> MethodRouter {
+        endpoints::method_router::<Self, _, _>(async move |path| {
+            handler(path, &mut ctx).await
+        })
+    }
 }
 
 async fn handler<Ctx: Context>(

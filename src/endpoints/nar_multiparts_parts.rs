@@ -13,10 +13,12 @@ use crate::object_gateway::MultipartUploadUrlRequest;
 use crate::object_storage::ObjectStorageKey;
 use crate::{Clock, Context, ObjectGateway, endpoints};
 
-pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    endpoints::method_router::<nar_multiparts_parts::Endpoint, _, _>(
-        async move |path, body| handler(path, body, &mut ctx).await,
-    )
+impl endpoints::Serve for nar_multiparts_parts::Endpoint {
+    fn method_router(mut ctx: impl Context) -> MethodRouter {
+        endpoints::method_router::<Self, _, _>(async move |path, body| {
+            handler(path, body, &mut ctx).await
+        })
+    }
 }
 
 async fn handler<Ctx: Context>(
