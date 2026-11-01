@@ -6,13 +6,18 @@ publish = false
 
 [dependencies]
 axum = { workspace = true, features = ["tokio", "http1"] }
+base64 = { workspace = true }
 cauchy = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 either = { workspace = true }
 futures = { workspace = true }
+getrandom = { workspace = true, features = ["sys_rng"] }
 nix-types = { workspace = true }
+rand_core = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 sha2 = { workspace = true }
+smol_str = { workspace = true }
 sub60-cache = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "process", "rt"] }

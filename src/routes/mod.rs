@@ -1,5 +1,6 @@
 //! TODO: docs.
 
+pub(crate) mod auth_github_actions;
 pub(crate) mod nar_head;
 pub(crate) mod nar_multiparts;
 pub(crate) mod nar_multiparts_complete;

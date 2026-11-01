@@ -4,6 +4,7 @@
 #![cfg_attr(not(test), allow(dead_code, unused_imports))]
 #![feature(generic_const_exprs)]
 
+mod auth;
 mod common;
 mod multipart;
 mod narinfo;

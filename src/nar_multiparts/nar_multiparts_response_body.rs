@@ -23,6 +23,7 @@ pub struct NarMultipartsResponseBody {
 
     /// The expiration timestamp of this batch of upload URLs, expressed as the
     /// elapsed time since the UNIX epoch.
+    #[serde(with = "crate::serde_utils::secs")]
     pub expiration_ts: Duration,
 }
 

@@ -1,17 +1,24 @@
 use core::fmt;
 
 use axum::Router;
+use getrandom::SysRng;
+use rand_core::UnwrapErr;
 use sub60_cache::{Context, ObjectStorage};
 
 use crate::common::{
     InMemoryCacheDb,
     InMemoryObjectStorage,
     IntoRouterObjectGateway,
+    MockOidcVerifier,
     NoOpCdn,
     SystemClock,
+    TestTokenFormat,
 };
 
 const OBJECT_GATEWAY_PATH: &str = "/objects";
+
+/// The origin the server is reachable at in tests.
+pub const ORIGIN: &str = "https://cache.example.com";
 
 /// A thin wrapper around a [`ComposedContext`] with convenient generic defaults
 /// for testing.
@@ -25,6 +32,8 @@ pub struct TestContext<Cdn = NoOpCdn, ObjStorage = InMemoryObjectStorage> {
     cdn: Cdn,
     clock: SystemClock,
     object_gateway: IntoRouterObjectGateway<ObjStorage>,
+    oidc_verifier: MockOidcVerifier,
+    token_format: TestTokenFormat,
     want_mass_query: bool,
 }
 
@@ -38,6 +47,11 @@ impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
     {
         let object_gateway = self.object_gateway.clone();
         sub60_cache::router(self.clone()).merge(object_gateway)
+    }
+
+    /// TODO: docs.
+    pub fn db(&self) -> &InMemoryCacheDb {
+        &self.cache_db
     }
 
     /// TODO: docs.
@@ -56,6 +70,8 @@ impl Default for TestContext {
                 OBJECT_GATEWAY_PATH,
                 Default::default(),
             ),
+            oidc_verifier: Default::default(),
+            token_format: Default::default(),
             want_mass_query: true,
         }
     }
@@ -71,6 +87,9 @@ where
     type Cdn = Cdn;
     type Clock = SystemClock;
     type ObjectGateway = IntoRouterObjectGateway<ObjStorage>;
+    type OidcVerifier = MockOidcVerifier;
+    type Rng = UnwrapErr<SysRng>;
+    type TokenFormat = TestTokenFormat;
 
     fn cache_db(&self) -> &Self::CacheDb {
         &self.cache_db
@@ -83,6 +102,18 @@ where
     }
     fn object_gateway(&self) -> &Self::ObjectGateway {
         &self.object_gateway
+    }
+    fn oidc_verifier(&self) -> &Self::OidcVerifier {
+        &self.oidc_verifier
+    }
+    fn origin(&self) -> &str {
+        ORIGIN
+    }
+    fn rng(&self) -> Self::Rng {
+        UnwrapErr(SysRng)
+    }
+    fn token_format(&self) -> &Self::TokenFormat {
+        &self.token_format
     }
     fn want_mass_query(&self) -> bool {
         self.want_mass_query

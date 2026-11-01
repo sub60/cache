@@ -1,6 +1,7 @@
 use axum::Router;
 
 use crate::routes::{
+    auth_github_actions,
     nar_head,
     nar_multiparts,
     nar_multiparts_complete,
@@ -11,6 +12,10 @@ use crate::routes::{
     nix_cache_info,
 };
 use crate::{Context, namespace_cache_layer, server_error_log_layer};
+
+/// The prefix of the API routes. It can't be a namespace name, so it never
+/// clashes with a cache's routes.
+const API_ROUTE: &str = "/-/api/v1";
 
 /// Returns the axum [`Router`] defining the cache server's API.
 pub fn router(ctx: impl Context) -> Router {
@@ -32,14 +37,19 @@ pub fn router(ctx: impl Context) -> Router {
             nar_multiparts_complete::router(ctx.clone()),
         );
 
+    let api_routes = Router::new().route(
+        auth_github_actions::ROUTE,
+        auth_github_actions::router(ctx.clone()),
+    );
+
     Router::new()
-        // Place all the cache routes behind the /{namespace}/{cache} layer
-        // which handles authentication/validation/etc.
+        .nest(API_ROUTE, api_routes)
         .nest(
             namespace_cache_layer::ROUTE,
+            // Place all the cache routes under the /{namespace}/{cache} layer
+            // which handles authentication/validation/etc.
             cache_routes.route_layer(namespace_cache_layer::layer(ctx)),
         )
-        // Log server errors from every route, including the ones returned by
-        // the /{namespace}/{cache} layer.
+        // Log server errors from every route.
         .layer(server_error_log_layer::layer())
 }

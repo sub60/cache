@@ -507,6 +507,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi",
+ "rand_core 0.10.1",
  "wasip2",
  "wasip3",
 ]
@@ -1128,12 +1129,15 @@ name = "sub60-cache"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "cauchy",
  "compact_str",
  "derive_more",
  "nix-types",
+ "rand_core 0.10.1",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "smallvec",
  "smol_str",
  "tower-layer",
@@ -1148,13 +1152,18 @@ name = "sub60-cache-tests"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "cauchy",
  "derive_more",
  "either",
  "futures",
+ "getrandom 0.4.2",
  "nix-types",
+ "rand_core 0.10.1",
  "serde",
+ "serde_json",
  "sha2 0.11.0",
+ "smol_str",
  "sub60-cache",
  "tempfile",
  "tokio",
