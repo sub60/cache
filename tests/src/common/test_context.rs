@@ -1,9 +1,10 @@
 use core::fmt;
+use core::time::Duration;
 
 use axum::Router;
 use getrandom::SysRng;
 use rand_core::UnwrapErr;
-use sub60_cache::{Context, ObjectStorage};
+use sub60_cache::{Context, ObjectStorage, TokenFormat};
 
 use crate::common::{
     InMemoryCacheDb,
@@ -20,8 +21,7 @@ const OBJECT_GATEWAY_PATH: &str = "/objects";
 /// The origin the server is reachable at in tests.
 pub const ORIGIN: &str = "https://cache.example.com";
 
-/// A thin wrapper around a [`ComposedContext`] with convenient generic defaults
-/// for testing.
+/// A [`Context`] with convenient generic defaults for testing.
 ///
 /// It always uses a [`IntoRouterObjectGateway`] to serve objects from the
 /// configured object storage, so it can be converted into a [`Router`] by
@@ -57,6 +57,18 @@ impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
     /// TODO: docs.
     pub fn db_mut(&mut self) -> &mut InMemoryCacheDb {
         &mut self.cache_db
+    }
+
+    /// Returns a token that can only write to the given cache.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the cache does not exist.
+    #[track_caller]
+    pub fn write_token(&self, namespace: &str, cache: &str) -> String {
+        let token =
+            self.cache_db.add_ci_job_token(namespace, cache, Duration::MAX);
+        self.token_format.display(&token).to_string()
     }
 }
 

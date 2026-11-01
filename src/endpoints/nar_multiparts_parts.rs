@@ -11,9 +11,11 @@ use crate::context::MultipartUploadId;
 use crate::from_str_body::FromStrBody;
 use crate::object_gateway::MultipartUploadUrlRequest;
 use crate::object_storage::ObjectStorageKey;
-use crate::{Clock, Context, ObjectGateway, endpoints};
+use crate::{Clock, Context, ObjectGateway, Permission, endpoints};
 
-impl endpoints::Serve for nar_multiparts_parts::Endpoint {
+impl endpoints::CacheEndpoint for nar_multiparts_parts::Endpoint {
+    const PERMISSION: Permission = Permission::Write;
+
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(async move |path, body| {
             handler(path, body, &mut ctx).await
@@ -26,8 +28,6 @@ async fn handler<Ctx: Context>(
     FromStrBody(body): FromStrBody<nar_multiparts_parts::RequestBody>,
     ctx: &mut Ctx,
 ) -> impl IntoResponse + use<Ctx> {
-    // TODO: validate that the user has write permissions for that cache.
-
     let object_gateway = ctx.object_gateway();
 
     let storage_key = ObjectStorageKey::Nar(&body.nar_file_name);

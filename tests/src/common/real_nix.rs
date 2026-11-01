@@ -75,10 +75,33 @@ impl NixClient for RealNixClient {
     async fn copy_impl(
         &self,
         paths: Vec<StorePath>,
-        options: CopyOptions<true, Self>,
+        mut options: CopyOptions<true, Self>,
     ) -> Result<(), Self::CopyError> {
+        // Nix sends the credentials in its netrc file as basic credentials.
+        let netrc = options.token.take().map(|token| {
+            let (CacheHost(url), _, _) =
+                options.cache_uri.as_ref().expect("cache URI is set");
+
+            let host = url.host_str().expect("cache URL has a host");
+
+            let mut netrc = tempfile::NamedTempFile::new()
+                .expect("failed to create netrc file");
+
+            use std::io::Write as _;
+            write!(netrc, "machine {host}\nlogin sub60\npassword {token}\n")
+                .expect("failed to write netrc file");
+
+            netrc
+        });
+
+        let netrc_args = netrc.iter().flat_map(|netrc| {
+            let path = netrc.path().to_str().expect("netrc path is UTF-8");
+            ["--option", "netrc-file", path].map(str::to_owned)
+        });
+
         self.run(
             iter::once(Either::Right("copy".to_owned()))
+                .chain(netrc_args.map(Either::Right))
                 .chain(options.into_cli_args().map(Either::Left))
                 .chain(paths.iter().map(|p| p.to_string()).map(Either::Right)),
         )

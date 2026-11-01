@@ -6,6 +6,7 @@
 
 extern crate alloc;
 
+mod cache_access_layer;
 mod cache_db;
 mod cache_id;
 mod cache_infos;
@@ -17,10 +18,10 @@ mod context;
 mod endpoints;
 mod from_str_body;
 mod jwt;
-mod namespace_cache_layer;
 mod object_gateway;
 mod object_storage;
 mod oidc_verifier;
+mod permission;
 mod route_layer;
 mod router;
 mod serde_utils;
@@ -46,6 +47,7 @@ pub use object_storage::{
     ObjectStorageKey,
 };
 pub use oidc_verifier::{OidcIssuer, OidcVerifier, Rs256Signature};
+pub use permission::Permission;
 pub use router::router;
 pub use sub60_cache_api as api;
 pub use token::{Token, TokenFormat, TokenHash, TokenKind};

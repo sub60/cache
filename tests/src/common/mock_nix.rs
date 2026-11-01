@@ -73,6 +73,7 @@ impl NixClient for MockNixClient {
         options: CopyOptions<true, Self>,
     ) -> Result<(), CopyError> {
         let direction = options.direction;
+        let token = options.token.clone();
         let (app, namespace, cache) = options.cache_uri();
         let base = format!("/{namespace}/{cache}");
 
@@ -86,6 +87,7 @@ impl NixClient for MockNixClient {
                             store_path,
                             &mut app.clone(),
                             &base,
+                            token.as_deref(),
                         )
                         .await
                     },
@@ -95,6 +97,7 @@ impl NixClient for MockNixClient {
                             store_path,
                             &mut app.clone(),
                             &base,
+                            token.as_deref(),
                         )
                         .await
                     },
@@ -164,11 +167,13 @@ impl NixStore for MockNixStore {
 
 /// Replicates the HTTP calls that `nix copy --to` makes when uploading a single
 /// store path to an HTTP binary cache.
+#[expect(clippy::too_many_arguments)]
 async fn copy_store_path_to(
     store: &MockNixStore,
     store_path: StorePath,
     app: &mut axum::Router,
     base: &str,
+    token: Option<&str>,
 ) -> Result<(), CopyError> {
     let Some(nar_bytes) = store.get_file(&store_path) else {
         return Err(CopyError::MissingStorePath(store_path));
@@ -179,7 +184,7 @@ async fn copy_store_path_to(
     // The real Nix client does this to verify the StoreDir matches.
     let response = send(
         app,
-        Request::builder()
+        cache_request(token)
             .method(http::Method::GET)
             .uri(format!("{base}/nix-cache-info"))
             .body(Body::empty())
@@ -194,7 +199,7 @@ async fn copy_store_path_to(
     // The real Nix client checks if the store path is already cached.
     let response = send(
         app,
-        Request::builder()
+        cache_request(token)
             .method(http::Method::HEAD)
             .uri(format!("{base}/{}.narinfo", store_path.hash()))
             .body(Body::empty())
@@ -212,27 +217,31 @@ async fn copy_store_path_to(
     let nar_file_name = NarFileName::from(&narinfo);
 
     // Step 3: PUT /nar/{file_hash}.nar
-    put_nar(app, base, &nar_file_name, nar_bytes).await?;
+    put_nar(app, base, &nar_file_name, nar_bytes, token).await?;
 
     // Set the NARInfo's URL to the correct format.
     let narinfo = narinfo.with_url(format!("nar/{nar_file_name}"));
 
     // Step 4: PUT /{store_hash}.narinfo
-    put_narinfo(app, base, &narinfo).await.map_err(CopyError::PutNarInfoFailed)
+    put_narinfo(app, base, &narinfo, token)
+        .await
+        .map_err(CopyError::PutNarInfoFailed)
 }
 
 /// Replicates the HTTP calls that `nix copy --from` makes when downloading a
 /// single store path from an HTTP binary cache.
+#[expect(clippy::too_many_arguments)]
 async fn copy_store_path_from(
     store: &MockNixStore,
     store_path: StorePath,
     app: &mut axum::Router,
     base: &str,
+    token: Option<&str>,
 ) -> Result<(), CopyError> {
     // Step 1: GET /{store_hash}.narinfo
     let response = send(
         app,
-        Request::builder()
+        cache_request(token)
             .uri(format!("{base}/{}.narinfo", store_path.hash()))
             .body(Body::empty())
             .expect("valid request"),
@@ -312,14 +321,16 @@ fn mock_narinfo(store_path: StorePath, nar_bytes: &[u8]) -> NarInfo<()> {
 
 /// Uploads the NAR bytes to the cache server, following redirects to the object
 /// storage.
+#[expect(clippy::too_many_arguments)]
 async fn put_nar(
     app: &mut axum::Router,
     base: &str,
     nar_file_name: &NarFileName,
     nar_bytes: Bytes,
+    token: Option<&str>,
 ) -> Result<(), CopyError> {
-    let make_request = |uri: &str| {
-        Request::builder()
+    let make_request = |builder: http::request::Builder, uri: &str| {
+        builder
             .method(http::Method::PUT)
             .uri(uri)
             .header(header::CONTENT_TYPE, "application/x-nix-nar")
@@ -327,8 +338,14 @@ async fn put_nar(
             .expect("valid request")
     };
 
-    let response =
-        send(app, make_request(&format!("{base}/nar/{nar_file_name}"))).await;
+    let response = send(
+        app,
+        make_request(
+            cache_request(token),
+            &format!("{base}/nar/{nar_file_name}"),
+        ),
+    )
+    .await;
 
     match response.status() {
         StatusCode::NO_CONTENT => Ok(()),
@@ -342,7 +359,9 @@ async fn put_nar(
                 .to_str()
                 .expect("Location is valid UTF-8");
 
-            let response = send(app, make_request(location)).await;
+            // The redirect URL authenticates the request itself.
+            let response =
+                send(app, make_request(Request::builder(), location)).await;
 
             if response.status().is_success() {
                 Ok(())
@@ -360,10 +379,11 @@ async fn put_narinfo(
     app: &mut axum::Router,
     base: &str,
     narinfo: &NarInfo<String>,
+    token: Option<&str>,
 ) -> Result<(), http::StatusCode> {
     let response = send(
         app,
-        Request::builder()
+        cache_request(token)
             .method(http::Method::PUT)
             .uri(format!("{base}/{}.narinfo", narinfo.store_path.hash()))
             .header(header::CONTENT_TYPE, "text/x-nix-narinfo")
@@ -373,6 +393,18 @@ async fn put_narinfo(
     .await;
 
     if response.status().is_success() { Ok(()) } else { Err(response.status()) }
+}
+
+/// Starts building a request to the cache server, authenticated with the token
+/// if there is one.
+fn cache_request(token: Option<&str>) -> http::request::Builder {
+    let builder = Request::builder();
+    match token {
+        Some(token) => {
+            builder.header(header::AUTHORIZATION, format!("Bearer {token}"))
+        },
+        None => builder,
+    }
 }
 
 /// Sends a request to the axum router and returns the response.

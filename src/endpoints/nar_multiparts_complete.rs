@@ -10,7 +10,13 @@ use crate::api::endpoints::nar_multiparts_complete;
 use crate::context::{MultipartUploadId, ObjectStorageError};
 use crate::from_str_body::FromStrBody;
 use crate::object_storage::ObjectStorageKey;
-use crate::{CompleteMultipartUploadError, Context, ObjectStorage, endpoints};
+use crate::{
+    CompleteMultipartUploadError,
+    Context,
+    ObjectStorage,
+    Permission,
+    endpoints,
+};
 
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarMultipartsCompleteError<ObjectStorageError> {
@@ -22,7 +28,9 @@ enum NarMultipartsCompleteError<ObjectStorageError> {
     TooManyParts(usize, usize),
 }
 
-impl endpoints::Serve for nar_multiparts_complete::Endpoint {
+impl endpoints::CacheEndpoint for nar_multiparts_complete::Endpoint {
+    const PERMISSION: Permission = Permission::Write;
+
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(async move |path, body| {
             handler(path, body, &mut ctx)
@@ -40,8 +48,6 @@ async fn handler<Ctx: Context>(
     nar_multiparts_complete::Response,
     NarMultipartsCompleteError<ObjectStorageError<Ctx>>,
 > {
-    // TODO: validate that the user has write permissions for that cache.
-
     if body.etags.is_empty() {
         return Err(NarMultipartsCompleteError::EmptyUpload);
     }

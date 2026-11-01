@@ -16,10 +16,11 @@ use crate::{CachePath, PathParams};
 pub struct Endpoint;
 
 /// The path parameters of the endpoint's requests.
-#[derive(Debug, Clone, PartialEq, Eq, PathParams)]
+#[derive(Debug, Clone, PartialEq, Eq, derive_more::AsRef, PathParams)]
 #[route(CachePath + "/nar-multiparts")]
 pub struct Path {
     /// The cache the NAR is uploaded to.
+    #[as_ref]
     pub cache: CachePath,
 }
 

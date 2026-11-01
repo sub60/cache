@@ -18,6 +18,7 @@ async fn narinfo_is_only_served_by_the_cache_it_was_pushed_to() {
 
     nix.copy([store_path.clone()])
         .to(test_ctx.app_router(), "namespace", "foo")
+        .token(test_ctx.write_token("namespace", "foo"))
         .await
         .unwrap();
 
@@ -44,6 +45,7 @@ async fn cache_lookup_ignores_case() {
 
     nix.copy([store_path.clone()])
         .to(test_ctx.app_router(), "NixOS", "Foo")
+        .token(test_ctx.write_token("NixOS", "Foo"))
         .await
         .unwrap();
 
@@ -74,6 +76,7 @@ async fn cache_names_can_contain_dots_and_start_with_any_character() {
     for cache_name in cache_names {
         nix.copy([store_path.clone()])
             .to(test_ctx.app_router(), "namespace", cache_name)
+            .token(test_ctx.write_token("namespace", cache_name))
             .await
             .unwrap();
 
@@ -101,6 +104,7 @@ async fn each_cache_signs_its_own_copy_of_a_shared_store_path() {
     for cache in ["foo", "bar"] {
         nix.copy([store_path.clone()])
             .to(test_ctx.app_router(), "namespace", cache)
+            .token(test_ctx.write_token("namespace", cache))
             .await
             .unwrap();
     }
@@ -139,6 +143,7 @@ async fn narinfo_is_signed_with_the_current_signing_key() {
 
     nix.copy([store_path.clone()])
         .to(test_ctx.app_router(), "namespace", "foo")
+        .token(test_ctx.write_token("namespace", "foo"))
         .await
         .unwrap();
 

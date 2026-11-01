@@ -15,7 +15,7 @@ pub(crate) trait RouteLayerService:
     Service<
         Request,
         Response: IntoResponse + 'static,
-        Error: Into<Infallible> + 'static,
+        Error = Infallible,
         Future: Send + 'static,
     > + Clone
     + Send
@@ -33,9 +33,8 @@ where
 
 impl<T> RouteLayerService for T
 where
-    T: Service<Request> + Clone + Send + Sync + 'static,
+    T: Service<Request, Error = Infallible> + Clone + Send + Sync + 'static,
     T::Response: IntoResponse + 'static,
-    T::Error: Into<Infallible> + 'static,
     T::Future: Send + 'static,
 {
 }

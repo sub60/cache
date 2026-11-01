@@ -21,6 +21,7 @@ use crate::{
     Context,
     ObjectStorage,
     ObjectStorageKey,
+    Permission,
     endpoints,
 };
 
@@ -57,7 +58,9 @@ enum NarInfoGetResponseError<ObjectStorageError> {
 
 struct EmptyString;
 
-impl endpoints::Serve for narinfo_get::Endpoint {
+impl endpoints::CacheEndpoint for narinfo_get::Endpoint {
+    const PERMISSION: Permission = Permission::Read;
+
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(
             async move |path, Extension(cache_infos)| {

@@ -1,7 +1,7 @@
 use core::num::NonZeroU16;
 
 use axum::body::Body;
-use axum::http::{Method, Request, StatusCode};
+use axum::http::{Method, Request, StatusCode, header};
 use nix_types::NarFileName;
 use sub60_cache::api::Etag;
 use sub60_cache::api::endpoints::nar_multiparts_complete;
@@ -15,6 +15,7 @@ async fn completion_distinguishes_insert_from_race_loss() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_namespace("namespace");
     test_ctx.db_mut().add_cache("namespace", "cache");
+    let token = test_ctx.write_token("namespace", "cache");
 
     let nix = MockNixClient::default();
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
@@ -47,6 +48,7 @@ async fn completion_distinguishes_insert_from_race_loss() {
 
     let first_response = complete_upload(
         &mut app,
+        &token,
         first_upload_id,
         nar_file_name.clone(),
         first_etag,
@@ -54,9 +56,14 @@ async fn completion_distinguishes_insert_from_race_loss() {
     .await;
     assert_eq!(first_response, StatusCode::CREATED);
 
-    let second_response =
-        complete_upload(&mut app, second_upload_id, nar_file_name, second_etag)
-            .await;
+    let second_response = complete_upload(
+        &mut app,
+        &token,
+        second_upload_id,
+        nar_file_name,
+        second_etag,
+    )
+    .await;
     assert_eq!(second_response, StatusCode::OK);
 }
 
@@ -65,6 +72,7 @@ async fn completion_of_unknown_upload_is_not_found() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_namespace("namespace");
     test_ctx.db_mut().add_cache("namespace", "cache");
+    let token = test_ctx.write_token("namespace", "cache");
 
     let nix = MockNixClient::default();
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
@@ -73,8 +81,14 @@ async fn completion_of_unknown_upload_is_not_found() {
 
     let mut app = test_ctx.app_router();
 
-    let response =
-        complete_upload(&mut app, 42, nar_file_name, placeholder_etag()).await;
+    let response = complete_upload(
+        &mut app,
+        &token,
+        42,
+        nar_file_name,
+        placeholder_etag(),
+    )
+    .await;
     assert_eq!(response, StatusCode::NOT_FOUND);
 }
 
@@ -83,6 +97,7 @@ async fn completion_with_invalid_parts_is_bad_request() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_namespace("namespace");
     test_ctx.db_mut().add_cache("namespace", "cache");
+    let token = test_ctx.write_token("namespace", "cache");
 
     let nix = MockNixClient::default();
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
@@ -98,9 +113,14 @@ async fn completion_with_invalid_parts_is_bad_request() {
 
     let mut app = test_ctx.app_router();
 
-    let response =
-        complete_upload(&mut app, upload_id, nar_file_name, placeholder_etag())
-            .await;
+    let response = complete_upload(
+        &mut app,
+        &token,
+        upload_id,
+        nar_file_name,
+        placeholder_etag(),
+    )
+    .await;
     assert_eq!(response, StatusCode::BAD_REQUEST);
 }
 
@@ -109,6 +129,7 @@ async fn initiation_skips_existing_nars() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_namespace("namespace");
     test_ctx.db_mut().add_cache("namespace", "cache");
+    let token = test_ctx.write_token("namespace", "cache");
 
     let nix = MockNixClient::default();
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
@@ -118,7 +139,7 @@ async fn initiation_skips_existing_nars() {
 
     let mut app = test_ctx.app_router();
 
-    let response = initiate_upload(&mut app, &nar_file_name).await;
+    let response = initiate_upload(&mut app, &token, &nar_file_name).await;
     assert_eq!(response, StatusCode::OK);
 
     test_ctx
@@ -127,16 +148,18 @@ async fn initiation_skips_existing_nars() {
         .await
         .unwrap();
 
-    let response = initiate_upload(&mut app, &nar_file_name).await;
+    let response = initiate_upload(&mut app, &token, &nar_file_name).await;
     assert_eq!(response, StatusCode::NO_CONTENT);
 }
 
 async fn initiate_upload(
     app: &mut axum::Router,
+    token: &str,
     nar_file_name: &NarFileName,
 ) -> StatusCode {
     let request = Request::builder()
         .method(Method::POST)
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .uri("/namespace/cache/nar-multiparts")
         .body(Body::from(nar_file_name.to_string()))
         .expect("valid request");
@@ -150,8 +173,10 @@ fn placeholder_etag() -> Etag {
     "00000000000000000000000000000000".parse().expect("valid Etag")
 }
 
+#[expect(clippy::too_many_arguments)]
 async fn complete_upload(
     app: &mut axum::Router,
+    token: &str,
     upload_id: u64,
     nar_file_name: NarFileName,
     etag: Etag,
@@ -163,6 +188,7 @@ async fn complete_upload(
 
     let request = Request::builder()
         .method(Method::POST)
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .uri(format!("/namespace/cache/nar-multiparts/{upload_id}/complete"))
         .body(Body::from(body.to_string()))
         .expect("valid request");

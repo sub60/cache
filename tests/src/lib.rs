@@ -5,6 +5,7 @@
 #![feature(generic_const_exprs)]
 
 mod auth;
+mod cache_access;
 mod common;
 mod multipart;
 mod narinfo;

@@ -10,10 +10,11 @@ use crate::{CachePath, PathParams};
 pub struct Endpoint;
 
 /// The path parameters of the endpoint's requests.
-#[derive(Debug, Clone, PartialEq, Eq, PathParams)]
+#[derive(Debug, Clone, PartialEq, Eq, derive_more::AsRef, PathParams)]
 #[route(CachePath + "/nar/{nar_file_name}")]
 pub struct Path {
     /// The cache the NAR is in.
+    #[as_ref]
     pub cache: CachePath,
 
     /// The NAR's file name.

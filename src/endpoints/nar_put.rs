@@ -12,7 +12,7 @@ use crate::api::endpoints::nar_put;
 use crate::context::ObjectStorageError;
 use crate::object_gateway::{ObjectGateway, ObjectUrlRequest};
 use crate::object_storage::ObjectStorageKey;
-use crate::{Context, ObjectStorage, endpoints};
+use crate::{Context, ObjectStorage, Permission, endpoints};
 
 /// The type of error that can occur when handling a PUT request to the NAR
 /// route.
@@ -21,7 +21,9 @@ enum NarPutRequestError<ObjectStorageError> {
     ObjectStorage(ObjectStorageError),
 }
 
-impl endpoints::Serve for nar_put::Endpoint {
+impl endpoints::CacheEndpoint for nar_put::Endpoint {
+    const PERMISSION: Permission = Permission::Write;
+
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(async move |path| {
             handler(path, &mut ctx).await.map(into_response)
@@ -33,8 +35,6 @@ async fn handler<Ctx: Context>(
     path: nar_put::Path,
     ctx: &mut Ctx,
 ) -> Result<nar_put::Response, NarPutRequestError<ObjectStorageError<Ctx>>> {
-    // TODO: validate that the user has write permissions for that cache.
-
     let object_gateway = ctx.object_gateway();
 
     if object_gateway

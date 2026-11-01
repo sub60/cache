@@ -20,7 +20,7 @@ use nix_types::{
 use crate::api::endpoints::narinfo_put;
 use crate::context::ObjectStorageError;
 use crate::object_storage::ObjectStorageKey;
-use crate::{CacheInfos, Context, ObjectStorage, endpoints};
+use crate::{CacheInfos, Context, ObjectStorage, Permission, endpoints};
 
 /// The type of error that can occur when handling a PUT request to the NARInfo
 /// route.
@@ -70,7 +70,9 @@ enum NarInfoPutRequestError<ObjectStorageError> {
 /// field in the client-provided NARInfo.
 struct DiscardUrl;
 
-impl endpoints::Serve for narinfo_put::Endpoint {
+impl endpoints::CacheEndpoint for narinfo_put::Endpoint {
+    const PERMISSION: Permission = Permission::Write;
+
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(
             async move |path, Extension(cache_infos), body| {
@@ -91,7 +93,6 @@ async fn handler<Ctx: Context>(
     narinfo_put::Response,
     NarInfoPutRequestError<ObjectStorageError<Ctx>>,
 > {
-    // TODO: validate that the user has write permissions for that cache.
     // TODO: validate that the store dir in the NARInfo's StorePath matches the
     // cache's storeDir.
 

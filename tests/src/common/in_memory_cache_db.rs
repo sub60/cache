@@ -6,8 +6,19 @@ use std::sync::{Arc, Mutex};
 use axum::http;
 use nix_types::{CacheSigningKey, KeyOrSignatureName};
 use smol_str::SmolStr;
-use sub60_cache::api::{CacheName, NamespaceName};
-use sub60_cache::{CacheDb, CacheId, CacheInfos, CiJob, TokenHash};
+use sub60_cache::api::{CacheName, CachePath, NamespaceName};
+use sub60_cache::{
+    CacheDb,
+    CacheId,
+    CacheInfos,
+    CiJob,
+    CommitSha,
+    HostSoftware,
+    Permission,
+    Token,
+    TokenHash,
+    TokenKind,
+};
 
 /// TODO: docs.
 #[derive(Clone, Default)]
@@ -52,6 +63,17 @@ pub struct CiJobToken {
     pub job: CiJob,
     /// When the token stops being valid, as the time since the UNIX epoch.
     pub expires_at: Duration,
+}
+
+/// Why the DB denied a request access to a cache.
+#[derive(Debug, PartialEq, Eq, derive_more::Display)]
+pub enum CacheAccessDenied {
+    #[display("no such cache")]
+    NotFound,
+    #[display("missing, unknown or expired token")]
+    Unauthorized,
+    #[display("the token can't access the cache")]
+    Forbidden,
 }
 
 /// The error type of mocks that never fail.
@@ -188,6 +210,61 @@ impl InMemoryCacheDb {
         });
     }
 
+    /// Stores a token for a new CI job that can only access the given cache,
+    /// and returns it.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the cache does not exist.
+    #[track_caller]
+    pub(crate) fn add_ci_job_token(
+        &self,
+        namespace: impl TryInto<NamespaceName, Error: fmt::Debug>,
+        name: impl TryInto<CacheName, Error: fmt::Debug>,
+        expires_at: Duration,
+    ) -> Token {
+        let num_tokens = self.num_ci_job_tokens();
+
+        // Each job gets its own namespace on the host, so the grant added for
+        // it doesn't match any other job.
+        let job = CiJob {
+            host: "https://github.com".into(),
+            host_software: HostSoftware::GitHub,
+            host_namespace_id: num_tokens.to_string().into(),
+            host_repo_id: "1".into(),
+            host_repo_name: "repo".into(),
+            git_ref: "refs/heads/main".into(),
+            commit_sha: CommitSha::Sha1([0; 20]),
+            host_run_id: "1".into(),
+            run_attempt: Some(1),
+            run_url: "https://github.com/owner/repo/actions/runs/1".into(),
+        };
+
+        self.add_ci_job_grant(
+            namespace,
+            name,
+            CiJobGrant {
+                host: job.host.clone(),
+                host_namespace_id: job.host_namespace_id.clone(),
+                host_repo_name: None,
+                git_ref: None,
+            },
+        );
+
+        let mut bytes = [0; 32];
+        bytes[0] = TokenKind::CiJob as u8;
+        bytes[1..9].copy_from_slice(&num_tokens.to_le_bytes());
+        let token = Token::from_bytes(bytes).expect("valid token");
+
+        self.with_inner(|inner| {
+            inner
+                .ci_job_tokens
+                .insert(token.hash(), CiJobToken { job, expires_at });
+        });
+
+        token
+    }
+
     /// Returns the number of stored CI job tokens.
     pub(crate) fn num_ci_job_tokens(&self) -> usize {
         self.with_inner(|inner| inner.ci_job_tokens.len())
@@ -207,19 +284,48 @@ impl InMemoryCacheDb {
 }
 
 impl CacheDb for InMemoryCacheDb {
-    type Error = Never;
+    type Error = CacheAccessDenied;
 
-    async fn get_infos(
+    async fn authorize_cache_access(
         &self,
-        namespace: NamespaceName,
-        cache: CacheName,
-    ) -> Result<Option<CacheInfos>, Self::Error> {
-        Ok(self.with_inner(|inner| {
-            inner
-                .caches
-                .get(&(namespace, cache))
-                .map(|entry| entry.infos.clone())
-        }))
+        cache: &CachePath,
+        permission: Permission,
+        token: Option<Token>,
+        now: Duration,
+    ) -> Result<CacheInfos, Self::Error> {
+        self.with_inner(|inner| {
+            let key = (cache.namespace.clone(), cache.cache.clone());
+
+            let entry =
+                inner.caches.get(&key).ok_or(CacheAccessDenied::NotFound)?;
+
+            let token = match (permission, token) {
+                // All the caches are public, so reading them needs no token.
+                (Permission::Read, None) => return Ok(entry.infos.clone()),
+                (_, Some(token)) => token,
+                (Permission::Write, None) => {
+                    return Err(CacheAccessDenied::Unauthorized);
+                },
+            };
+
+            let job = match token.kind() {
+                TokenKind::CiJob => inner.ci_job_tokens.get(&token.hash()),
+                _ => None,
+            }
+            .filter(|job_token| job_token.expires_at > now)
+            .map(|job_token| &job_token.job)
+            .ok_or(CacheAccessDenied::Unauthorized)?;
+
+            if permission == Permission::Write
+                && !inner.ci_job_grants.iter().any(|(granted, grant)| {
+                    *granted == key && grant.matches(job)
+                })
+            {
+                return Err(CacheAccessDenied::Forbidden);
+            }
+
+            Ok(entry.infos.clone())
+        })
     }
 
     async fn insert_ci_job_token(
@@ -279,6 +385,16 @@ impl CiJobGrant {
 impl fmt::Display for Never {
     fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {}
+    }
+}
+
+impl From<CacheAccessDenied> for http::StatusCode {
+    fn from(denied: CacheAccessDenied) -> Self {
+        match denied {
+            CacheAccessDenied::NotFound => Self::NOT_FOUND,
+            CacheAccessDenied::Unauthorized => Self::UNAUTHORIZED,
+            CacheAccessDenied::Forbidden => Self::FORBIDDEN,
+        }
     }
 }
 

@@ -18,6 +18,7 @@ async fn copy_to_cache_mock() {
 
     nix.copy([store_path.clone()])
         .to(test_ctx.app_router(), "namespace", "cache")
+        .token(test_ctx.write_token("namespace", "cache"))
         .await
         .unwrap();
 
@@ -49,6 +50,7 @@ async fn copy_to_cache_real() {
 
     nix.copy([store_path.clone()])
         .to(local_addr, "namespace", "cache")
+        .token(test_ctx.write_token("namespace", "cache"))
         .await
         .unwrap();
 

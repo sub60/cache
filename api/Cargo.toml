@@ -10,7 +10,7 @@ axum = ["dep:axum", "sub60-cache-api-macros/axum"]
 axum = { workspace = true, optional = true }
 cauchy = { workspace = true }
 const_format = { workspace = true }
-derive_more = { workspace = true, features = ["display"] }
+derive_more = { workspace = true, features = ["as_ref", "display"] }
 http = { workspace = true }
 nix-types = { workspace = true }
 percent-encoding = { workspace = true }

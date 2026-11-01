@@ -3,25 +3,25 @@ use core::time::Duration;
 
 use axum::http;
 
-use crate::api::{CacheName, NamespaceName};
-use crate::{CacheInfos, CiJob, TokenHash};
+use crate::api::CachePath;
+use crate::{CacheInfos, CiJob, Permission, Token, TokenHash};
 
 /// TODO: docs.
 pub trait CacheDb {
-    /// TODO: docs.
+    /// The error returned when a request fails. Its status code is the one sent
+    /// to the client.
     type Error: fmt::Display + Into<http::StatusCode>;
 
-    /// Returns the infos of the cache called `cache` in the namespace called
-    /// `namespace`, or `None` if there isn't one.
-    ///
-    /// Both must be looked up by name the same way [`NamespaceName`]'s and
-    /// [`CacheName`]'s `PartialEq` impls compare names, i.e. ignoring ASCII
-    /// case.
-    fn get_infos(
+    /// Returns the infos of the cache at the given path, if a request sent
+    /// with `token` has `permission` on it.
+    #[expect(clippy::too_many_arguments)]
+    fn authorize_cache_access(
         &self,
-        namespace: NamespaceName,
-        cache: CacheName,
-    ) -> impl Future<Output = Result<Option<CacheInfos>, Self::Error>> + Send;
+        cache: &CachePath,
+        permission: Permission,
+        token: Option<Token>,
+        now: Duration,
+    ) -> impl Future<Output = Result<CacheInfos, Self::Error>> + Send;
 
     /// Stores the hash of a token that authenticates the given CI job until
     /// `expires_at`, the time since the UNIX epoch it stops being valid at.

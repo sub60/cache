@@ -11,10 +11,11 @@ use crate::{CachePath, PathParams};
 pub struct Endpoint;
 
 /// The path parameters of the endpoint's requests.
-#[derive(Debug, Clone, PartialEq, Eq, PathParams)]
+#[derive(Debug, Clone, PartialEq, Eq, derive_more::AsRef, PathParams)]
 #[route(CachePath + "/nix-cache-info")]
 pub struct Path {
     /// The cache.
+    #[as_ref]
     pub cache: CachePath,
 }
 

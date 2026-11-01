@@ -15,7 +15,14 @@ use crate::context::ObjectStorageError;
 use crate::from_str_body::FromStrBody;
 use crate::object_gateway::MultipartUploadUrlRequest;
 use crate::object_storage::ObjectStorageKey;
-use crate::{Clock, Context, ObjectGateway, ObjectStorage, endpoints};
+use crate::{
+    Clock,
+    Context,
+    ObjectGateway,
+    ObjectStorage,
+    Permission,
+    endpoints,
+};
 
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarMultipartsError<ObjectStorageError> {
@@ -23,7 +30,9 @@ enum NarMultipartsError<ObjectStorageError> {
     CreateMultipartUpload(ObjectStorageError),
 }
 
-impl endpoints::Serve for nar_multiparts::Endpoint {
+impl endpoints::CacheEndpoint for nar_multiparts::Endpoint {
+    const PERMISSION: Permission = Permission::Write;
+
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(async move |body| {
             handler(body, &mut ctx).await.map(into_response)
@@ -36,8 +45,6 @@ async fn handler<Ctx: Context>(
     ctx: &mut Ctx,
 ) -> Result<nar_multiparts::Response, NarMultipartsError<ObjectStorageError<Ctx>>>
 {
-    // TODO: validate that the user has write permissions for that cache.
-
     let storage_key = ObjectStorageKey::Nar(&nar_file_name);
 
     let object_gateway = ctx.object_gateway();

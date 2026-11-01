@@ -67,7 +67,7 @@ enum AuthGitHubActionsError<OidcVerifierError, CacheDbError> {
     InsertToken(CacheDbError),
 }
 
-impl endpoints::Serve for auth_github_actions::Endpoint {
+impl endpoints::Endpoint for auth_github_actions::Endpoint {
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(async move |body| {
             handler(body, &mut ctx).await

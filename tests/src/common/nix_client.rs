@@ -39,6 +39,7 @@ pub trait NixClient: Sized {
             opts: CopyOptions {
                 cache_uri: None,
                 direction: CopyDirection::From,
+                token: None,
             },
         }
     }
@@ -52,6 +53,9 @@ pub struct CopyOptions<const HAS_CACHE_URI: bool, Client: NixClient> {
 
     /// TODO: docs.
     pub direction: CopyDirection,
+
+    /// The token the cache's requests are authenticated with, if any.
+    pub token: Option<String>,
 }
 
 /// TODO: docs.
@@ -117,6 +121,14 @@ impl<'client, Client: NixClient> CopyFutureBuilder<'client, false, Client> {
     }
 }
 
+impl<Client: NixClient> CopyFutureBuilder<'_, true, Client> {
+    /// Authenticates the requests to the cache with the given token.
+    pub fn token(mut self, token: impl Into<String>) -> Self {
+        self.opts.token = Some(token.into());
+        self
+    }
+}
+
 impl<Client: NixClient> CopyOptions<false, Client> {
     fn with_cache_uri(
         self,
@@ -130,6 +142,7 @@ impl<Client: NixClient> CopyOptions<false, Client> {
         CopyOptions {
             cache_uri: Some((cache_host.into(), namespace_name, cache_name)),
             direction: self.direction,
+            token: self.token,
         }
     }
 }
