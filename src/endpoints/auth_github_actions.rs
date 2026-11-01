@@ -4,10 +4,10 @@ use core::time::Duration;
 
 use axum::http::{StatusCode, header};
 use axum::response::IntoResponse;
-use axum::routing::{self, MethodRouter};
+use axum::routing::MethodRouter;
 use smol_str::SmolStr;
 
-use crate::auth::{AuthResponseBody, GitHubActionsAuthRequestBody};
+use crate::api::endpoints::auth_github_actions;
 use crate::from_str_body::FromStrBody;
 use crate::jwt::{self, JwtError};
 use crate::token::{Token, TokenFormat as _, TokenKind};
@@ -20,9 +20,8 @@ use crate::{
     HostSoftware,
     OidcIssuer,
     OidcVerifier,
+    endpoints,
 };
-
-pub(crate) const ROUTE: &str = "/auth/github-actions";
 
 /// How long the tokens given to jobs are valid for.
 const TOKEN_TTL: Duration = Duration::from_hours(1);
@@ -69,11 +68,13 @@ enum AuthGitHubActionsError<OidcVerifierError, CacheDbError> {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::post(async move |body| handler(body, &mut ctx).await)
+    endpoints::method_router::<auth_github_actions::Endpoint, _, _>(
+        async move |body| handler(body, &mut ctx).await,
+    )
 }
 
 async fn handler<Ctx: Context>(
-    FromStrBody(body): FromStrBody<GitHubActionsAuthRequestBody>,
+    FromStrBody(body): FromStrBody<auth_github_actions::RequestBody>,
     ctx: &mut Ctx,
 ) -> Result<impl IntoResponse + use<Ctx>, Error<Ctx>> {
     let claims = jwt::verify::<GitHubActionsClaims, _>(
@@ -102,7 +103,7 @@ async fn handler<Ctx: Context>(
         return Err(AuthGitHubActionsError::NoAccess);
     }
 
-    let body = AuthResponseBody {
+    let body = auth_github_actions::ResponseBody {
         token: ctx.token_format().display(&token).to_string(),
         expires_at,
     };

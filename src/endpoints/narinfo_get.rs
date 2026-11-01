@@ -6,31 +6,32 @@ use core::{fmt, str};
 
 use axum::Extension;
 use axum::body::Body;
-use axum::extract::Path;
 use axum::http::{self, HeaderValue, StatusCode, header};
 use axum::response::IntoResponse;
-use axum::routing::{self, MethodRouter};
+use axum::routing::MethodRouter;
 use compact_str::{CompactString, format_compact};
-use nix_types::{NarFileName, NarInfo, NarInfoFileName, NarInfoFromStrError};
+use nix_types::{NarFileName, NarInfo, NarInfoFromStrError};
 
+use crate::api::endpoints::narinfo_get;
 use crate::context::ObjectStorageError;
 use crate::object_gateway::{ObjectGateway, ObjectUrlRequest};
-use crate::{CacheInfos, Cdn, Context, ObjectStorage, ObjectStorageKey};
-
-pub(crate) const ROUTE: &str = "/{narinfo_file_name}";
+use crate::{
+    CacheInfos,
+    Cdn,
+    Context,
+    ObjectStorage,
+    ObjectStorageKey,
+    endpoints,
+};
 
 const NARINFO_CONTENT_TYPE: HeaderValue =
     HeaderValue::from_static("text/x-nix-narinfo");
 
-#[derive(serde::Deserialize)]
-struct NarInfoGetPath {
-    narinfo_file_name: NarInfoFileName,
-}
-
-/// The response returned to GET requests to the NARInfo route.
-struct NarInfoGetResponse<Cdn: crate::Cdn> {
-    narinfo: String,
-    cache_headers: Cdn::CacheHeaders,
+/// The response returned to GET requests to the NARInfo route, along with the
+/// headers telling the CDN how long to cache it for.
+struct NarInfoGetHttpResponse<Cdn: crate::Cdn> {
+    response: narinfo_get::Response,
+    cache_headers: Option<Cdn::CacheHeaders>,
 }
 
 /// The type of error that can occur when handling a GET request to the NARInfo
@@ -41,10 +42,6 @@ struct NarInfoGetResponse<Cdn: crate::Cdn> {
 enum NarInfoGetResponseError<ObjectStorageError> {
     /// The NARInfo couldn't be retrieved from the object storage.
     GetNarInfo(ObjectStorageError),
-
-    /// The NARInfo was not found in the object storage.
-    #[display("NARInfo at '{_0}' not found")]
-    NarInfoNotFound(NarInfoFileName),
 
     /// The NARInfo bytes retrieved from the object storage were not valid
     /// UTF-8. This should basically never happen unless there's some kind of
@@ -61,29 +58,35 @@ enum NarInfoGetResponseError<ObjectStorageError> {
 struct EmptyString;
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::get(async move |path, Extension(cache_infos)| {
-        handler(path, cache_infos, &mut ctx).await
-    })
+    endpoints::method_router::<narinfo_get::Endpoint, _, _>(
+        async move |path, Extension(cache_infos)| {
+            handler(path, cache_infos, &mut ctx).await
+        },
+    )
 }
 
 async fn handler<Ctx: Context>(
-    Path(NarInfoGetPath { narinfo_file_name }): Path<NarInfoGetPath>,
+    path: narinfo_get::Path,
     cache_infos: CacheInfos,
     ctx: &mut Ctx,
 ) -> Result<
-    NarInfoGetResponse<Ctx::Cdn>,
+    NarInfoGetHttpResponse<Ctx::Cdn>,
     NarInfoGetResponseError<ObjectStorageError<Ctx>>,
 > {
     let object_storage = ctx.object_storage();
 
     let Some(narinfo_bytes) = object_storage
-        .get(ObjectStorageKey::NarInfo(&cache_infos.id, &narinfo_file_name))
+        .get(ObjectStorageKey::NarInfo(
+            &cache_infos.id,
+            &path.narinfo_file_name,
+        ))
         .await
         .map_err(NarInfoGetResponseError::GetNarInfo)?
     else {
-        return Err(NarInfoGetResponseError::NarInfoNotFound(
-            narinfo_file_name,
-        ));
+        return Ok(NarInfoGetHttpResponse {
+            response: narinfo_get::Response::NotFound,
+            cache_headers: None,
+        });
     };
 
     let mut narinfo_without_url = str::from_utf8(narinfo_bytes.as_ref())
@@ -106,18 +109,19 @@ async fn handler<Ctx: Context>(
         min_ttl: Duration::from_hours(1),
     });
 
-    Ok(NarInfoGetResponse {
-        narinfo: narinfo_without_url.with_url(nar_url.as_ref()).to_string(),
+    Ok(NarInfoGetHttpResponse {
+        response: narinfo_get::Response::Found(
+            narinfo_without_url.with_url(nar_url.as_ref().to_owned()),
+        ),
         // The NAR is purely content-addressed, so we can cache it for a long
         // time.
-        cache_headers: ctx.cdn().cache_headers(Duration::from_days(365)),
+        cache_headers: Some(ctx.cdn().cache_headers(Duration::from_days(365))),
     })
 }
 
 impl<ObjectStorageError> NarInfoGetResponseError<ObjectStorageError> {
     fn status_code(&self) -> StatusCode {
         match self {
-            Self::NarInfoNotFound(_) => StatusCode::NOT_FOUND,
             Self::GetNarInfo(_)
             | Self::NarInfoNotUtf8(_)
             | Self::ParseNarInfo(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -125,18 +129,25 @@ impl<ObjectStorageError> NarInfoGetResponseError<ObjectStorageError> {
     }
 }
 
-impl<Cdn: crate::Cdn> IntoResponse for NarInfoGetResponse<Cdn> {
+impl<Cdn: crate::Cdn> IntoResponse for NarInfoGetHttpResponse<Cdn> {
     fn into_response(self) -> axum::response::Response {
         let mut builder = axum::response::Response::builder()
-            .header(header::CONTENT_TYPE, NARINFO_CONTENT_TYPE);
+            .status(self.response.status_code());
 
-        for (name, value) in self.cache_headers.into_iter() {
+        for (name, value) in self.cache_headers.into_iter().flatten() {
             builder = builder.header(name, value);
         }
 
-        builder
-            .body(Body::new(self.narinfo))
-            .expect("headers and body are valid")
+        let body = match self.response {
+            narinfo_get::Response::Found(narinfo) => {
+                builder =
+                    builder.header(header::CONTENT_TYPE, NARINFO_CONTENT_TYPE);
+                Body::new(narinfo.to_string())
+            },
+            narinfo_get::Response::NotFound => Body::empty(),
+        };
+
+        builder.body(body).expect("headers and body are valid")
     }
 }
 

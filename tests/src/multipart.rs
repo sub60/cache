@@ -3,7 +3,8 @@ use core::num::NonZeroU16;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use nix_types::NarFileName;
-use sub60_cache::nar_multiparts::{CompleteRequestBody, Etag};
+use sub60_cache::api::Etag;
+use sub60_cache::api::endpoints::nar_multiparts_complete;
 use sub60_cache::{Context, ObjectStorage, ObjectStorageKey};
 use tower_service::Service;
 
@@ -155,7 +156,7 @@ async fn complete_upload(
     nar_file_name: NarFileName,
     etag: Etag,
 ) -> StatusCode {
-    let body = CompleteRequestBody {
+    let body = nar_multiparts_complete::RequestBody {
         etags: core::iter::once(etag).collect(),
         nar_file_name,
     };

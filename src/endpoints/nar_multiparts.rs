@@ -7,25 +7,15 @@ use core::{array, fmt};
 use axum::body::Body;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{self, MethodRouter};
+use axum::routing::MethodRouter;
 use nix_types::NarFileName;
 
+use crate::api::endpoints::nar_multiparts;
 use crate::context::ObjectStorageError;
 use crate::from_str_body::FromStrBody;
-use crate::nar_multiparts::NarMultipartsResponseBody;
 use crate::object_gateway::MultipartUploadUrlRequest;
 use crate::object_storage::ObjectStorageKey;
-use crate::{Clock, Context, ObjectGateway, ObjectStorage};
-
-pub(crate) const ROUTE: &str = "/nar-multiparts";
-
-/// The response returned to POST requests to the NAR multiparts route.
-#[derive(Debug)]
-#[expect(clippy::large_enum_variant)]
-enum NarMultipartsResponse {
-    AlreadyExists,
-    Created(NarMultipartsResponseBody),
-}
+use crate::{Clock, Context, ObjectGateway, ObjectStorage, endpoints};
 
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
 enum NarMultipartsError<ObjectStorageError> {
@@ -34,13 +24,15 @@ enum NarMultipartsError<ObjectStorageError> {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::post(async move |body| handler(body, &mut ctx).await)
+    endpoints::method_router::<nar_multiparts::Endpoint, _, _>(
+        async move |body| handler(body, &mut ctx).await.map(into_response),
+    )
 }
 
 async fn handler<Ctx: Context>(
     FromStrBody(nar_file_name): FromStrBody<NarFileName>,
     ctx: &mut Ctx,
-) -> Result<NarMultipartsResponse, NarMultipartsError<ObjectStorageError<Ctx>>>
+) -> Result<nar_multiparts::Response, NarMultipartsError<ObjectStorageError<Ctx>>>
 {
     // TODO: validate that the user has write permissions for that cache.
 
@@ -56,7 +48,7 @@ async fn handler<Ctx: Context>(
         .await
         .map_err(NarMultipartsError::CheckNarExistence)?
     {
-        return Ok(NarMultipartsResponse::AlreadyExists);
+        return Ok(nar_multiparts::Response::AlreadyExists);
     }
 
     let upload_id = object_gateway
@@ -82,7 +74,7 @@ async fn handler<Ctx: Context>(
             .expect("valid URL")
     });
 
-    Ok(NarMultipartsResponse::Created(NarMultipartsResponseBody {
+    Ok(nar_multiparts::Response::Created(nar_multiparts::ResponseBody {
         upload_id: upload_id.to_string(),
         part_size: object_gateway.storage().part_size(),
         parts_urls,
@@ -100,16 +92,18 @@ impl<ObjectStorageError> NarMultipartsError<ObjectStorageError> {
     }
 }
 
-impl IntoResponse for NarMultipartsResponse {
-    fn into_response(self) -> axum::response::Response {
-        match self {
-            Self::AlreadyExists => {
-                (StatusCode::NO_CONTENT, Body::empty()).into_response()
-            },
-            Self::Created(body) => {
-                (StatusCode::OK, body.to_string()).into_response()
-            },
-        }
+fn into_response(
+    response: nar_multiparts::Response,
+) -> axum::response::Response {
+    let status_code = response.status_code();
+
+    match response {
+        nar_multiparts::Response::AlreadyExists => {
+            (status_code, Body::empty()).into_response()
+        },
+        nar_multiparts::Response::Created(body) => {
+            (status_code, body.to_string()).into_response()
+        },
     }
 }
 

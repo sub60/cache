@@ -6,15 +6,8 @@ use std::sync::{Arc, Mutex};
 use axum::http;
 use nix_types::{CacheSigningKey, KeyOrSignatureName};
 use smol_str::SmolStr;
-use sub60_cache::{
-    CacheDb,
-    CacheId,
-    CacheInfos,
-    CacheName,
-    CiJob,
-    NamespaceName,
-    TokenHash,
-};
+use sub60_cache::api::{CacheName, NamespaceName};
+use sub60_cache::{CacheDb, CacheId, CacheInfos, CiJob, TokenHash};
 
 /// TODO: docs.
 #[derive(Clone, Default)]

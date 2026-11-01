@@ -1,0 +1,95 @@
+//! The `POST /{namespace}/{cache}/nar-multiparts` endpoint.
+
+use core::fmt;
+use core::num::NonZeroU32;
+use core::str::FromStr;
+use core::time::Duration;
+
+use http::{Method, StatusCode};
+use nix_types::NarFileName;
+
+use crate::fmt_write::FmtWrite;
+use crate::{CachePath, PathParams};
+
+/// Starts a multipart upload of a NAR.
+#[derive(Debug, Copy, Clone)]
+pub struct Endpoint;
+
+/// The path parameters of the endpoint's requests.
+#[derive(Debug, Clone, PartialEq, Eq, PathParams)]
+#[route(CachePath + "/nar-multiparts")]
+pub struct Path {
+    /// The cache the NAR is uploaded to.
+    pub cache: CachePath,
+}
+
+/// The ID of a multipart upload.
+pub type UploadId = String;
+
+/// The response to the endpoint's requests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(clippy::large_enum_variant)]
+pub enum Response {
+    /// The NAR already exists, so it doesn't need to be uploaded.
+    AlreadyExists,
+
+    /// The upload was started.
+    Created(ResponseBody),
+}
+
+/// The type of error that can occur when parsing a string into a
+/// [`ResponseBody`].
+pub type ResponseBodyFromStrError = serde_json::Error;
+
+/// The body of a `/nar-multiparts` response.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ResponseBody {
+    /// TODO: docs.
+    pub upload_id: UploadId,
+
+    /// TODO: docs.
+    pub part_size: NonZeroU32,
+
+    /// TODO: docs.
+    pub parts_urls: [url::Url; 4],
+
+    /// The expiration timestamp of this batch of upload URLs, expressed as the
+    /// elapsed time since the UNIX epoch.
+    #[serde(with = "crate::serde_utils::secs")]
+    pub expiration_ts: Duration,
+}
+
+impl fmt::Display for ResponseBody {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        serde_json::to_writer(FmtWrite(f), &self).map_err(|_| fmt::Error)
+    }
+}
+
+impl FromStr for ResponseBody {
+    type Err = ResponseBodyFromStrError;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
+impl crate::Endpoint for Endpoint {
+    const METHOD: Method = Method::POST;
+
+    type Path = Path;
+    type Request = NarFileName;
+    type Response = Response;
+}
+
+impl Response {
+    /// Returns the response's status code.
+    #[inline]
+    pub fn status_code(&self) -> StatusCode {
+        match self {
+            Self::AlreadyExists => StatusCode::NO_CONTENT,
+            Self::Created(_) => StatusCode::OK,
+        }
+    }
+}

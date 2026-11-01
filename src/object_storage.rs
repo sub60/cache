@@ -3,17 +3,20 @@
 use core::error::Error;
 use core::fmt;
 use core::num::NonZeroU32;
+use core::str::FromStr;
 
 use nix_types::{NarFileName, NarInfoFileName};
-use serde::de::DeserializeOwned;
 
 use crate::CacheId;
-use crate::nar_multiparts::Etag;
+use crate::api::Etag;
 
 /// TODO: docs.
 pub trait ObjectStorage: Sync {
     /// TODO: docs.
-    type MultipartUploadId: Clone + fmt::Display + DeserializeOwned + Send;
+    type MultipartUploadId: Clone
+        + fmt::Display
+        + FromStr<Err: fmt::Display>
+        + Send;
 
     /// TODO: docs.
     type Error: Error + Send;

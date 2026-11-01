@@ -6,29 +6,21 @@ use core::{fmt, str};
 
 use axum::Extension;
 use axum::body::Bytes;
-use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{self, MethodRouter};
+use axum::routing::MethodRouter;
 use nix_types::{
     NarFileName,
     NarInfo,
-    NarInfoFileName,
     NarInfoFileNameFromStrError,
     NarInfoFromStrError,
     StoreHash,
 };
 
+use crate::api::endpoints::narinfo_put;
 use crate::context::ObjectStorageError;
 use crate::object_storage::ObjectStorageKey;
-use crate::{CacheInfos, Context, ObjectStorage};
-
-pub(crate) const ROUTE: &str = crate::routes::narinfo_get::ROUTE;
-
-#[derive(serde::Deserialize)]
-struct NarInfoPutPath {
-    narinfo_file_name: NarInfoFileName,
-}
+use crate::{CacheInfos, Context, ObjectStorage, endpoints};
 
 /// The type of error that can occur when handling a PUT request to the NARInfo
 /// route.
@@ -79,17 +71,24 @@ enum NarInfoPutRequestError<ObjectStorageError> {
 struct DiscardUrl;
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::put(async move |Path(path), Extension(cache_infos), body| {
-        handler(path, cache_infos, body, &mut ctx).await
-    })
+    endpoints::method_router::<narinfo_put::Endpoint, _, _>(
+        async move |path, Extension(cache_infos), body| {
+            handler(path, cache_infos, body, &mut ctx)
+                .await
+                .map(|response| response.status_code())
+        },
+    )
 }
 
 async fn handler<Ctx: Context>(
-    NarInfoPutPath { narinfo_file_name }: NarInfoPutPath,
+    path: narinfo_put::Path,
     cache_infos: CacheInfos,
     body: Bytes,
     ctx: &mut Ctx,
-) -> Result<StatusCode, NarInfoPutRequestError<ObjectStorageError<Ctx>>> {
+) -> Result<
+    narinfo_put::Response,
+    NarInfoPutRequestError<ObjectStorageError<Ctx>>,
+> {
     // TODO: validate that the user has write permissions for that cache.
     // TODO: validate that the store dir in the NARInfo's StorePath matches the
     // cache's storeDir.
@@ -98,9 +97,9 @@ async fn handler<Ctx: Context>(
         .map_err(NarInfoPutRequestError::NarInfoNotUtf8)?
         .parse::<NarInfo<DiscardUrl>>()?;
 
-    if &narinfo_file_name.store_hash != narinfo.store_path.hash() {
+    if &path.narinfo_file_name.store_hash != narinfo.store_path.hash() {
         return Err(NarInfoPutRequestError::NarInfoStoreHashMismatch {
-            declared_store_hash: narinfo_file_name.store_hash,
+            declared_store_hash: path.narinfo_file_name.store_hash,
             inferred_store_hash: narinfo.store_path.into_hash(),
         });
     }
@@ -118,11 +117,11 @@ async fn handler<Ctx: Context>(
     }
 
     let narinfo_key =
-        ObjectStorageKey::NarInfo(&cache_infos.id, &narinfo_file_name);
+        ObjectStorageKey::NarInfo(&cache_infos.id, &path.narinfo_file_name);
 
     match object_storage.insert(narinfo_key, narinfo.to_string()).await {
-        Ok(true) => Ok(StatusCode::CREATED),
-        Ok(false) => Ok(StatusCode::OK),
+        Ok(true) => Ok(narinfo_put::Response::Created),
+        Ok(false) => Ok(narinfo_put::Response::AlreadyExists),
         Err(err) => Err(NarInfoPutRequestError::StoreNarInfo(err)),
     }
 }

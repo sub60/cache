@@ -3,7 +3,8 @@ use core::time::Duration;
 
 use axum::http;
 
-use crate::{CacheInfos, CacheName, CiJob, NamespaceName, TokenHash};
+use crate::api::{CacheName, NamespaceName};
+use crate::{CacheInfos, CiJob, TokenHash};
 
 /// TODO: docs.
 pub trait CacheDb {

@@ -3,13 +3,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use axum::body::Body;
 use axum::http::{Request, Response, StatusCode};
 use serde_json::json;
-use sub60_cache::auth::{AuthResponseBody, GitHubActionsAuthRequestBody};
+use sub60_cache::api::endpoints::auth_github_actions;
+use sub60_cache::api::{ApiPath, Endpoint, PathParams};
 use sub60_cache::{Context, HostSoftware, TokenFormat, TokenKind};
 use tower_service::Service;
 
 use crate::{CiJobGrant, MockOidcVerifier, ORIGIN, TestContext};
-
-const ROUTE: &str = "/-/api/v1/auth/github-actions";
 
 #[tokio::test]
 async fn github_actions_token_is_exchanged_if_the_job_can_access_a_cache() {
@@ -208,11 +207,11 @@ async fn assert_unauthorized(jwt: &str) {
 }
 
 async fn exchange(test_ctx: &TestContext, jwt: &str) -> Response<Body> {
-    let body = GitHubActionsAuthRequestBody { token: jwt.to_owned() };
+    let body = auth_github_actions::RequestBody { token: jwt.to_owned() };
 
     let request = Request::builder()
-        .method("POST")
-        .uri(ROUTE)
+        .method(auth_github_actions::Endpoint::METHOD)
+        .uri(auth_github_actions::Path { api: ApiPath }.to_path())
         .body(Body::from(body.to_string()))
         .expect("valid request");
 
@@ -221,7 +220,9 @@ async fn exchange(test_ctx: &TestContext, jwt: &str) -> Response<Body> {
     response
 }
 
-async fn parse_body(response: Response<Body>) -> AuthResponseBody {
+async fn parse_body(
+    response: Response<Body>,
+) -> auth_github_actions::ResponseBody {
     let body = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("read response body");

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
 use nix_types::{NarFileName, NarInfoFileName};
-use sub60_cache::nar_multiparts::Etag;
+use sub60_cache::api::Etag;
 use sub60_cache::{
     CacheId,
     CompleteMultipartUploadError,

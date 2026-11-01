@@ -1,6 +1,7 @@
 use axum::Router;
 
-use crate::routes::{
+use crate::api::{Endpoint as _, endpoints as api};
+use crate::endpoints::{
     auth_github_actions,
     nar_head,
     nar_multiparts,
@@ -13,43 +14,47 @@ use crate::routes::{
 };
 use crate::{Context, namespace_cache_layer, server_error_log_layer};
 
-/// The prefix of the API routes. It can't be a namespace name, so it never
-/// clashes with a cache's routes.
-const API_ROUTE: &str = "/-/api/v1";
-
 /// Returns the axum [`Router`] defining the cache server's API.
 pub fn router(ctx: impl Context) -> Router {
     let cache_routes = Router::new()
         // Standard routes needed to support the Nix CLI client.
-        .route(nar_head::ROUTE, nar_head::router(ctx.clone()))
-        .route(nar_put::ROUTE, nar_put::router(ctx.clone()))
-        .route(narinfo_get::ROUTE, narinfo_get::router(ctx.clone()))
-        .route(narinfo_put::ROUTE, narinfo_put::router(ctx.clone()))
-        .route(nix_cache_info::ROUTE, nix_cache_info::router(ctx.clone()))
-        // Custom routes.
-        .route(nar_multiparts::ROUTE, nar_multiparts::router(ctx.clone()))
+        .route(api::nar_head::Endpoint::PATH, nar_head::router(ctx.clone()))
+        .route(api::nar_put::Endpoint::PATH, nar_put::router(ctx.clone()))
         .route(
-            nar_multiparts_parts::ROUTE,
+            api::narinfo_get::Endpoint::PATH,
+            narinfo_get::router(ctx.clone()),
+        )
+        .route(
+            api::narinfo_put::Endpoint::PATH,
+            narinfo_put::router(ctx.clone()),
+        )
+        .route(
+            api::nix_cache_info::Endpoint::PATH,
+            nix_cache_info::router(ctx.clone()),
+        )
+        // Custom routes.
+        .route(
+            api::nar_multiparts::Endpoint::PATH,
+            nar_multiparts::router(ctx.clone()),
+        )
+        .route(
+            api::nar_multiparts_parts::Endpoint::PATH,
             nar_multiparts_parts::router(ctx.clone()),
         )
         .route(
-            nar_multiparts_complete::ROUTE,
+            api::nar_multiparts_complete::Endpoint::PATH,
             nar_multiparts_complete::router(ctx.clone()),
-        );
-
-    let api_routes = Router::new().route(
-        auth_github_actions::ROUTE,
-        auth_github_actions::router(ctx.clone()),
-    );
+        )
+        // Place all the cache routes behind the /{namespace}/{cache} layer
+        // which handles authentication/validation/etc.
+        .route_layer(namespace_cache_layer::layer(ctx.clone()));
 
     Router::new()
-        .nest(API_ROUTE, api_routes)
-        .nest(
-            namespace_cache_layer::ROUTE,
-            // Place all the cache routes under the /{namespace}/{cache} layer
-            // which handles authentication/validation/etc.
-            cache_routes.route_layer(namespace_cache_layer::layer(ctx)),
+        .route(
+            api::auth_github_actions::Endpoint::PATH,
+            auth_github_actions::router(ctx.clone()),
         )
+        .merge(cache_routes)
         // Log server errors from every route.
         .layer(server_error_log_layer::layer())
 }

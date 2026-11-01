@@ -6,13 +6,12 @@ use axum::Extension;
 use axum::body::Body;
 use axum::http::{HeaderValue, header};
 use axum::response::IntoResponse;
-use axum::routing::{self, MethodRouter};
+use axum::routing::MethodRouter;
 use nix_types::NixCacheInfo;
 use smol_str::SmolStr;
 
-use crate::{CacheInfos, Cdn as _, Context};
-
-pub(crate) const ROUTE: &str = "/nix-cache-info";
+use crate::api::endpoints::nix_cache_info;
+use crate::{CacheInfos, Cdn as _, Context, endpoints};
 
 /// The response returned to GET requests to the Nix cache info route.
 struct NixCacheInfoResponse<Cdn: crate::Cdn> {
@@ -21,9 +20,11 @@ struct NixCacheInfoResponse<Cdn: crate::Cdn> {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::get(async move |Extension(cache_infos)| {
-        handler(cache_infos, &mut ctx).await
-    })
+    endpoints::method_router::<nix_cache_info::Endpoint, _, _>(
+        async move |Extension(cache_infos)| {
+            handler(cache_infos, &mut ctx).await
+        },
+    )
 }
 
 async fn handler<Ctx: Context>(

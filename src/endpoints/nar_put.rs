@@ -4,30 +4,15 @@ use core::fmt;
 use core::time::Duration;
 
 use axum::body::Body;
-use axum::extract::Path;
 use axum::http::{self, StatusCode, header};
 use axum::response::IntoResponse;
-use axum::routing::{self, MethodRouter};
-use nix_types::NarFileName;
+use axum::routing::MethodRouter;
 
+use crate::api::endpoints::nar_put;
 use crate::context::ObjectStorageError;
 use crate::object_gateway::{ObjectGateway, ObjectUrlRequest};
 use crate::object_storage::ObjectStorageKey;
-use crate::{Context, ObjectStorage};
-
-pub(crate) const ROUTE: &str = "/nar/{nar_file_name}";
-
-#[derive(serde::Deserialize)]
-pub(super) struct NarPutPath {
-    pub(super) nar_file_name: NarFileName,
-}
-
-/// The response returned to PUT requests to the NAR route.
-#[derive(Debug)]
-enum NarPutResponse {
-    AlreadyExists,
-    Redirect { nar_url: http::HeaderValue },
-}
+use crate::{Context, ObjectStorage, endpoints};
 
 /// The type of error that can occur when handling a PUT request to the NAR
 /// route.
@@ -37,34 +22,35 @@ enum NarPutRequestError<ObjectStorageError> {
 }
 
 pub(crate) fn router(mut ctx: impl Context) -> MethodRouter {
-    routing::put(async move |path| handler(path, &mut ctx).await)
+    endpoints::method_router::<nar_put::Endpoint, _, _>(async move |path| {
+        handler(path, &mut ctx).await.map(into_response)
+    })
 }
 
 async fn handler<Ctx: Context>(
-    Path(NarPutPath { nar_file_name }): Path<NarPutPath>,
+    path: nar_put::Path,
     ctx: &mut Ctx,
-) -> Result<NarPutResponse, NarPutRequestError<ObjectStorageError<Ctx>>> {
+) -> Result<nar_put::Response, NarPutRequestError<ObjectStorageError<Ctx>>> {
     // TODO: validate that the user has write permissions for that cache.
 
     let object_gateway = ctx.object_gateway();
 
     if object_gateway
         .storage()
-        .contains_key(ObjectStorageKey::Nar(&nar_file_name))
+        .contains_key(ObjectStorageKey::Nar(&path.nar_file_name))
         .await
         .map_err(NarPutRequestError::ObjectStorage)?
     {
-        Ok(NarPutResponse::AlreadyExists)
+        Ok(nar_put::Response::AlreadyExists)
     } else {
         let nar_url = object_gateway.object_url(ObjectUrlRequest {
-            key: ObjectStorageKey::Nar(&nar_file_name),
+            key: ObjectStorageKey::Nar(&path.nar_file_name),
             method: http::Method::PUT,
             min_ttl: Duration::from_mins(10),
         });
-        Ok(NarPutResponse::Redirect {
-            nar_url: http::HeaderValue::from_str(nar_url.as_ref())
-                .expect("URL is valid header value"),
-        })
+        Ok(nar_put::Response::Redirect(
+            nar_url.as_ref().parse().expect("valid URL"),
+        ))
     }
 }
 
@@ -76,19 +62,15 @@ impl<ObjectStorageError> NarPutRequestError<ObjectStorageError> {
     }
 }
 
-impl IntoResponse for NarPutResponse {
-    fn into_response(self) -> axum::response::Response {
-        match self {
-            Self::AlreadyExists => {
-                (StatusCode::NO_CONTENT, Body::empty()).into_response()
-            },
-            Self::Redirect { nar_url } => axum::response::Response::builder()
-                .status(StatusCode::TEMPORARY_REDIRECT)
-                .header(header::LOCATION, nar_url)
-                .body(Body::empty())
-                .expect("valid response"),
-        }
+fn into_response(response: nar_put::Response) -> axum::response::Response {
+    let mut builder =
+        axum::response::Response::builder().status(response.status_code());
+
+    if let nar_put::Response::Redirect(nar_url) = &response {
+        builder = builder.header(header::LOCATION, nar_url.to_string());
     }
+
+    builder.body(Body::empty()).expect("valid response")
 }
 
 impl<ObjectStorageError: fmt::Display> IntoResponse
