@@ -27,10 +27,12 @@ pub struct Token(
 /// What a [`Token`] authenticates.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
-#[non_exhaustive]
 pub enum TokenKind {
     /// A CI job.
     CiJob = 0,
+
+    /// A machine, like a laptop or a build server.
+    Machine = 1,
 }
 
 /// The SHA-256 hash of a [`Token`].
@@ -79,6 +81,7 @@ impl TokenKind {
     fn from_byte(byte: u8) -> Option<Self> {
         match byte {
             0 => Some(Self::CiJob),
+            1 => Some(Self::Machine),
             _ => None,
         }
     }

@@ -320,7 +320,8 @@ impl CacheDb for InMemoryCacheDb {
 
             let job = match token.kind() {
                 TokenKind::CiJob => inner.ci_job_tokens.get(&token.hash()),
-                _ => None,
+                // The tests don't store machine tokens.
+                TokenKind::Machine => None,
             }
             .filter(|job_token| job_token.expires_at > now)
             .map(|job_token| &job_token.job)
