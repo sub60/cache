@@ -5,7 +5,14 @@ use axum::http::{Request, Response, StatusCode};
 use serde_json::json;
 use sub60_cache::api::endpoints::auth_github_actions;
 use sub60_cache::api::{ApiPath, Endpoint, PathParams};
-use sub60_cache::{Context, HostSoftware, TokenFormat, TokenKind};
+use sub60_cache::{
+    Context,
+    HostSoftware,
+    Permission,
+    Permissions,
+    TokenFormat,
+    TokenKind,
+};
 use tower_service::Service;
 
 use crate::{CiJobGrant, MockOidcVerifier, ORIGIN, TestContext};
@@ -176,6 +183,10 @@ fn claims() -> serde_json::Value {
 /// Returns a grant that gives access to the jobs of `octocat/Hello-World`.
 fn grant() -> CiJobGrant {
     CiJobGrant {
+        permissions: Permissions::new([
+            Permission::PullFromCache,
+            Permission::PushToCache,
+        ]),
         host: "https://github.com".into(),
         host_namespace_id: "583231".into(),
         host_repo_name: Some("hello-world".into()),

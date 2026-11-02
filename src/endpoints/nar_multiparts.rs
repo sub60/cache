@@ -21,6 +21,7 @@ use crate::{
     ObjectGateway,
     ObjectStorage,
     Permission,
+    Permissions,
     endpoints,
 };
 
@@ -31,7 +32,8 @@ enum NarMultipartsError<ObjectStorageError> {
 }
 
 impl endpoints::CacheEndpoint for nar_multiparts::Endpoint {
-    const PERMISSION: Permission = Permission::Write;
+    const PERMISSIONS: Permissions =
+        Permissions::new([Permission::PushToCache]);
 
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(async move |body| {

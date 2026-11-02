@@ -14,7 +14,7 @@ use axum::handler::Handler;
 use axum::routing::{self, MethodFilter, MethodRouter};
 
 use crate::api::{self, CachePath};
-use crate::{Context, Permission, cache_access_layer};
+use crate::{Context, Permissions, cache_access_layer};
 
 /// An endpoint the server handles.
 pub(crate) trait Endpoint: api::Endpoint {
@@ -31,7 +31,7 @@ pub(crate) trait CacheEndpoint:
     api::Endpoint<Path: AsRef<CachePath> + Send>
 {
     /// What requests must be allowed to do to the cache.
-    const PERMISSION: Permission;
+    const PERMISSIONS: Permissions;
 
     /// Returns the [`MethodRouter`] handling the endpoint's requests that may
     /// access the cache.

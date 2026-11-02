@@ -54,7 +54,7 @@ async fn handler<E: CacheEndpoint, Ctx: Context>(
         .cache_db()
         .authorize_cache_access(
             path.as_ref(),
-            E::PERMISSION,
+            E::PERMISSIONS,
             token,
             ctx.clock().unix_ts(),
         )

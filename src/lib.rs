@@ -47,7 +47,7 @@ pub use object_storage::{
     ObjectStorageKey,
 };
 pub use oidc_verifier::{OidcIssuer, OidcVerifier, Rs256Signature};
-pub use permission::Permission;
+pub use permission::{Permission, Permissions};
 pub use router::router;
 pub use sub60_cache_api as api;
 pub use token::{Token, TokenFormat, TokenHash, TokenKind};

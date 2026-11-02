@@ -5,10 +5,18 @@ use axum::response::IntoResponse;
 use axum::routing::MethodRouter;
 
 use crate::api::endpoints::nar_head;
-use crate::{Context, ObjectStorage, ObjectStorageKey, Permission, endpoints};
+use crate::{
+    Context,
+    ObjectStorage,
+    ObjectStorageKey,
+    Permission,
+    Permissions,
+    endpoints,
+};
 
 impl endpoints::CacheEndpoint for nar_head::Endpoint {
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSIONS: Permissions =
+        Permissions::new([Permission::PullFromCache]);
 
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(async move |path| {

@@ -11,10 +11,18 @@ use crate::context::MultipartUploadId;
 use crate::from_str_body::FromStrBody;
 use crate::object_gateway::MultipartUploadUrlRequest;
 use crate::object_storage::ObjectStorageKey;
-use crate::{Clock, Context, ObjectGateway, Permission, endpoints};
+use crate::{
+    Clock,
+    Context,
+    ObjectGateway,
+    Permission,
+    Permissions,
+    endpoints,
+};
 
 impl endpoints::CacheEndpoint for nar_multiparts_parts::Endpoint {
-    const PERMISSION: Permission = Permission::Write;
+    const PERMISSIONS: Permissions =
+        Permissions::new([Permission::PushToCache]);
 
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(async move |path, body| {

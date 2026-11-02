@@ -15,6 +15,7 @@ use sub60_cache::{
     CommitSha,
     HostSoftware,
     Permission,
+    Permissions,
     Token,
     TokenHash,
     TokenKind,
@@ -46,6 +47,8 @@ struct CacheEntry {
 /// Gives the CI jobs matching all its conditions access to a cache.
 #[derive(Clone)]
 pub struct CiJobGrant {
+    /// What the jobs can do to the cache.
+    pub permissions: Permissions,
     /// The host the jobs run on.
     pub host: SmolStr,
     /// The host's ID for the namespace owning the jobs' repository.
@@ -244,6 +247,10 @@ impl InMemoryCacheDb {
             namespace,
             name,
             CiJobGrant {
+                permissions: Permissions::new([
+                    Permission::PullFromCache,
+                    Permission::PushToCache,
+                ]),
                 host: job.host.clone(),
                 host_namespace_id: job.host_namespace_id.clone(),
                 host_repo_name: None,
@@ -289,23 +296,26 @@ impl CacheDb for InMemoryCacheDb {
     async fn authorize_cache_access(
         &self,
         cache: &CachePath,
-        permission: Permission,
+        permissions: Permissions,
         token: Option<Token>,
         now: Duration,
     ) -> Result<CacheInfos, Self::Error> {
+        // All the caches are public, so anyone can pull from them.
+        const PUBLIC: Permissions =
+            Permissions::new([Permission::PullFromCache]);
+
         self.with_inner(|inner| {
             let key = (cache.namespace.clone(), cache.cache.clone());
 
             let entry =
                 inner.caches.get(&key).ok_or(CacheAccessDenied::NotFound)?;
 
-            let token = match (permission, token) {
-                // All the caches are public, so reading them needs no token.
-                (Permission::Read, None) => return Ok(entry.infos.clone()),
-                (_, Some(token)) => token,
-                (Permission::Write, None) => {
-                    return Err(CacheAccessDenied::Unauthorized);
+            let token = match token {
+                Some(token) => token,
+                None if PUBLIC.contains_all(permissions) => {
+                    return Ok(entry.infos.clone());
                 },
+                None => return Err(CacheAccessDenied::Unauthorized),
             };
 
             let job = match token.kind() {
@@ -316,11 +326,17 @@ impl CacheDb for InMemoryCacheDb {
             .map(|job_token| &job_token.job)
             .ok_or(CacheAccessDenied::Unauthorized)?;
 
-            if permission == Permission::Write
-                && !inner.ci_job_grants.iter().any(|(granted, grant)| {
+            let granted = inner
+                .ci_job_grants
+                .iter()
+                .filter(|(granted, grant)| {
                     *granted == key && grant.matches(job)
                 })
-            {
+                .fold(PUBLIC, |granted, (_, grant)| {
+                    granted | grant.permissions
+                });
+
+            if !granted.contains_all(permissions) {
                 return Err(CacheAccessDenied::Forbidden);
             }
 

@@ -4,7 +4,7 @@ use core::time::Duration;
 use axum::http;
 
 use crate::api::CachePath;
-use crate::{CacheInfos, CiJob, Permission, Token, TokenHash};
+use crate::{CacheInfos, CiJob, Permissions, Token, TokenHash};
 
 /// TODO: docs.
 pub trait CacheDb {
@@ -13,12 +13,12 @@ pub trait CacheDb {
     type Error: fmt::Display + Into<http::StatusCode>;
 
     /// Returns the infos of the cache at the given path, if a request sent
-    /// with `token` has `permission` on it.
+    /// with `token` has all of `permissions` on it.
     #[expect(clippy::too_many_arguments)]
     fn authorize_cache_access(
         &self,
         cache: &CachePath,
-        permission: Permission,
+        permissions: Permissions,
         token: Option<Token>,
         now: Duration,
     ) -> impl Future<Output = Result<CacheInfos, Self::Error>> + Send;

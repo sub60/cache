@@ -15,6 +15,7 @@ use crate::{
     Context,
     ObjectStorage,
     Permission,
+    Permissions,
     endpoints,
 };
 
@@ -29,7 +30,8 @@ enum NarMultipartsCompleteError<ObjectStorageError> {
 }
 
 impl endpoints::CacheEndpoint for nar_multiparts_complete::Endpoint {
-    const PERMISSION: Permission = Permission::Write;
+    const PERMISSIONS: Permissions =
+        Permissions::new([Permission::PushToCache]);
 
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(async move |path, body| {

@@ -11,7 +11,14 @@ use nix_types::NixCacheInfo;
 use smol_str::SmolStr;
 
 use crate::api::endpoints::nix_cache_info;
-use crate::{CacheInfos, Cdn as _, Context, Permission, endpoints};
+use crate::{
+    CacheInfos,
+    Cdn as _,
+    Context,
+    Permission,
+    Permissions,
+    endpoints,
+};
 
 /// The response returned to GET requests to the Nix cache info route.
 struct NixCacheInfoResponse<Cdn: crate::Cdn> {
@@ -20,7 +27,8 @@ struct NixCacheInfoResponse<Cdn: crate::Cdn> {
 }
 
 impl endpoints::CacheEndpoint for nix_cache_info::Endpoint {
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSIONS: Permissions =
+        Permissions::new([Permission::PullFromCache]);
 
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(
