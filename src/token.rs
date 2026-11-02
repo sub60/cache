@@ -20,8 +20,12 @@ pub trait TokenFormat {
 ///
 /// It's sent over the wire in the text form given by a [`TokenFormat`].
 pub struct Token(
-    /// The first byte is the token's [`TokenKind`], and the rest are random.
-    [u8; 32],
+    /// The token's [`TokenKind`], then 20 random bytes, then a 4 byte
+    /// big-endian CRC32 checksum of both.
+    ///
+    /// 20 random bytes are the 160 bits RFC 6749 recommends. The checksum lets
+    /// tools like secret scanners tell tokens from random text offline.
+    [u8; 25],
 );
 
 /// What a [`Token`] authenticates.
@@ -42,7 +46,7 @@ pub struct TokenHash([u8; 32]);
 impl Token {
     /// Returns the token's bytes.
     #[inline]
-    pub fn as_bytes(&self) -> &[u8; 32] {
+    pub fn as_bytes(&self) -> &[u8; 25] {
         &self.0
     }
 
@@ -50,9 +54,9 @@ impl Token {
     ///
     /// Returns `None` if the bytes aren't a token's.
     #[inline]
-    pub fn from_bytes(bytes: [u8; 32]) -> Option<Self> {
+    pub fn from_bytes(bytes: [u8; 25]) -> Option<Self> {
         TokenKind::from_byte(bytes[0])?;
-        Some(Self(bytes))
+        (bytes[21..] == Self::checksum(&bytes)).then_some(Self(bytes))
     }
 
     /// Returns the token's hash.
@@ -67,12 +71,28 @@ impl Token {
         TokenKind::from_byte(self.0[0]).expect("checked on creation")
     }
 
+    /// Creates a token of the given kind from its random bytes.
+    #[inline]
+    pub fn new(kind: TokenKind, random: [u8; 20]) -> Self {
+        let mut bytes = [0; 25];
+        bytes[0] = kind as u8;
+        bytes[1..21].copy_from_slice(&random);
+        let checksum = Self::checksum(&bytes);
+        bytes[21..].copy_from_slice(&checksum);
+        Self(bytes)
+    }
+
     /// Creates a new random token of the given kind.
     pub(crate) fn generate(kind: TokenKind, rng: &mut impl CryptoRng) -> Self {
-        let mut bytes = [0; 32];
-        rng.fill_bytes(&mut bytes[1..]);
-        bytes[0] = kind as u8;
-        Self(bytes)
+        let mut random = [0; 20];
+        rng.fill_bytes(&mut random);
+        Self::new(kind, random)
+    }
+
+    /// Returns the checksum of the kind and random bytes of the given token
+    /// bytes.
+    fn checksum(bytes: &[u8; 25]) -> [u8; 4] {
+        crc32fast::hash(&bytes[..21]).to_be_bytes()
     }
 }
 
@@ -106,5 +126,31 @@ impl fmt::Debug for TokenHash {
         f.write_str("TokenHash(")?;
         self.0.iter().try_for_each(|byte| write!(f, "{byte:02x}"))?;
         f.write_str(")")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_bytes_accepts_new_tokens() {
+        for kind in [TokenKind::CiJob, TokenKind::Machine] {
+            let token = Token::new(kind, [7; 20]);
+            let parsed = Token::from_bytes(*token.as_bytes()).unwrap();
+            assert_eq!(parsed.as_bytes(), token.as_bytes());
+            assert_eq!(parsed.kind(), kind);
+        }
+    }
+
+    #[test]
+    fn from_bytes_rejects_changed_bytes() {
+        let bytes = *Token::new(TokenKind::Machine, [7; 20]).as_bytes();
+
+        for idx in 0..bytes.len() {
+            let mut changed = bytes;
+            changed[idx] ^= 1;
+            assert!(Token::from_bytes(changed).is_none(), "byte {idx}");
+        }
     }
 }

@@ -258,10 +258,9 @@ impl InMemoryCacheDb {
             },
         );
 
-        let mut bytes = [0; 32];
-        bytes[0] = TokenKind::CiJob as u8;
-        bytes[1..9].copy_from_slice(&num_tokens.to_le_bytes());
-        let token = Token::from_bytes(bytes).expect("valid token");
+        let mut random = [0; 20];
+        random[..8].copy_from_slice(&num_tokens.to_le_bytes());
+        let token = Token::new(TokenKind::CiJob, random);
 
         self.with_inner(|inner| {
             inner

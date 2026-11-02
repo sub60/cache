@@ -31,11 +31,11 @@ impl TokenFormat for TestTokenFormat {
     fn parse(&self, text: &str) -> Option<Token> {
         let hex = text.strip_prefix(Self::PREFIX)?;
 
-        if hex.len() != 64 || !hex.is_ascii() {
+        if hex.len() != 50 || !hex.is_ascii() {
             return None;
         }
 
-        let mut bytes = [0; 32];
+        let mut bytes = [0; 25];
 
         for (byte, chunk) in bytes.iter_mut().zip(hex.as_bytes().chunks(2)) {
             let chunk = str::from_utf8(chunk).ok()?;
