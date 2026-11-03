@@ -193,6 +193,31 @@ impl InMemoryCacheDb {
         })
     }
 
+    /// Sets what anyone can do to the given cache, with or without a token.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the cache does not exist.
+    #[track_caller]
+    pub(crate) fn set_public_permissions(
+        &mut self,
+        namespace: impl TryInto<NamespaceName, Error: fmt::Debug>,
+        name: impl TryInto<CacheName, Error: fmt::Debug>,
+        permissions: Permissions,
+    ) {
+        let namespace = namespace.try_into().expect("invalid namespace name");
+        let name = name.try_into().expect("invalid cache name");
+
+        self.with_inner(|inner| {
+            inner
+                .caches
+                .get_mut(&(namespace, name))
+                .expect("cache does not exist in cache database")
+                .infos
+                .public_permissions = permissions;
+        });
+    }
+
     /// Gives the CI jobs matching the grant access to the given cache.
     ///
     /// # Panics

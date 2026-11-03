@@ -19,10 +19,27 @@ pub struct Path {
     pub cache: CachePath,
 }
 
+/// The response to the endpoint's requests.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Response(pub NixCacheInfo<SmolStr>);
+
 impl crate::Endpoint for Endpoint {
     const METHOD: Method = Method::GET;
 
     type Path = Path;
     type Request = ();
-    type Response = NixCacheInfo<SmolStr>;
+    type Response = Response;
+}
+
+#[cfg(feature = "axum")]
+impl axum::response::IntoResponse for Response {
+    fn into_response(self) -> axum::response::Response {
+        use axum::http::{HeaderValue, header};
+
+        const CONTENT_TYPE: HeaderValue =
+            HeaderValue::from_static("text/x-nix-cache-info");
+
+        ([(header::CONTENT_TYPE, CONTENT_TYPE)], self.0.to_string())
+            .into_response()
+    }
 }

@@ -1,7 +1,6 @@
 //! TODO: docs.
 
 use core::fmt;
-use core::time::Duration;
 
 use axum::Extension;
 use axum::http::{HeaderValue, StatusCode, header};
@@ -11,8 +10,8 @@ use axum::routing::MethodRouter;
 use crate::api::endpoints::nar_get;
 use crate::context::NarStorageError;
 use crate::{
+    CacheControl as _,
     CacheInfos,
-    Cdn,
     Context,
     NarStorage,
     Permission,
@@ -55,29 +54,20 @@ async fn handler<Ctx: Context>(
         .await
         .map_err(NarGetRequestError::NarStorage)?
     else {
-        return Ok(nar_get::Response::NotFound.status_code().into_response());
+        return Ok((
+            ctx.cache_control().no_store(), // The NAR can be pushed at any moment.
+            nar_get::Response::NotFound.status_code(),
+        )
+            .into_response());
     };
-
-    // NARs are content-addressed, so the ones of public caches can be cached
-    // for a long time. The ones of private caches must never end up in a
-    // shared cache.
-    let cache_headers =
-        if cache_infos.public_permissions.contains(Permission::PullFromCache) {
-            ctx.cdn().cache_headers(Duration::from_days(365))
-        } else {
-            ctx.cdn().cache_headers_no_cache()
-        };
 
     let mut response = nar.into_response();
     *response.status_mut() = nar_get::Response::Found.status_code();
+    response.headers_mut().insert(header::CONTENT_TYPE, NAR_CONTENT_TYPE);
 
-    let headers = response.headers_mut();
-    headers.insert(header::CONTENT_TYPE, NAR_CONTENT_TYPE);
-    for (name, value) in cache_headers {
-        headers.insert(name, value);
-    }
+    let cache_control = ctx.cache_control().nar(cache_infos.public_permissions);
 
-    Ok(response)
+    Ok((cache_control, response).into_response())
 }
 
 impl<NarStorageError> NarGetRequestError<NarStorageError> {

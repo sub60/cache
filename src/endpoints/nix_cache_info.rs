@@ -1,30 +1,19 @@
 //! TODO: docs.
 
-use core::time::Duration;
-
 use axum::Extension;
-use axum::body::Body;
-use axum::http::{HeaderValue, header};
 use axum::response::IntoResponse;
 use axum::routing::MethodRouter;
 use nix_types::NixCacheInfo;
-use smol_str::SmolStr;
 
 use crate::api::endpoints::nix_cache_info;
 use crate::{
+    CacheControl as _,
     CacheInfos,
-    Cdn as _,
     Context,
     Permission,
     Permissions,
     endpoints,
 };
-
-/// The response returned to GET requests to the Nix cache info route.
-struct NixCacheInfoResponse<Cdn: crate::Cdn> {
-    nix_cache_info: NixCacheInfo<SmolStr>,
-    cache_headers: Cdn::CacheHeaders,
-}
 
 impl endpoints::CacheEndpoint for nix_cache_info::Endpoint {
     const PERMISSIONS: Permissions =
@@ -42,33 +31,15 @@ impl endpoints::CacheEndpoint for nix_cache_info::Endpoint {
 async fn handler<Ctx: Context>(
     cache_infos: CacheInfos,
     ctx: &mut Ctx,
-) -> NixCacheInfoResponse<Ctx::Cdn> {
-    NixCacheInfoResponse {
-        nix_cache_info: NixCacheInfo {
-            store_dir: cache_infos.store_dir,
-            want_mass_query: ctx.want_mass_query(),
-            priority: cache_infos.priority,
-        },
-        cache_headers: ctx.cdn().cache_headers(Duration::from_days(365)),
-    }
-}
+) -> impl IntoResponse + use<Ctx> {
+    let cache_control =
+        ctx.cache_control().nix_cache_info(cache_infos.public_permissions);
 
-impl<Cdn: crate::Cdn> NixCacheInfoResponse<Cdn> {
-    const CONTENT_TYPE: HeaderValue =
-        HeaderValue::from_static("text/x-nix-cache-info");
-}
+    let response = nix_cache_info::Response(NixCacheInfo {
+        store_dir: cache_infos.store_dir,
+        want_mass_query: ctx.want_mass_query(),
+        priority: cache_infos.priority,
+    });
 
-impl<Cdn: crate::Cdn> IntoResponse for NixCacheInfoResponse<Cdn> {
-    fn into_response(self) -> axum::response::Response {
-        let mut builder = axum::response::Response::builder()
-            .header(header::CONTENT_TYPE, Self::CONTENT_TYPE);
-
-        for (name, value) in self.cache_headers.into_iter() {
-            builder = builder.header(name, value);
-        }
-
-        builder
-            .body(Body::new(self.nix_cache_info.to_string()))
-            .expect("headers and body are valid")
-    }
+    (cache_control, response)
 }

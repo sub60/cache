@@ -6,6 +6,7 @@
 
 mod auth;
 mod cache_access;
+mod cache_control;
 mod common;
 mod multipart;
 mod nar_get;

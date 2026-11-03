@@ -3,8 +3,8 @@
 use rand_core::CryptoRng;
 
 use crate::{
+    CacheControl,
     CacheDb,
-    Cdn,
     Clock,
     NarInfoStorage,
     NarStorage,
@@ -27,11 +27,11 @@ pub(crate) type NarInfoStorageError<Ctx> =
 /// A trait whose associated types abstract over all the aspects of the cache
 /// server for which we want to have mockable implementations in tests.
 pub trait Context: Clone + Send + Sync + 'static {
+    /// The configured [`CacheControl`].
+    type CacheControl: CacheControl;
+
     /// The database storing all the caches' metadatas.
     type CacheDb: CacheDb;
-
-    /// The CDN that sits in front of the cache server.
-    type Cdn: Cdn;
 
     /// TODO: docs.
     type Clock: Clock;
@@ -52,11 +52,11 @@ pub trait Context: Clone + Send + Sync + 'static {
     /// The format of the tokens given to clients.
     type TokenFormat: TokenFormat;
 
+    /// Returns a reference to the cache control.
+    fn cache_control(&self) -> &Self::CacheControl;
+
     /// Returns a reference to the cache database.
     fn cache_db(&self) -> &Self::CacheDb;
-
-    /// Returns a reference to the CDN.
-    fn cdn(&self) -> &Self::Cdn;
 
     /// Returns a reference to the clock.
     fn clock(&self) -> &Self::Clock;

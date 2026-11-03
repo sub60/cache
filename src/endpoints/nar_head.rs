@@ -7,6 +7,7 @@ use axum::routing::MethodRouter;
 
 use crate::api::endpoints::nar_head;
 use crate::{
+    CacheControl as _,
     CacheInfos,
     Context,
     NarStorage,
@@ -32,7 +33,7 @@ async fn handler<Ctx: Context>(
     path: nar_head::Path,
     cache_infos: CacheInfos,
     ctx: &mut Ctx,
-) -> Result<StatusCode, impl IntoResponse + use<Ctx>> {
+) -> Result<impl IntoResponse + use<Ctx>, impl IntoResponse + use<Ctx>> {
     ctx.nar_storage()
         .contains(&cache_infos.id, &path.nar_file_name)
         .await
@@ -42,7 +43,8 @@ async fn handler<Ctx: Context>(
             } else {
                 nar_head::Response::NotFound
             };
-            response.status_code()
+            // Clients check whether NARs exist right before pushing them.
+            (ctx.cache_control().no_store(), response.status_code())
         })
         .map_err(|storage_err| {
             (StatusCode::INTERNAL_SERVER_ERROR, storage_err.to_string())

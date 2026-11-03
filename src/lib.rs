@@ -2,15 +2,14 @@
 
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
-#![feature(duration_constructors)]
 
 extern crate alloc;
 
 mod cache_access_layer;
+mod cache_control;
 mod cache_db;
 mod cache_id;
 mod cache_infos;
-mod cdn;
 mod ci_job;
 mod clock;
 mod commit_sha;
@@ -28,10 +27,10 @@ mod serde_utils;
 mod server_error_log_layer;
 mod token;
 
+pub use cache_control::CacheControl;
 pub use cache_db::CacheDb;
 pub use cache_id::{CacheId, CacheIdFromStrError};
 pub use cache_infos::CacheInfos;
-pub use cdn::Cdn;
 pub use ci_job::{CiJob, HostSoftware};
 pub use clock::Clock;
 pub use commit_sha::{CommitSha, CommitShaFromStrError};

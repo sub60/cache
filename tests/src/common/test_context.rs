@@ -6,11 +6,11 @@ use rand_core::UnwrapErr;
 use sub60_cache::{Context, TokenFormat};
 
 use crate::common::{
+    DefaultCacheControl,
     InMemoryCacheDb,
     InMemoryNarInfoStorage,
     InMemoryNarStorage,
     MockOidcVerifier,
-    NoOpCdn,
     SystemClock,
     TestTokenFormat,
 };
@@ -20,15 +20,15 @@ const NAR_STORAGE_PATH: &str = "/nars";
 /// The origin the server is reachable at in tests.
 pub const ORIGIN: &str = "https://cache.example.com";
 
-/// A [`Context`] with convenient generic defaults for testing.
+/// A [`Context`] for testing.
 ///
 /// Its [`InMemoryNarStorage`] serves the NARs it stores, so it can be
 /// converted into a [`Router`] by calling
 /// [`app_router()`](TestContext::app_router).
 #[derive(Clone)]
-pub struct TestContext<Cdn = NoOpCdn> {
+pub struct TestContext {
+    cache_control: DefaultCacheControl,
     cache_db: InMemoryCacheDb,
-    cdn: Cdn,
     clock: SystemClock,
     nar_storage: InMemoryNarStorage,
     narinfo_storage: InMemoryNarInfoStorage,
@@ -37,12 +37,9 @@ pub struct TestContext<Cdn = NoOpCdn> {
     want_mass_query: bool,
 }
 
-impl<Cdn> TestContext<Cdn> {
+impl TestContext {
     /// TODO: docs.
-    pub fn app_router(&self) -> Router
-    where
-        Self: Clone + Context,
-    {
+    pub fn app_router(&self) -> Router {
         let nar_storage = self.nar_storage.clone();
         sub60_cache::router(self.clone()).merge(nar_storage)
     }
@@ -73,8 +70,8 @@ impl<Cdn> TestContext<Cdn> {
 impl Default for TestContext {
     fn default() -> Self {
         Self {
+            cache_control: Default::default(),
             cache_db: Default::default(),
-            cdn: Default::default(),
             clock: Default::default(),
             nar_storage: InMemoryNarStorage::new(NAR_STORAGE_PATH),
             narinfo_storage: Default::default(),
@@ -85,12 +82,9 @@ impl Default for TestContext {
     }
 }
 
-impl<Cdn> Context for TestContext<Cdn>
-where
-    Cdn: sub60_cache::Cdn + Clone + Send + Sync + 'static,
-{
+impl Context for TestContext {
+    type CacheControl = DefaultCacheControl;
     type CacheDb = InMemoryCacheDb;
-    type Cdn = Cdn;
     type Clock = SystemClock;
     type NarInfoStorage = InMemoryNarInfoStorage;
     type NarStorage = InMemoryNarStorage;
@@ -98,11 +92,11 @@ where
     type Rng = UnwrapErr<SysRng>;
     type TokenFormat = TestTokenFormat;
 
+    fn cache_control(&self) -> &Self::CacheControl {
+        &self.cache_control
+    }
     fn cache_db(&self) -> &Self::CacheDb {
         &self.cache_db
-    }
-    fn cdn(&self) -> &Self::Cdn {
-        &self.cdn
     }
     fn clock(&self) -> &Self::Clock {
         &self.clock

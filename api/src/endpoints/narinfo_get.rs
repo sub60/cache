@@ -50,3 +50,25 @@ impl Response {
         }
     }
 }
+
+#[cfg(feature = "axum")]
+impl axum::response::IntoResponse for Response {
+    fn into_response(self) -> axum::response::Response {
+        use axum::http::{HeaderValue, header};
+
+        const CONTENT_TYPE: HeaderValue =
+            HeaderValue::from_static("text/x-nix-narinfo");
+
+        let status_code = self.status_code();
+
+        match self {
+            Self::Found(narinfo) => (
+                status_code,
+                [(header::CONTENT_TYPE, CONTENT_TYPE)],
+                narinfo.to_string(),
+            )
+                .into_response(),
+            Self::NotFound => status_code.into_response(),
+        }
+    }
+}
