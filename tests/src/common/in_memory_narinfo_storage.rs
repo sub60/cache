@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
 use nix_types::NarInfoFileName;
-use sub60_cache::{CacheId, NarInfoStorage};
+use sub60_cache::{CacheId, CacheInfos, NarInfoStorage};
 
 /// A [`NarInfoStorage`] that stores NARInfos in memory.
 #[derive(Clone, Default)]
@@ -28,22 +28,22 @@ impl NarInfoStorage for InMemoryNarInfoStorage {
 
     async fn get(
         &self,
-        cache_id: &CacheId,
+        cache: &CacheInfos,
         narinfo: &NarInfoFileName,
     ) -> Result<Option<Bytes>, Self::Error> {
         Ok(self.with_narinfos(|narinfos| {
-            narinfos.get(&(*cache_id, narinfo.clone())).cloned()
+            narinfos.get(&(cache.id, narinfo.clone())).cloned()
         }))
     }
 
     async fn insert(
         &self,
-        cache_id: &CacheId,
+        cache: &CacheInfos,
         narinfo: &NarInfoFileName,
         bytes: impl AsRef<[u8]>,
     ) -> Result<bool, Self::Error> {
         Ok(self.with_narinfos(|narinfos| {
-            let key = (*cache_id, narinfo.clone());
+            let key = (cache.id, narinfo.clone());
             if narinfos.contains_key(&key) {
                 return false;
             }

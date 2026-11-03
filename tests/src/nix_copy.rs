@@ -27,7 +27,7 @@ async fn copy_to_cache_mock() {
     assert!(
         test_ctx
             .narinfo_storage()
-            .get(&cache.id, &narinfo_key)
+            .get(&cache, &narinfo_key)
             .await
             .unwrap()
             .is_some()
@@ -60,7 +60,7 @@ async fn copy_to_cache_real() {
     assert!(
         test_ctx
             .narinfo_storage()
-            .get(&cache.id, &narinfo_key)
+            .get(&cache, &narinfo_key)
             .await
             .unwrap()
             .is_some()
@@ -88,7 +88,7 @@ async fn copy_from_cache_mock() {
     test_ctx.nar_storage().insert(&nar_key, nar_bytes);
     test_ctx
         .narinfo_storage()
-        .insert(&cache.id, &narinfo_key, narinfo.to_string())
+        .insert(&cache, &narinfo_key, narinfo.to_string())
         .await
         .unwrap();
 
@@ -130,7 +130,7 @@ async fn copy_from_cache_real() {
     test_ctx.nar_storage().insert(&nar_key, nar_bytes);
     test_ctx
         .narinfo_storage()
-        .insert(&cache.id, &narinfo_key, narinfo.to_string())
+        .insert(&cache, &narinfo_key, narinfo.to_string())
         .await
         .unwrap();
 

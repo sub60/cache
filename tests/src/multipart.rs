@@ -25,11 +25,11 @@ async fn completion_distinguishes_insert_from_race_loss() {
 
     let nar_storage = test_ctx.nar_storage().clone();
     let first_upload_id = nar_storage
-        .create_multipart_upload(&cache.id, &nar_file_name)
+        .create_multipart_upload(&cache, &nar_file_name)
         .await
         .unwrap();
     let second_upload_id = nar_storage
-        .create_multipart_upload(&cache.id, &nar_file_name)
+        .create_multipart_upload(&cache, &nar_file_name)
         .await
         .unwrap();
 
@@ -107,7 +107,7 @@ async fn completion_with_invalid_parts_is_bad_request() {
     // Create an upload without uploading any parts to it.
     let upload_id = test_ctx
         .nar_storage()
-        .create_multipart_upload(&cache.id, &nar_file_name)
+        .create_multipart_upload(&cache, &nar_file_name)
         .await
         .unwrap();
 

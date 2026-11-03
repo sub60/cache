@@ -35,7 +35,7 @@ async fn handler<Ctx: Context>(
     ctx: &mut Ctx,
 ) -> Result<impl IntoResponse + use<Ctx>, impl IntoResponse + use<Ctx>> {
     ctx.nar_storage()
-        .contains(&cache_infos.id, &path.nar_file_name)
+        .contains(&cache_infos, &path.nar_file_name)
         .await
         .map(|exists| {
             let response = if exists {

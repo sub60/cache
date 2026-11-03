@@ -55,7 +55,7 @@ async fn handler<Ctx: Context>(
     // NARs are content-addressed, so if one already exists with this file
     // name there's no need to upload it again.
     if nar_storage
-        .contains(&cache_infos.id, &nar_file_name)
+        .contains(&cache_infos, &nar_file_name)
         .await
         .map_err(NarMultipartsError::CheckNarExistence)?
     {
@@ -63,7 +63,7 @@ async fn handler<Ctx: Context>(
     }
 
     let upload_id = nar_storage
-        .create_multipart_upload(&cache_infos.id, &nar_file_name)
+        .create_multipart_upload(&cache_infos, &nar_file_name)
         .await
         .map_err(NarMultipartsError::CreateMultipartUpload)?;
 
@@ -75,7 +75,7 @@ async fn handler<Ctx: Context>(
         nar_storage
             .multipart_upload_part_url(
                 MultipartUpload {
-                    cache_id: &cache_infos.id,
+                    cache: &cache_infos,
                     nar: &nar_file_name,
                     id: &upload_id,
                 },

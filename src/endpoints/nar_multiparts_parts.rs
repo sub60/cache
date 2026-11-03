@@ -53,7 +53,7 @@ async fn handler<Ctx: Context>(
             nar_storage
                 .multipart_upload_part_url(
                     MultipartUpload {
-                        cache_id: &cache_infos.id,
+                        cache: &cache_infos,
                         nar: &body.nar_file_name,
                         id: &path.upload_id,
                     },

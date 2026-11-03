@@ -119,7 +119,7 @@ async fn handler<Ctx: Context>(
 
     if !ctx
         .nar_storage()
-        .contains(&cache_infos.id, &nar_file_name)
+        .contains(&cache_infos, &nar_file_name)
         .await
         .map_err(NarInfoPutRequestError::CheckNarExistence)?
     {
@@ -128,7 +128,7 @@ async fn handler<Ctx: Context>(
 
     match ctx
         .narinfo_storage()
-        .insert(&cache_infos.id, &path.narinfo_file_name, narinfo.to_string())
+        .insert(&cache_infos, &path.narinfo_file_name, narinfo.to_string())
         .await
     {
         Ok(true) => Ok(narinfo_put::Response::Created),

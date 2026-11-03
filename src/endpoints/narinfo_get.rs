@@ -69,7 +69,7 @@ async fn handler<Ctx: Context>(
 > {
     let Some(narinfo_bytes) = ctx
         .narinfo_storage()
-        .get(&cache_infos.id, &path.narinfo_file_name)
+        .get(&cache_infos, &path.narinfo_file_name)
         .await
         .map_err(NarInfoGetResponseError::GetNarInfo)?
     else {

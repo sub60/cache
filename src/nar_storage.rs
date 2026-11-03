@@ -9,8 +9,8 @@ use core::time::Duration;
 use axum::response::IntoResponse;
 use nix_types::NarFileName;
 
+use crate::CacheInfos;
 use crate::api::Etag;
-use crate::{CacheId, CacheInfos};
 
 /// The storage of NARs.
 pub trait NarStorage: Sync {
@@ -51,7 +51,7 @@ pub trait NarStorage: Sync {
     /// Returns whether the given NAR of the given cache is stored.
     fn contains(
         &self,
-        cache_id: &CacheId,
+        cache: &CacheInfos,
         nar: &NarFileName,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
@@ -64,7 +64,7 @@ pub trait NarStorage: Sync {
     /// after some time.
     fn create_multipart_upload(
         &self,
-        cache_id: &CacheId,
+        cache: &CacheInfos,
         nar: &NarFileName,
     ) -> impl Future<Output = Result<Self::MultipartUploadId, Self::Error>> + Send;
 
@@ -87,7 +87,7 @@ pub trait NarStorage: Sync {
     /// endpoint can always return `None`.
     fn get(
         &self,
-        cache_id: &CacheId,
+        cache: &CacheInfos,
         nar: &NarFileName,
     ) -> impl Future<
         Output = Result<Option<impl IntoResponse + Send>, Self::Error>,
@@ -112,17 +112,16 @@ pub trait NarStorage: Sync {
     /// single request, valid for at least `min_ttl`.
     fn upload_url(
         &self,
-        cache_id: &CacheId,
+        cache: &CacheInfos,
         nar: &NarFileName,
         min_ttl: Duration,
     ) -> impl AsRef<str>;
 }
 
 /// A multipart upload of a NAR of a cache.
-#[derive(Debug)]
 pub struct MultipartUpload<'a, UploadId> {
-    /// The ID of the cache the NAR is uploaded to.
-    pub cache_id: &'a CacheId,
+    /// The cache the NAR is uploaded to.
+    pub cache: &'a CacheInfos,
 
     /// The NAR being uploaded.
     pub nar: &'a NarFileName,
@@ -138,6 +137,16 @@ impl<UploadId> Clone for MultipartUpload<'_, UploadId> {
 }
 
 impl<UploadId> Copy for MultipartUpload<'_, UploadId> {}
+
+impl<UploadId: fmt::Debug> fmt::Debug for MultipartUpload<'_, UploadId> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MultipartUpload")
+            .field("cache", &self.cache.id)
+            .field("nar", &self.nar)
+            .field("id", &self.id)
+            .finish()
+    }
+}
 
 /// The type of error returned by
 /// [`NarStorage::complete_multipart_upload()`].

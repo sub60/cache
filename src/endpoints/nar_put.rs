@@ -48,14 +48,14 @@ async fn handler<Ctx: Context>(
     let nar_storage = ctx.nar_storage();
 
     if nar_storage
-        .contains(&cache_infos.id, &path.nar_file_name)
+        .contains(&cache_infos, &path.nar_file_name)
         .await
         .map_err(NarPutRequestError::NarStorage)?
     {
         Ok(nar_put::Response::AlreadyExists)
     } else {
         let nar_url = nar_storage.upload_url(
-            &cache_infos.id,
+            &cache_infos,
             &path.nar_file_name,
             Duration::from_mins(10),
         );

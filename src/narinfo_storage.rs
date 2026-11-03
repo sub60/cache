@@ -4,7 +4,7 @@ use core::error::Error;
 
 use nix_types::NarInfoFileName;
 
-use crate::CacheId;
+use crate::CacheInfos;
 
 /// The storage of the caches' NARInfos.
 pub trait NarInfoStorage: Sync {
@@ -14,7 +14,7 @@ pub trait NarInfoStorage: Sync {
     /// Returns the given NARInfo of the given cache, if it's stored.
     fn get(
         &self,
-        cache_id: &CacheId,
+        cache: &CacheInfos,
         narinfo: &NarInfoFileName,
     ) -> impl Future<
         Output = Result<Option<impl AsRef<[u8]> + Send>, Self::Error>,
@@ -27,7 +27,7 @@ pub trait NarInfoStorage: Sync {
     /// already had one.
     fn insert(
         &self,
-        cache_id: &CacheId,
+        cache: &CacheInfos,
         narinfo: &NarInfoFileName,
         bytes: impl AsRef<[u8]> + Send,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;

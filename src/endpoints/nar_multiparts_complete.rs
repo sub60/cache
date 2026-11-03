@@ -71,7 +71,7 @@ async fn handler<Ctx: Context>(
     }
 
     let upload = MultipartUpload {
-        cache_id: &cache_infos.id,
+        cache: &cache_infos,
         nar: &body.nar_file_name,
         id: &path.upload_id,
     };

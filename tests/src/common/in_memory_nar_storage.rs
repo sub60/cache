@@ -13,7 +13,6 @@ use axum::routing::{get, put};
 use nix_types::NarFileName;
 use sub60_cache::api::Etag;
 use sub60_cache::{
-    CacheId,
     CacheInfos,
     CompleteMultipartUploadError,
     MultipartUpload,
@@ -282,7 +281,7 @@ impl NarStorage for InMemoryNarStorage {
 
     async fn contains(
         &self,
-        _cache_id: &CacheId,
+        _cache: &CacheInfos,
         nar: &NarFileName,
     ) -> Result<bool, Self::Error> {
         Ok(self.with_inner(|inner| inner.nars.contains_key(nar)))
@@ -290,7 +289,7 @@ impl NarStorage for InMemoryNarStorage {
 
     async fn create_multipart_upload(
         &self,
-        _cache_id: &CacheId,
+        _cache: &CacheInfos,
         nar: &NarFileName,
     ) -> Result<Self::MultipartUploadId, Self::Error> {
         Ok(self.with_inner(|inner| {
@@ -314,7 +313,7 @@ impl NarStorage for InMemoryNarStorage {
 
     async fn get(
         &self,
-        _cache_id: &CacheId,
+        _cache: &CacheInfos,
         nar: &NarFileName,
     ) -> Result<Option<Bytes>, Self::Error> {
         Ok(self.with_inner(|inner| inner.nars.get(nar).cloned()))
@@ -342,7 +341,7 @@ impl NarStorage for InMemoryNarStorage {
 
     fn upload_url(
         &self,
-        _cache_id: &CacheId,
+        _cache: &CacheInfos,
         nar: &NarFileName,
         _min_ttl: Duration,
     ) -> impl AsRef<str> {
