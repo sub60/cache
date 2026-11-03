@@ -6,10 +6,11 @@ use core::num::{NonZeroU16, NonZeroU32};
 use core::str::FromStr;
 use core::time::Duration;
 
+use axum::response::IntoResponse;
 use nix_types::NarFileName;
 
-use crate::CacheId;
 use crate::api::Etag;
+use crate::{CacheId, CacheInfos};
 
 /// The storage of NARs.
 pub trait NarStorage: Sync {
@@ -69,12 +70,28 @@ pub trait NarStorage: Sync {
 
     /// Returns the URL clients download the given NAR of the given cache from.
     ///
-    /// It's the `URL` field of the NARInfos served to clients.
+    /// It's the `URL` field of the NARInfos served to clients, so it can also
+    /// be relative to the cache's URL. In particular, `nar/{nar}` points to
+    /// the cache's NAR endpoint, which serves the NARs returned by
+    /// [`Self::get()`].
     fn download_url(
+        &self,
+        cache: &CacheInfos,
+        nar: &NarFileName,
+    ) -> impl AsRef<str>;
+
+    /// Returns the response with which the cache's NAR endpoint serves the
+    /// given NAR of the given cache, or `None` if the NAR isn't stored.
+    ///
+    /// Implementors whose [`Self::download_url()`] never points to the NAR
+    /// endpoint can always return `None`.
+    fn get(
         &self,
         cache_id: &CacheId,
         nar: &NarFileName,
-    ) -> impl AsRef<str>;
+    ) -> impl Future<
+        Output = Result<Option<impl IntoResponse + Send>, Self::Error>,
+    > + Send;
 
     /// Returns the maximum number of parts supported by multipart uploads.
     fn max_multipart_parts(&self) -> Option<usize>;

@@ -105,8 +105,7 @@ async fn handler<Ctx: Context>(
 
     let nar_filename = NarFileName::from(&narinfo_without_url);
 
-    let nar_url =
-        ctx.nar_storage().download_url(&cache_infos.id, &nar_filename);
+    let nar_url = ctx.nar_storage().download_url(&cache_infos, &nar_filename);
 
     Ok(NarInfoGetHttpResponse {
         response: narinfo_get::Response::Found(

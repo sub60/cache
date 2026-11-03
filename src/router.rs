@@ -9,6 +9,7 @@ pub fn router(ctx: impl Context) -> Router {
     Router::new()
         .endpoint::<api::auth_github_actions::Endpoint>(ctx.clone())
         // Standard routes needed to support the Nix CLI client.
+        .endpoint::<api::nar_get::Endpoint>(ctx.clone())
         .endpoint::<api::nar_head::Endpoint>(ctx.clone())
         .endpoint::<api::nar_put::Endpoint>(ctx.clone())
         .endpoint::<api::narinfo_get::Endpoint>(ctx.clone())

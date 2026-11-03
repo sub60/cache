@@ -135,6 +135,10 @@ impl InMemoryCacheDb {
             let cache_infos = CacheInfos {
                 id: CacheId::new(Duration::ZERO, [seed; 10]),
                 priority: 40,
+                // All the caches are public, so anyone can pull from them.
+                public_permissions: Permissions::new([
+                    Permission::PullFromCache,
+                ]),
                 signing_key: inner
                     .new_signing_key(&namespace_and_name, signing_key_version),
                 store_dir: "/nix/store".into(),
@@ -299,10 +303,6 @@ impl CacheDb for InMemoryCacheDb {
         token: Option<Token>,
         now: Duration,
     ) -> Result<CacheInfos, Self::Error> {
-        // All the caches are public, so anyone can pull from them.
-        const PUBLIC: Permissions =
-            Permissions::new([Permission::PullFromCache]);
-
         self.with_inner(|inner| {
             let key = (cache.namespace.clone(), cache.cache.clone());
 
@@ -311,7 +311,11 @@ impl CacheDb for InMemoryCacheDb {
 
             let token = match token {
                 Some(token) => token,
-                None if PUBLIC.contains_all(permissions) => {
+                None if entry
+                    .infos
+                    .public_permissions
+                    .contains_all(permissions) =>
+                {
                     return Ok(entry.infos.clone());
                 },
                 None => return Err(CacheAccessDenied::Unauthorized),
@@ -332,7 +336,7 @@ impl CacheDb for InMemoryCacheDb {
                 .filter(|(granted, grant)| {
                     *granted == key && grant.matches(job)
                 })
-                .fold(PUBLIC, |granted, (_, grant)| {
+                .fold(entry.infos.public_permissions, |granted, (_, grant)| {
                     granted | grant.permissions
                 });
 

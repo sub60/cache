@@ -14,6 +14,7 @@ use nix_types::NarFileName;
 use sub60_cache::api::Etag;
 use sub60_cache::{
     CacheId,
+    CacheInfos,
     CompleteMultipartUploadError,
     MultipartUpload,
     NarStorage,
@@ -305,10 +306,18 @@ impl NarStorage for InMemoryNarStorage {
 
     fn download_url(
         &self,
-        _cache_id: &CacheId,
+        _cache: &CacheInfos,
         nar: &NarFileName,
     ) -> impl AsRef<str> {
         self.nar_url(nar)
+    }
+
+    async fn get(
+        &self,
+        _cache_id: &CacheId,
+        nar: &NarFileName,
+    ) -> Result<Option<Bytes>, Self::Error> {
+        Ok(self.with_inner(|inner| inner.nars.get(nar).cloned()))
     }
 
     fn max_multipart_parts(&self) -> Option<usize> {

@@ -8,6 +8,7 @@ mod auth;
 mod cache_access;
 mod common;
 mod multipart;
+mod nar_get;
 mod narinfo;
 mod nix_copy;
 
