@@ -32,10 +32,7 @@ pub trait CacheControl {
     /// Returns the `Cache-Control` header of a NAR of a cache with the given
     /// public permissions.
     #[doc(hidden)]
-    fn nar(
-        &self,
-        public_permissions: Permissions,
-    ) -> impl IntoResponseParts<Error = Infallible> + Send + use<Self> {
+    fn nar(&self, public_permissions: Permissions) -> Header {
         // NARs are content-addressed, so they never change.
         Header::new(self.nar_max_age(), true, public_permissions)
     }
@@ -43,35 +40,28 @@ pub trait CacheControl {
     /// Returns the `Cache-Control` header of a NARInfo of a cache with the
     /// given public permissions.
     #[doc(hidden)]
-    fn narinfo(
-        &self,
-        public_permissions: Permissions,
-    ) -> impl IntoResponseParts<Error = Infallible> + Send + use<Self> {
+    fn narinfo(&self, public_permissions: Permissions) -> Header {
         Header::new(self.narinfo_max_age(), false, public_permissions)
     }
 
     /// Returns the `Cache-Control` header of the `nix-cache-info` of a cache
     /// with the given public permissions.
     #[doc(hidden)]
-    fn nix_cache_info(
-        &self,
-        public_permissions: Permissions,
-    ) -> impl IntoResponseParts<Error = Infallible> + Send + use<Self> {
+    fn nix_cache_info(&self, public_permissions: Permissions) -> Header {
         Header::new(self.nix_cache_info_max_age(), false, public_permissions)
     }
 
     /// Returns the `Cache-Control` header of a response that can change at any
     /// moment, e.g. a 404, which must never be stored.
     #[doc(hidden)]
-    fn no_store(
-        &self,
-    ) -> impl IntoResponseParts<Error = Infallible> + Send + use<Self> {
+    fn no_store(&self) -> Header {
         NO_STORE
     }
 }
 
 /// A `Cache-Control` header.
-struct Header(HeaderValue);
+#[doc(hidden)]
+pub struct Header(HeaderValue);
 
 impl Header {
     /// Returns the header of a response that doesn't change for the given

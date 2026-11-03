@@ -46,8 +46,10 @@ async fn handler<Ctx: Context>(
     path: nar_get::Path,
     cache_infos: CacheInfos,
     ctx: &mut Ctx,
-) -> Result<axum::response::Response, NarGetRequestError<NarStorageError<Ctx>>>
-{
+) -> Result<
+    impl IntoResponse + use<Ctx>,
+    NarGetRequestError<NarStorageError<Ctx>>,
+> {
     let Some(nar) = ctx
         .nar_storage()
         .get(&cache_infos.id, &path.nar_file_name)
@@ -56,9 +58,8 @@ async fn handler<Ctx: Context>(
     else {
         return Ok((
             ctx.cache_control().no_store(), // The NAR can be pushed at any moment.
-            nar_get::Response::NotFound.status_code(),
-        )
-            .into_response());
+            nar_get::Response::NotFound.status_code().into_response(),
+        ));
     };
 
     let mut response = nar.into_response();
@@ -67,7 +68,7 @@ async fn handler<Ctx: Context>(
 
     let cache_control = ctx.cache_control().nar(cache_infos.public_permissions);
 
-    Ok((cache_control, response).into_response())
+    Ok((cache_control, response))
 }
 
 impl<NarStorageError> NarGetRequestError<NarStorageError> {

@@ -64,7 +64,7 @@ async fn handler<Ctx: Context>(
     cache_infos: CacheInfos,
     ctx: &mut Ctx,
 ) -> Result<
-    axum::response::Response,
+    impl IntoResponse + use<Ctx>,
     NarInfoGetResponseError<NarInfoStorageError<Ctx>>,
 > {
     let Some(narinfo_bytes) = ctx
@@ -76,8 +76,7 @@ async fn handler<Ctx: Context>(
         return Ok((
             ctx.cache_control().no_store(), // The NARInfo can be pushed at any moment.
             narinfo_get::Response::NotFound,
-        )
-            .into_response());
+        ));
     };
 
     let mut narinfo_without_url = str::from_utf8(narinfo_bytes.as_ref())
@@ -103,7 +102,7 @@ async fn handler<Ctx: Context>(
         narinfo_without_url.with_url(nar_url.as_ref().to_owned()),
     );
 
-    Ok((cache_control, response).into_response())
+    Ok((cache_control, response))
 }
 
 impl<NarInfoStorageError> NarInfoGetResponseError<NarInfoStorageError> {
