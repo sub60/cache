@@ -33,7 +33,7 @@ async fn handler<Ctx: Context>(
     ctx: &mut Ctx,
 ) -> impl IntoResponse + use<Ctx> {
     let cache_control =
-        ctx.cache_control().nix_cache_info(cache_infos.public_permissions);
+        ctx.cache_control().for_nix_cache_info(cache_infos.public_permissions);
 
     let response = nix_cache_info::Response(NixCacheInfo {
         store_dir: cache_infos.store_dir,

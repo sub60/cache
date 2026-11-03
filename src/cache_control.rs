@@ -32,7 +32,7 @@ pub trait CacheControl {
     /// Returns the `Cache-Control` header of a NAR of a cache with the given
     /// public permissions.
     #[doc(hidden)]
-    fn nar(&self, public_permissions: Permissions) -> Header {
+    fn for_nar(&self, public_permissions: Permissions) -> Header {
         // NARs are content-addressed, so they never change.
         Header::new(self.nar_max_age(), true, public_permissions)
     }
@@ -40,14 +40,14 @@ pub trait CacheControl {
     /// Returns the `Cache-Control` header of a NARInfo of a cache with the
     /// given public permissions.
     #[doc(hidden)]
-    fn narinfo(&self, public_permissions: Permissions) -> Header {
+    fn for_narinfo(&self, public_permissions: Permissions) -> Header {
         Header::new(self.narinfo_max_age(), false, public_permissions)
     }
 
     /// Returns the `Cache-Control` header of the `nix-cache-info` of a cache
     /// with the given public permissions.
     #[doc(hidden)]
-    fn nix_cache_info(&self, public_permissions: Permissions) -> Header {
+    fn for_nix_cache_info(&self, public_permissions: Permissions) -> Header {
         Header::new(self.nix_cache_info_max_age(), false, public_permissions)
     }
 

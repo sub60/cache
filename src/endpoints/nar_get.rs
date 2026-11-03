@@ -66,7 +66,8 @@ async fn handler<Ctx: Context>(
     *response.status_mut() = nar_get::Response::Found.status_code();
     response.headers_mut().insert(header::CONTENT_TYPE, NAR_CONTENT_TYPE);
 
-    let cache_control = ctx.cache_control().nar(cache_infos.public_permissions);
+    let cache_control =
+        ctx.cache_control().for_nar(cache_infos.public_permissions);
 
     Ok((cache_control, response))
 }

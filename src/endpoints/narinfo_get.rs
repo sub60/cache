@@ -96,7 +96,7 @@ async fn handler<Ctx: Context>(
     let nar_url = ctx.nar_storage().download_url(&cache_infos, &nar_filename);
 
     let cache_control =
-        ctx.cache_control().narinfo(cache_infos.public_permissions);
+        ctx.cache_control().for_narinfo(cache_infos.public_permissions);
 
     let response = narinfo_get::Response::Found(
         narinfo_without_url.with_url(nar_url.as_ref().to_owned()),
