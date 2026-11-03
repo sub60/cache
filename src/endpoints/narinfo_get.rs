@@ -6,21 +6,20 @@ use core::{fmt, str};
 
 use axum::Extension;
 use axum::body::Body;
-use axum::http::{self, HeaderValue, StatusCode, header};
+use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::IntoResponse;
 use axum::routing::MethodRouter;
 use compact_str::{CompactString, format_compact};
 use nix_types::{NarFileName, NarInfo, NarInfoFromStrError};
 
 use crate::api::endpoints::narinfo_get;
-use crate::context::ObjectStorageError;
-use crate::object_gateway::{ObjectGateway, ObjectUrlRequest};
+use crate::context::NarInfoStorageError;
 use crate::{
     CacheInfos,
     Cdn,
     Context,
-    ObjectStorage,
-    ObjectStorageKey,
+    NarInfoStorage,
+    NarStorage,
     Permission,
     Permissions,
     endpoints,
@@ -41,17 +40,17 @@ struct NarInfoGetHttpResponse<Cdn: crate::Cdn> {
 #[derive(
     Debug, PartialEq, Eq, derive_more::Display, cauchy::Error, cauchy::From,
 )]
-enum NarInfoGetResponseError<ObjectStorageError> {
-    /// The NARInfo couldn't be retrieved from the object storage.
-    GetNarInfo(ObjectStorageError),
+enum NarInfoGetResponseError<NarInfoStorageError> {
+    /// The NARInfo couldn't be retrieved from the NARInfo storage.
+    GetNarInfo(NarInfoStorageError),
 
-    /// The NARInfo bytes retrieved from the object storage were not valid
+    /// The NARInfo bytes retrieved from the NARInfo storage were not valid
     /// UTF-8. This should basically never happen unless there's some kind of
-    /// data corruption in the object storage or in the transport between the
-    /// object storage and this service.
+    /// data corruption in the NARInfo storage or in the transport between the
+    /// NARInfo storage and this service.
     NarInfoNotUtf8(str::Utf8Error),
 
-    /// The NARInfo string retrieved from the object storage did not parse back
+    /// The NARInfo string retrieved from the NARInfo storage did not parse back
     /// into a valid [`NarInfo`]. Like the [`NarInfoNotUtf8`] error, this should
     /// also never happen unless the data is corrupted in some way.
     ParseNarInfo(#[from] NarInfoFromStrError<<EmptyString as FromStr>::Err>),
@@ -78,15 +77,11 @@ async fn handler<Ctx: Context>(
     ctx: &mut Ctx,
 ) -> Result<
     NarInfoGetHttpResponse<Ctx::Cdn>,
-    NarInfoGetResponseError<ObjectStorageError<Ctx>>,
+    NarInfoGetResponseError<NarInfoStorageError<Ctx>>,
 > {
-    let object_storage = ctx.object_storage();
-
-    let Some(narinfo_bytes) = object_storage
-        .get(ObjectStorageKey::NarInfo(
-            &cache_infos.id,
-            &path.narinfo_file_name,
-        ))
+    let Some(narinfo_bytes) = ctx
+        .narinfo_storage()
+        .get(&cache_infos.id, &path.narinfo_file_name)
         .await
         .map_err(NarInfoGetResponseError::GetNarInfo)?
     else {
@@ -110,11 +105,8 @@ async fn handler<Ctx: Context>(
 
     let nar_filename = NarFileName::from(&narinfo_without_url);
 
-    let nar_url = ctx.object_gateway().object_url(ObjectUrlRequest {
-        key: ObjectStorageKey::Nar(&nar_filename),
-        method: http::Method::GET,
-        min_ttl: Duration::from_hours(1),
-    });
+    let nar_url =
+        ctx.nar_storage().download_url(&cache_infos.id, &nar_filename);
 
     Ok(NarInfoGetHttpResponse {
         response: narinfo_get::Response::Found(
@@ -126,7 +118,7 @@ async fn handler<Ctx: Context>(
     })
 }
 
-impl<ObjectStorageError> NarInfoGetResponseError<ObjectStorageError> {
+impl<NarInfoStorageError> NarInfoGetResponseError<NarInfoStorageError> {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::GetNarInfo(_)
@@ -158,8 +150,8 @@ impl<Cdn: crate::Cdn> IntoResponse for NarInfoGetHttpResponse<Cdn> {
     }
 }
 
-impl<ObjectStorageError: fmt::Display> IntoResponse
-    for NarInfoGetResponseError<ObjectStorageError>
+impl<NarInfoStorageError: fmt::Display> IntoResponse
+    for NarInfoGetResponseError<NarInfoStorageError>
 {
     fn into_response(self) -> axum::response::Response {
         (self.status_code(), self.to_string()).into_response()

@@ -6,19 +6,23 @@ use crate::{
     CacheDb,
     Cdn,
     Clock,
-    ObjectGateway,
-    ObjectStorage,
+    NarInfoStorage,
+    NarStorage,
     OidcVerifier,
     TokenFormat,
 };
 
 /// TODO: docs.
 pub(crate) type MultipartUploadId<Ctx> =
-    <<<Ctx as Context>::ObjectGateway as ObjectGateway>::Storage as ObjectStorage>::MultipartUploadId;
+    <<Ctx as Context>::NarStorage as NarStorage>::MultipartUploadId;
 
-/// TODO: docs.
-pub(crate) type ObjectStorageError<Ctx> =
-    <<<Ctx as Context>::ObjectGateway as ObjectGateway>::Storage as ObjectStorage>::Error;
+/// The type of error returned by the context's [`NarStorage`].
+pub(crate) type NarStorageError<Ctx> =
+    <<Ctx as Context>::NarStorage as NarStorage>::Error;
+
+/// The type of error returned by the context's [`NarInfoStorage`].
+pub(crate) type NarInfoStorageError<Ctx> =
+    <<Ctx as Context>::NarInfoStorage as NarInfoStorage>::Error;
 
 /// A trait whose associated types abstract over all the aspects of the cache
 /// server for which we want to have mockable implementations in tests.
@@ -32,8 +36,11 @@ pub trait Context: Clone + Send + Sync + 'static {
     /// TODO: docs.
     type Clock: Clock;
 
-    /// The gateway to the object storage that holds the NARs and NARInfos.
-    type ObjectGateway: ObjectGateway;
+    /// The storage of the caches' NARInfos.
+    type NarInfoStorage: NarInfoStorage;
+
+    /// The storage of the caches' NARs.
+    type NarStorage: NarStorage;
 
     /// The verifier of the signatures of the OIDC tokens CI jobs exchange for
     /// tokens.
@@ -54,8 +61,11 @@ pub trait Context: Clone + Send + Sync + 'static {
     /// Returns a reference to the clock.
     fn clock(&self) -> &Self::Clock;
 
-    /// Returns a reference to the object gateway.
-    fn object_gateway(&self) -> &Self::ObjectGateway;
+    /// Returns a reference to the NAR storage.
+    fn nar_storage(&self) -> &Self::NarStorage;
+
+    /// Returns a reference to the NARInfo storage.
+    fn narinfo_storage(&self) -> &Self::NarInfoStorage;
 
     /// Returns a reference to the OIDC verifier.
     fn oidc_verifier(&self) -> &Self::OidcVerifier;
@@ -72,13 +82,6 @@ pub trait Context: Clone + Send + Sync + 'static {
 
     /// Returns a reference to the token format.
     fn token_format(&self) -> &Self::TokenFormat;
-
-    /// Returns a reference to the object storage.
-    fn object_storage(
-        &self,
-    ) -> &<Self::ObjectGateway as ObjectGateway>::Storage {
-        self.object_gateway().storage()
-    }
 
     /// TODO: docs.
     fn want_mass_query(&self) -> bool {

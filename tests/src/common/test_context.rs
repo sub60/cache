@@ -1,52 +1,50 @@
-use core::fmt;
 use core::time::Duration;
 
 use axum::Router;
 use getrandom::SysRng;
 use rand_core::UnwrapErr;
-use sub60_cache::{Context, ObjectStorage, TokenFormat};
+use sub60_cache::{Context, TokenFormat};
 
 use crate::common::{
     InMemoryCacheDb,
-    InMemoryObjectStorage,
-    IntoRouterObjectGateway,
+    InMemoryNarInfoStorage,
+    InMemoryNarStorage,
     MockOidcVerifier,
     NoOpCdn,
     SystemClock,
     TestTokenFormat,
 };
 
-const OBJECT_GATEWAY_PATH: &str = "/objects";
+const NAR_STORAGE_PATH: &str = "/nars";
 
 /// The origin the server is reachable at in tests.
 pub const ORIGIN: &str = "https://cache.example.com";
 
 /// A [`Context`] with convenient generic defaults for testing.
 ///
-/// It always uses a [`IntoRouterObjectGateway`] to serve objects from the
-/// configured object storage, so it can be converted into a [`Router`] by
-/// calling [`app_router()`](TestContext::app_router).
+/// Its [`InMemoryNarStorage`] serves the NARs it stores, so it can be
+/// converted into a [`Router`] by calling
+/// [`app_router()`](TestContext::app_router).
 #[derive(Clone)]
-pub struct TestContext<Cdn = NoOpCdn, ObjStorage = InMemoryObjectStorage> {
+pub struct TestContext<Cdn = NoOpCdn> {
     cache_db: InMemoryCacheDb,
     cdn: Cdn,
     clock: SystemClock,
-    object_gateway: IntoRouterObjectGateway<ObjStorage>,
+    nar_storage: InMemoryNarStorage,
+    narinfo_storage: InMemoryNarInfoStorage,
     oidc_verifier: MockOidcVerifier,
     token_format: TestTokenFormat,
     want_mass_query: bool,
 }
 
-impl<Cdn, ObjStorage> TestContext<Cdn, ObjStorage> {
+impl<Cdn> TestContext<Cdn> {
     /// TODO: docs.
     pub fn app_router(&self) -> Router
     where
-        ObjStorage: Clone,
-        IntoRouterObjectGateway<ObjStorage>: Into<Router>,
         Self: Clone + Context,
     {
-        let object_gateway = self.object_gateway.clone();
-        sub60_cache::router(self.clone()).merge(object_gateway)
+        let nar_storage = self.nar_storage.clone();
+        sub60_cache::router(self.clone()).merge(nar_storage)
     }
 
     /// TODO: docs.
@@ -78,10 +76,8 @@ impl Default for TestContext {
             cache_db: Default::default(),
             cdn: Default::default(),
             clock: Default::default(),
-            object_gateway: IntoRouterObjectGateway::new(
-                OBJECT_GATEWAY_PATH,
-                Default::default(),
-            ),
+            nar_storage: InMemoryNarStorage::new(NAR_STORAGE_PATH),
+            narinfo_storage: Default::default(),
             oidc_verifier: Default::default(),
             token_format: Default::default(),
             want_mass_query: true,
@@ -89,16 +85,15 @@ impl Default for TestContext {
     }
 }
 
-impl<Cdn, ObjStorage> Context for TestContext<Cdn, ObjStorage>
+impl<Cdn> Context for TestContext<Cdn>
 where
     Cdn: sub60_cache::Cdn + Clone + Send + Sync + 'static,
-    ObjStorage: ObjectStorage + Clone + Send + Sync + 'static,
-    ObjStorage::MultipartUploadId: fmt::Display,
 {
     type CacheDb = InMemoryCacheDb;
     type Cdn = Cdn;
     type Clock = SystemClock;
-    type ObjectGateway = IntoRouterObjectGateway<ObjStorage>;
+    type NarInfoStorage = InMemoryNarInfoStorage;
+    type NarStorage = InMemoryNarStorage;
     type OidcVerifier = MockOidcVerifier;
     type Rng = UnwrapErr<SysRng>;
     type TokenFormat = TestTokenFormat;
@@ -112,8 +107,11 @@ where
     fn clock(&self) -> &Self::Clock {
         &self.clock
     }
-    fn object_gateway(&self) -> &Self::ObjectGateway {
-        &self.object_gateway
+    fn nar_storage(&self) -> &Self::NarStorage {
+        &self.nar_storage
+    }
+    fn narinfo_storage(&self) -> &Self::NarInfoStorage {
+        &self.narinfo_storage
     }
     fn oidc_verifier(&self) -> &Self::OidcVerifier {
         &self.oidc_verifier

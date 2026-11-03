@@ -4,6 +4,7 @@ use core::num::NonZeroU16;
 use core::time::Duration;
 use core::{array, fmt};
 
+use axum::Extension;
 use axum::body::Body;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -11,24 +12,23 @@ use axum::routing::MethodRouter;
 use nix_types::NarFileName;
 
 use crate::api::endpoints::nar_multiparts;
-use crate::context::ObjectStorageError;
+use crate::context::NarStorageError;
 use crate::from_str_body::FromStrBody;
-use crate::object_gateway::MultipartUploadUrlRequest;
-use crate::object_storage::ObjectStorageKey;
 use crate::{
+    CacheInfos,
     Clock,
     Context,
-    ObjectGateway,
-    ObjectStorage,
+    MultipartUpload,
+    NarStorage,
     Permission,
     Permissions,
     endpoints,
 };
 
 #[derive(Debug, PartialEq, Eq, derive_more::Display, cauchy::Error)]
-enum NarMultipartsError<ObjectStorageError> {
-    CheckNarExistence(ObjectStorageError),
-    CreateMultipartUpload(ObjectStorageError),
+enum NarMultipartsError<NarStorageError> {
+    CheckNarExistence(NarStorageError),
+    CreateMultipartUpload(NarStorageError),
 }
 
 impl endpoints::CacheEndpoint for nar_multiparts::Endpoint {
@@ -36,35 +36,34 @@ impl endpoints::CacheEndpoint for nar_multiparts::Endpoint {
         Permissions::new([Permission::PushToCache]);
 
     fn method_router(mut ctx: impl Context) -> MethodRouter {
-        endpoints::method_router::<Self, _, _>(async move |body| {
-            handler(body, &mut ctx).await.map(into_response)
-        })
+        endpoints::method_router::<Self, _, _>(
+            async move |Extension(cache_infos), body| {
+                handler(cache_infos, body, &mut ctx).await.map(into_response)
+            },
+        )
     }
 }
 
 async fn handler<Ctx: Context>(
+    cache_infos: CacheInfos,
     FromStrBody(nar_file_name): FromStrBody<NarFileName>,
     ctx: &mut Ctx,
-) -> Result<nar_multiparts::Response, NarMultipartsError<ObjectStorageError<Ctx>>>
+) -> Result<nar_multiparts::Response, NarMultipartsError<NarStorageError<Ctx>>>
 {
-    let storage_key = ObjectStorageKey::Nar(&nar_file_name);
+    let nar_storage = ctx.nar_storage();
 
-    let object_gateway = ctx.object_gateway();
-
-    // NARs are content-addressed, so if one already exists under this key
-    // there's no need to upload it again.
-    if object_gateway
-        .storage()
-        .contains_key(storage_key)
+    // NARs are content-addressed, so if one already exists with this file
+    // name there's no need to upload it again.
+    if nar_storage
+        .contains(&cache_infos.id, &nar_file_name)
         .await
         .map_err(NarMultipartsError::CheckNarExistence)?
     {
         return Ok(nar_multiparts::Response::AlreadyExists);
     }
 
-    let upload_id = object_gateway
-        .storage()
-        .create_multipart_upload(storage_key)
+    let upload_id = nar_storage
+        .create_multipart_upload(&cache_infos.id, &nar_file_name)
         .await
         .map_err(NarMultipartsError::CreateMultipartUpload)?;
 
@@ -73,13 +72,16 @@ async fn handler<Ctx: Context>(
     let min_ttl = Duration::from_mins(10);
 
     let parts_urls = array::from_fn(|part_idx| {
-        object_gateway
-            .multipart_upload_url(MultipartUploadUrlRequest {
-                key: storage_key,
-                part_number: NonZeroU16::MIN.saturating_add(part_idx as u16),
-                upload_id: &upload_id,
+        nar_storage
+            .multipart_upload_part_url(
+                MultipartUpload {
+                    cache_id: &cache_infos.id,
+                    nar: &nar_file_name,
+                    id: &upload_id,
+                },
+                NonZeroU16::MIN.saturating_add(part_idx as u16),
                 min_ttl,
-            })
+            )
             .as_ref()
             .parse()
             .expect("valid URL")
@@ -87,13 +89,13 @@ async fn handler<Ctx: Context>(
 
     Ok(nar_multiparts::Response::Created(nar_multiparts::ResponseBody {
         upload_id: upload_id.to_string(),
-        part_size: object_gateway.storage().part_size(),
+        part_size: nar_storage.part_size(),
         parts_urls,
         expiration_ts: now + min_ttl,
     }))
 }
 
-impl<ObjectStorageError> NarMultipartsError<ObjectStorageError> {
+impl<NarStorageError> NarMultipartsError<NarStorageError> {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::CheckNarExistence(_) | Self::CreateMultipartUpload(_) => {
@@ -118,8 +120,8 @@ fn into_response(
     }
 }
 
-impl<ObjectStorageError: fmt::Display> IntoResponse
-    for NarMultipartsError<ObjectStorageError>
+impl<NarStorageError: fmt::Display> IntoResponse
+    for NarMultipartsError<NarStorageError>
 {
     fn into_response(self) -> axum::response::Response {
         (self.status_code(), self.to_string()).into_response()

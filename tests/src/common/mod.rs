@@ -1,6 +1,6 @@
 mod in_memory_cache_db;
-mod in_memory_object_storage;
-mod into_router_object_gateway;
+mod in_memory_nar_storage;
+mod in_memory_narinfo_storage;
 mod mock_nix;
 mod mock_oidc_verifier;
 mod nix_client;
@@ -12,8 +12,8 @@ mod test_context;
 mod test_token_format;
 
 pub use in_memory_cache_db::{CiJobGrant, InMemoryCacheDb, Never};
-pub use in_memory_object_storage::InMemoryObjectStorage;
-pub use into_router_object_gateway::IntoRouterObjectGateway;
+pub use in_memory_nar_storage::InMemoryNarStorage;
+pub use in_memory_narinfo_storage::InMemoryNarInfoStorage;
 pub use mock_nix::{MockNixClient, MockNixStore};
 pub use mock_oidc_verifier::MockOidcVerifier;
 pub use nix_client::{

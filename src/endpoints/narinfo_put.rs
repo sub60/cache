@@ -18,12 +18,12 @@ use nix_types::{
 };
 
 use crate::api::endpoints::narinfo_put;
-use crate::context::ObjectStorageError;
-use crate::object_storage::ObjectStorageKey;
+use crate::context::{NarInfoStorageError, NarStorageError};
 use crate::{
     CacheInfos,
     Context,
-    ObjectStorage,
+    NarInfoStorage,
+    NarStorage,
     Permission,
     Permissions,
     endpoints,
@@ -34,15 +34,15 @@ use crate::{
 #[derive(
     Debug, PartialEq, Eq, derive_more::Display, cauchy::Error, cauchy::From,
 )]
-enum NarInfoPutRequestError<ObjectStorageError> {
+enum NarInfoPutRequestError<NarStorageError, NarInfoStorageError> {
     /// The requested NARInfo file name in the path was invalid.
     #[display("{_0}")]
     InvalidNarInfoFileName(#[from] NarInfoFileNameFromStrError),
 
-    /// The object storage returned an error when checking for the existence of
+    /// The NAR storage returned an error when checking for the existence of
     /// the NAR file.
     #[display("error checking for existence of NAR: {_0}")]
-    CheckNarExistence(ObjectStorageError),
+    CheckNarExistence(NarStorageError),
 
     /// The NARInfo in the body of the request was not valid UTF-8.
     #[display("NARInfo in request body is not valid UTF-8: {_0}")]
@@ -61,7 +61,7 @@ enum NarInfoPutRequestError<ObjectStorageError> {
         inferred_store_hash: StoreHash,
     },
 
-    /// The NAR file was not found in the object storage.
+    /// The NAR file was not found in the NAR storage.
     #[display("NAR at '{_0}' not found")]
     NarNotFound(NarFileName),
 
@@ -69,8 +69,8 @@ enum NarInfoPutRequestError<ObjectStorageError> {
     /// [`NarInfo`].
     ParseNarInfo(#[from] NarInfoFromStrError<<DiscardUrl as FromStr>::Err>),
 
-    /// The object storage returned an error when storing the NARInfo.
-    StoreNarInfo(ObjectStorageError),
+    /// The NARInfo storage returned an error when storing the NARInfo.
+    StoreNarInfo(NarInfoStorageError),
 }
 
 /// A type whose [`FromStr`] impl discards the string, used to ignore the `URL`
@@ -99,7 +99,7 @@ async fn handler<Ctx: Context>(
     ctx: &mut Ctx,
 ) -> Result<
     narinfo_put::Response,
-    NarInfoPutRequestError<ObjectStorageError<Ctx>>,
+    NarInfoPutRequestError<NarStorageError<Ctx>, NarInfoStorageError<Ctx>>,
 > {
     // TODO: validate that the store dir in the NARInfo's StorePath matches the
     // cache's storeDir.
@@ -115,29 +115,31 @@ async fn handler<Ctx: Context>(
         });
     }
 
-    let object_storage = ctx.object_storage();
-
     let nar_file_name = NarFileName::from(&narinfo);
 
-    if !object_storage
-        .contains_key(ObjectStorageKey::Nar(&nar_file_name))
+    if !ctx
+        .nar_storage()
+        .contains(&cache_infos.id, &nar_file_name)
         .await
         .map_err(NarInfoPutRequestError::CheckNarExistence)?
     {
         return Err(NarInfoPutRequestError::NarNotFound(nar_file_name));
     }
 
-    let narinfo_key =
-        ObjectStorageKey::NarInfo(&cache_infos.id, &path.narinfo_file_name);
-
-    match object_storage.insert(narinfo_key, narinfo.to_string()).await {
+    match ctx
+        .narinfo_storage()
+        .insert(&cache_infos.id, &path.narinfo_file_name, narinfo.to_string())
+        .await
+    {
         Ok(true) => Ok(narinfo_put::Response::Created),
         Ok(false) => Ok(narinfo_put::Response::AlreadyExists),
         Err(err) => Err(NarInfoPutRequestError::StoreNarInfo(err)),
     }
 }
 
-impl<ObjectStorageError> NarInfoPutRequestError<ObjectStorageError> {
+impl<NarStorageError, NarInfoStorageError>
+    NarInfoPutRequestError<NarStorageError, NarInfoStorageError>
+{
     fn status_code(&self) -> StatusCode {
         match self {
             Self::InvalidNarInfoFileName(_)
@@ -152,8 +154,9 @@ impl<ObjectStorageError> NarInfoPutRequestError<ObjectStorageError> {
     }
 }
 
-impl<ObjectStorageError: fmt::Display> IntoResponse
-    for NarInfoPutRequestError<ObjectStorageError>
+impl<NarStorageError: fmt::Display, NarInfoStorageError: fmt::Display>
+    IntoResponse
+    for NarInfoPutRequestError<NarStorageError, NarInfoStorageError>
 {
     fn into_response(self) -> axum::response::Response {
         (self.status_code(), self.to_string()).into_response()

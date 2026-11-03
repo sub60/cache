@@ -18,8 +18,8 @@ mod context;
 mod endpoints;
 mod from_str_body;
 mod jwt;
-mod object_gateway;
-mod object_storage;
+mod nar_storage;
+mod narinfo_storage;
 mod oidc_verifier;
 mod permission;
 mod route_layer;
@@ -36,16 +36,12 @@ pub use ci_job::{CiJob, HostSoftware};
 pub use clock::Clock;
 pub use commit_sha::{CommitSha, CommitShaFromStrError};
 pub use context::Context;
-pub use object_gateway::{
-    MultipartUploadUrlRequest,
-    ObjectGateway,
-    ObjectUrlRequest,
-};
-pub use object_storage::{
+pub use nar_storage::{
     CompleteMultipartUploadError,
-    ObjectStorage,
-    ObjectStorageKey,
+    MultipartUpload,
+    NarStorage,
 };
+pub use narinfo_storage::NarInfoStorage;
 pub use oidc_verifier::{OidcIssuer, OidcVerifier, Rs256Signature};
 pub use permission::{Permission, Permissions};
 pub use router::router;

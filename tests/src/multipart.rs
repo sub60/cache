@@ -5,7 +5,7 @@ use axum::http::{Method, Request, StatusCode, header};
 use nix_types::NarFileName;
 use sub60_cache::api::Etag;
 use sub60_cache::api::endpoints::nar_multiparts_complete;
-use sub60_cache::{Context, ObjectStorage, ObjectStorageKey};
+use sub60_cache::{Context, NarStorage};
 use tower_service::Service;
 
 use crate::{MockNixClient, NixClient, NixStore, TestContext};
@@ -14,7 +14,7 @@ use crate::{MockNixClient, NixClient, NixStore, TestContext};
 async fn completion_distinguishes_insert_from_race_loss() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_namespace("namespace");
-    test_ctx.db_mut().add_cache("namespace", "cache");
+    let cache = test_ctx.db_mut().add_cache("namespace", "cache");
     let token = test_ctx.write_token("namespace", "cache");
 
     let nix = MockNixClient::default();
@@ -23,24 +23,24 @@ async fn completion_distinguishes_insert_from_race_loss() {
         nix.store().nar_info_and_bytes(&store_path).await;
     let nar_file_name = NarFileName::from(&narinfo);
 
-    let object_storage = test_ctx.object_storage().clone();
-    let first_upload_id = object_storage
-        .create_multipart_upload(ObjectStorageKey::Nar(&nar_file_name))
+    let nar_storage = test_ctx.nar_storage().clone();
+    let first_upload_id = nar_storage
+        .create_multipart_upload(&cache.id, &nar_file_name)
         .await
         .unwrap();
-    let second_upload_id = object_storage
-        .create_multipart_upload(ObjectStorageKey::Nar(&nar_file_name))
+    let second_upload_id = nar_storage
+        .create_multipart_upload(&cache.id, &nar_file_name)
         .await
         .unwrap();
 
-    let first_etag = object_storage
+    let first_etag = nar_storage
         .upload_multipart_part(
             first_upload_id,
             NonZeroU16::MIN,
             nar_bytes.clone(),
         )
         .unwrap();
-    let second_etag = object_storage
+    let second_etag = nar_storage
         .upload_multipart_part(second_upload_id, NonZeroU16::MIN, nar_bytes)
         .unwrap();
 
@@ -96,7 +96,7 @@ async fn completion_of_unknown_upload_is_not_found() {
 async fn completion_with_invalid_parts_is_bad_request() {
     let mut test_ctx = TestContext::default();
     test_ctx.db_mut().add_namespace("namespace");
-    test_ctx.db_mut().add_cache("namespace", "cache");
+    let cache = test_ctx.db_mut().add_cache("namespace", "cache");
     let token = test_ctx.write_token("namespace", "cache");
 
     let nix = MockNixClient::default();
@@ -106,8 +106,8 @@ async fn completion_with_invalid_parts_is_bad_request() {
 
     // Create an upload without uploading any parts to it.
     let upload_id = test_ctx
-        .object_storage()
-        .create_multipart_upload(ObjectStorageKey::Nar(&nar_file_name))
+        .nar_storage()
+        .create_multipart_upload(&cache.id, &nar_file_name)
         .await
         .unwrap();
 
@@ -142,11 +142,7 @@ async fn initiation_skips_existing_nars() {
     let response = initiate_upload(&mut app, &token, &nar_file_name).await;
     assert_eq!(response, StatusCode::OK);
 
-    test_ctx
-        .object_storage()
-        .insert(ObjectStorageKey::Nar(&nar_file_name), nar_bytes)
-        .await
-        .unwrap();
+    test_ctx.nar_storage().insert(&nar_file_name, nar_bytes);
 
     let response = initiate_upload(&mut app, &token, &nar_file_name).await;
     assert_eq!(response, StatusCode::NO_CONTENT);
