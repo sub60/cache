@@ -4,7 +4,6 @@ use core::time::Duration;
 
 use axum::Extension;
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use axum::routing::MethodRouter;
 
 use crate::api::endpoints::nar_multiparts_parts;
@@ -39,39 +38,39 @@ async fn handler<Ctx: Context>(
     cache_infos: CacheInfos,
     FromStrBody(body): FromStrBody<nar_multiparts_parts::RequestBody>,
     ctx: &mut Ctx,
-) -> impl IntoResponse + use<Ctx> {
+) -> Result<(StatusCode, String), (StatusCode, String)> {
     let nar_storage = ctx.nar_storage();
 
     let now = ctx.clock().unix_ts();
 
     let min_ttl = Duration::from_mins(10);
 
-    let urls = body
-        .part_numbers
-        .into_iter()
-        .map(|part_number| {
-            nar_storage
-                .multipart_upload_part_url(
-                    MultipartUpload {
-                        cache: &cache_infos,
-                        nar: &body.nar_file_name,
-                        id: &path.upload_id,
-                    },
-                    part_number,
-                    min_ttl,
-                )
-                .as_ref()
-                .parse()
-                .expect("valid URL")
-        })
-        .collect();
+    let urls = nar_storage
+        .multipart_upload_part_urls(
+            MultipartUpload {
+                cache: &cache_infos,
+                nar: &body.nar_file_name,
+                id: &path.upload_id,
+            },
+            &body.part_numbers,
+            min_ttl,
+        )
+        .await
+        .map_err(|storage_err| {
+            let message = storage_err.to_string();
+            let status: StatusCode = storage_err.into();
+            (status, message)
+        })?;
 
-    (
+    Ok((
         StatusCode::OK,
         nar_multiparts_parts::ResponseBody {
             expiration_ts: now + min_ttl,
-            urls,
+            urls: urls
+                .iter()
+                .map(|url| url.as_ref().parse().expect("valid URL"))
+                .collect(),
         }
         .to_string(),
-    )
+    ))
 }

@@ -2,9 +2,9 @@ use core::num::NonZeroU16;
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
-use nix_types::NarFileName;
+use nix_types::{NarFileName, NarInfo};
 use sub60_cache::api::Etag;
-use sub60_cache::api::endpoints::nar_multiparts_complete;
+use sub60_cache::api::endpoints::{nar_multiparts, nar_multiparts_complete};
 use sub60_cache::{Context, NarStorage};
 use tower_service::Service;
 
@@ -25,11 +25,11 @@ async fn completion_distinguishes_insert_from_race_loss() {
 
     let nar_storage = test_ctx.nar_storage().clone();
     let first_upload_id = nar_storage
-        .create_multipart_upload(&cache, &nar_file_name)
+        .create_multipart_upload(&cache, &nar_file_name, narinfo.file_size)
         .await
         .unwrap();
     let second_upload_id = nar_storage
-        .create_multipart_upload(&cache, &nar_file_name)
+        .create_multipart_upload(&cache, &nar_file_name, narinfo.file_size)
         .await
         .unwrap();
 
@@ -107,7 +107,7 @@ async fn completion_with_invalid_parts_is_bad_request() {
     // Create an upload without uploading any parts to it.
     let upload_id = test_ctx
         .nar_storage()
-        .create_multipart_upload(&cache, &nar_file_name)
+        .create_multipart_upload(&cache, &nar_file_name, narinfo.file_size)
         .await
         .unwrap();
 
@@ -139,25 +139,30 @@ async fn initiation_skips_existing_nars() {
 
     let mut app = test_ctx.app_router();
 
-    let response = initiate_upload(&mut app, &token, &nar_file_name).await;
+    let response = initiate_upload(&mut app, &token, &narinfo).await;
     assert_eq!(response, StatusCode::OK);
 
     test_ctx.nar_storage().insert_unchecked(&nar_file_name, nar_bytes);
 
-    let response = initiate_upload(&mut app, &token, &nar_file_name).await;
+    let response = initiate_upload(&mut app, &token, &narinfo).await;
     assert_eq!(response, StatusCode::NO_CONTENT);
 }
 
 async fn initiate_upload(
     app: &mut axum::Router,
     token: &str,
-    nar_file_name: &NarFileName,
+    narinfo: &NarInfo<String>,
 ) -> StatusCode {
+    let body = nar_multiparts::RequestBody {
+        nar_file_name: NarFileName::from(narinfo),
+        file_size: narinfo.file_size,
+    };
+
     let request = Request::builder()
         .method(Method::POST)
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .uri("/namespace/cache/nar-multiparts")
-        .body(Body::from(nar_file_name.to_string()))
+        .body(Body::from(body.to_string()))
         .expect("valid request");
 
     match app.call(request).await {

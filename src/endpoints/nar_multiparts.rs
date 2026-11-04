@@ -1,6 +1,6 @@
 //! TODO: docs.
 
-use core::num::NonZeroU16;
+use core::num::{NonZeroU16, NonZeroU64};
 use core::time::Duration;
 use core::{array, fmt};
 
@@ -9,7 +9,6 @@ use axum::body::Body;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::MethodRouter;
-use nix_types::NarFileName;
 
 use crate::api::endpoints::nar_multiparts;
 use crate::context::NarStorageError;
@@ -29,6 +28,12 @@ use crate::{
 enum NarMultipartsError<NarStorageError> {
     CheckNarExistence(NarStorageError),
     CreateMultipartUpload(NarStorageError),
+    GetPartUrls(NarStorageError),
+    #[display("NAR of {size} bytes is larger than the maximum of {max}")]
+    TooLarge {
+        size: NonZeroU64,
+        max: u64,
+    },
 }
 
 impl endpoints::CacheEndpoint for nar_multiparts::Endpoint {
@@ -46,16 +51,28 @@ impl endpoints::CacheEndpoint for nar_multiparts::Endpoint {
 
 async fn handler<Ctx: Context>(
     cache_infos: CacheInfos,
-    FromStrBody(nar_file_name): FromStrBody<NarFileName>,
+    FromStrBody(body): FromStrBody<nar_multiparts::RequestBody>,
     ctx: &mut Ctx,
 ) -> Result<nar_multiparts::Response, NarMultipartsError<NarStorageError<Ctx>>>
 {
     let nar_storage = ctx.nar_storage();
 
+    if let Some(max_multipart_parts) = nar_storage.max_multipart_parts() {
+        let max = max_multipart_parts as u64
+            * u64::from(nar_storage.part_size().get());
+
+        if body.file_size.get() > max {
+            return Err(NarMultipartsError::TooLarge {
+                size: body.file_size,
+                max,
+            });
+        }
+    }
+
     // NARs are content-addressed, so if one already exists with this file
     // name there's no need to upload it again.
     if nar_storage
-        .contains(&cache_infos, &nar_file_name)
+        .contains(&cache_infos, &body.nar_file_name)
         .await
         .map_err(NarMultipartsError::CheckNarExistence)?
     {
@@ -63,7 +80,11 @@ async fn handler<Ctx: Context>(
     }
 
     let upload_id = nar_storage
-        .create_multipart_upload(&cache_infos, &nar_file_name)
+        .create_multipart_upload(
+            &cache_infos,
+            &body.nar_file_name,
+            body.file_size,
+        )
         .await
         .map_err(NarMultipartsError::CreateMultipartUpload)?;
 
@@ -71,21 +92,25 @@ async fn handler<Ctx: Context>(
 
     let min_ttl = Duration::from_mins(10);
 
-    let parts_urls = array::from_fn(|part_idx| {
-        nar_storage
-            .multipart_upload_part_url(
-                MultipartUpload {
-                    cache: &cache_infos,
-                    nar: &nar_file_name,
-                    id: &upload_id,
-                },
-                NonZeroU16::MIN.saturating_add(part_idx as u16),
-                min_ttl,
-            )
-            .as_ref()
-            .parse()
-            .expect("valid URL")
+    let part_numbers: [NonZeroU16; 4] = array::from_fn(|part_idx| {
+        NonZeroU16::MIN.saturating_add(part_idx as u16)
     });
+
+    let urls = nar_storage
+        .multipart_upload_part_urls(
+            MultipartUpload {
+                cache: &cache_infos,
+                nar: &body.nar_file_name,
+                id: &upload_id,
+            },
+            &part_numbers,
+            min_ttl,
+        )
+        .await
+        .map_err(NarMultipartsError::GetPartUrls)?;
+
+    let parts_urls =
+        array::from_fn(|idx| urls[idx].as_ref().parse().expect("valid URL"));
 
     Ok(nar_multiparts::Response::Created(nar_multiparts::ResponseBody {
         upload_id: upload_id.to_string(),
@@ -98,9 +123,10 @@ async fn handler<Ctx: Context>(
 impl<NarStorageError: Into<StatusCode>> NarMultipartsError<NarStorageError> {
     fn into_status_code(self) -> StatusCode {
         match self {
-            Self::CheckNarExistence(err) | Self::CreateMultipartUpload(err) => {
-                err.into()
-            },
+            Self::CheckNarExistence(err)
+            | Self::CreateMultipartUpload(err)
+            | Self::GetPartUrls(err) => err.into(),
+            Self::TooLarge { .. } => StatusCode::PAYLOAD_TOO_LARGE,
         }
     }
 }

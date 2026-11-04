@@ -1,7 +1,7 @@
 //! The `POST /{namespace}/{cache}/nar-multiparts` endpoint.
 
 use core::fmt;
-use core::num::NonZeroU32;
+use core::num::{NonZeroU32, NonZeroU64};
 use core::str::FromStr;
 use core::time::Duration;
 
@@ -26,6 +26,20 @@ pub struct Path {
 
 /// The ID of a multipart upload.
 pub type UploadId = String;
+
+/// The type of error that can occur when parsing a string into a
+/// [`RequestBody`].
+pub type RequestBodyFromStrError = serde_json::Error;
+
+/// The body of a `/nar-multiparts` request.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct RequestBody {
+    /// The name of the NAR being uploaded.
+    pub nar_file_name: NarFileName,
+
+    /// The size of the NAR being uploaded, in bytes.
+    pub file_size: NonZeroU64,
+}
 
 /// The response to the endpoint's requests.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,6 +74,22 @@ pub struct ResponseBody {
     pub expiration_ts: Duration,
 }
 
+impl fmt::Display for RequestBody {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        serde_json::to_writer(FmtWrite(f), self).map_err(|_| fmt::Error)
+    }
+}
+
+impl FromStr for RequestBody {
+    type Err = RequestBodyFromStrError;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
 impl fmt::Display for ResponseBody {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -80,7 +110,7 @@ impl crate::Endpoint for Endpoint {
     const METHOD: Method = Method::POST;
 
     type Path = Path;
-    type Request = NarFileName;
+    type Request = RequestBody;
     type Response = Response;
 }
 

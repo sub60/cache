@@ -1,4 +1,4 @@
-use core::num::{NonZeroU16, NonZeroU32};
+use core::num::{NonZeroU16, NonZeroU32, NonZeroU64};
 use core::time::Duration;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -291,6 +291,7 @@ impl NarStorage for InMemoryNarStorage {
         &self,
         _cache: &CacheInfos,
         nar: &NarFileName,
+        _size: NonZeroU64,
     ) -> Result<Self::MultipartUploadId, Self::Error> {
         Ok(self.with_inner(|inner| {
             let upload_id = inner.next_upload_id;
@@ -340,16 +341,21 @@ impl NarStorage for InMemoryNarStorage {
         None
     }
 
-    fn multipart_upload_part_url(
+    async fn multipart_upload_part_urls(
         &self,
         upload: MultipartUpload<'_, Self::MultipartUploadId>,
-        part_number: NonZeroU16,
+        part_numbers: &[NonZeroU16],
         _min_ttl: Duration,
-    ) -> impl AsRef<str> {
-        format!(
-            "http://cache.test{}/multipart-upload/{}?partNumber={part_number}&uploadId={}",
-            self.base_route, upload.nar, upload.id,
-        )
+    ) -> Result<Vec<String>, Self::Error> {
+        Ok(part_numbers
+            .iter()
+            .map(|part_number| {
+                format!(
+                    "http://cache.test{}/multipart-upload/{}?partNumber={part_number}&uploadId={}",
+                    self.base_route, upload.nar, upload.id,
+                )
+            })
+            .collect())
     }
 
     fn part_size(&self) -> NonZeroU32 {

@@ -2,7 +2,7 @@
 
 use core::error::Error;
 use core::fmt;
-use core::num::{NonZeroU16, NonZeroU32};
+use core::num::{NonZeroU16, NonZeroU32, NonZeroU64};
 use core::str::FromStr;
 use core::time::Duration;
 
@@ -57,7 +57,8 @@ pub trait NarStorage: Sync {
         nar: &NarFileName,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
-    /// Creates a new multipart upload of the given NAR of the given cache.
+    /// Creates a new multipart upload of the given NAR of the given cache,
+    /// which is `size` bytes long.
     ///
     /// Multipart uploads can be abandoned without ever being completed or
     /// aborted, e.g. by a client that stops halfway through an upload, or
@@ -68,6 +69,7 @@ pub trait NarStorage: Sync {
         &self,
         cache: &CacheInfos,
         nar: &NarFileName,
+        size: NonZeroU64,
     ) -> impl Future<Output = Result<Self::MultipartUploadId, Self::Error>> + Send;
 
     /// Returns the URL clients download the given NAR of the given cache from.
@@ -113,14 +115,14 @@ pub trait NarStorage: Sync {
     /// Returns the maximum number of parts supported by multipart uploads.
     fn max_multipart_parts(&self) -> Option<usize>;
 
-    /// Returns the URL clients upload the given part of a multipart upload to,
-    /// valid for at least `min_ttl`.
-    fn multipart_upload_part_url(
+    /// Returns the URLs clients upload the given parts of a multipart upload
+    /// to, in the same order as `part_numbers`, valid for at least `min_ttl`.
+    fn multipart_upload_part_urls(
         &self,
         upload: MultipartUpload<'_, Self::MultipartUploadId>,
-        part_number: NonZeroU16,
+        part_numbers: &[NonZeroU16],
         min_ttl: Duration,
-    ) -> impl AsRef<str>;
+    ) -> impl Future<Output = Result<Vec<impl AsRef<str> + Send>, Self::Error>> + Send;
 
     /// Returns the target size, in bytes, of each multipart upload part.
     fn part_size(&self) -> NonZeroU32;
