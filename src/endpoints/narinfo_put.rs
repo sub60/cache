@@ -128,7 +128,7 @@ async fn handler<Ctx: Context>(
 
     match ctx
         .narinfo_storage()
-        .insert(&cache_infos, &path.narinfo_file_name, narinfo.to_string())
+        .insert(&cache_infos, &path.narinfo_file_name, &narinfo)
         .await
     {
         Ok(true) => Ok(narinfo_put::Response::Created),

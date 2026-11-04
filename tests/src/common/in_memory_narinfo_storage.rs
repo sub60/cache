@@ -1,9 +1,10 @@
 use core::convert::Infallible;
+use core::fmt;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
-use nix_types::NarInfoFileName;
+use nix_types::{NarInfo, NarInfoFileName};
 use sub60_cache::{CacheId, CacheInfos, NarInfoStorage};
 
 /// A [`NarInfoStorage`] that stores NARInfos in memory.
@@ -39,15 +40,15 @@ impl NarInfoStorage for InMemoryNarInfoStorage {
     async fn insert(
         &self,
         cache: &CacheInfos,
-        narinfo: &NarInfoFileName,
-        bytes: impl AsRef<[u8]>,
+        file_name: &NarInfoFileName,
+        narinfo: &NarInfo<impl fmt::Display + Sync>,
     ) -> Result<bool, Self::Error> {
         Ok(self.with_narinfos(|narinfos| {
-            let key = (cache.id, narinfo.clone());
+            let key = (cache.id, file_name.clone());
             if narinfos.contains_key(&key) {
                 return false;
             }
-            narinfos.insert(key, Bytes::copy_from_slice(bytes.as_ref()));
+            narinfos.insert(key, narinfo.to_string().into());
             true
         }))
     }

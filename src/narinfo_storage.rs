@@ -1,8 +1,9 @@
 //! TODO: docs.
 
 use core::error::Error;
+use core::fmt;
 
-use nix_types::NarInfoFileName;
+use nix_types::{NarInfo, NarInfoFileName};
 
 use crate::CacheInfos;
 
@@ -20,15 +21,18 @@ pub trait NarInfoStorage: Sync {
         Output = Result<Option<impl AsRef<[u8]> + Send>, Self::Error>,
     > + Send;
 
-    /// Inserts a NARInfo into the given cache, unless the cache already has
-    /// one with the same file name.
+    /// Inserts a NARInfo into the given cache under the given file name, unless
+    /// the cache already has one with the same file name.
+    ///
+    /// Once inserted, [`Self::get()`] will be expected to return a byte slice
+    /// matching the given NARInfo's [`Display`](fmt::Display) representation.
     ///
     /// Returns `true` if the NARInfo was inserted, or `false` if the cache
     /// already had one.
     fn insert(
         &self,
         cache: &CacheInfos,
-        narinfo: &NarInfoFileName,
-        bytes: impl AsRef<[u8]> + Send,
+        file_name: &NarInfoFileName,
+        narinfo: &NarInfo<impl fmt::Display + Sync>,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 }

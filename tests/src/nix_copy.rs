@@ -88,7 +88,7 @@ async fn copy_from_cache_mock() {
     test_ctx.nar_storage().insert_unchecked(&nar_key, nar_bytes);
     test_ctx
         .narinfo_storage()
-        .insert(&cache, &narinfo_key, narinfo.to_string())
+        .insert(&cache, &narinfo_key, &narinfo)
         .await
         .unwrap();
 
@@ -130,7 +130,7 @@ async fn copy_from_cache_real() {
     test_ctx.nar_storage().insert_unchecked(&nar_key, nar_bytes);
     test_ctx
         .narinfo_storage()
-        .insert(&cache, &narinfo_key, narinfo.to_string())
+        .insert(&cache, &narinfo_key, &narinfo)
         .await
         .unwrap();
 
