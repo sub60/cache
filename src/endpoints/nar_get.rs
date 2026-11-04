@@ -72,18 +72,20 @@ async fn handler<Ctx: Context>(
     Ok((cache_control, response))
 }
 
-impl<NarStorageError> NarGetRequestError<NarStorageError> {
-    fn status_code(&self) -> StatusCode {
-        match *self {
-            Self::NarStorage(_) => StatusCode::INTERNAL_SERVER_ERROR,
+impl<NarStorageError: Into<StatusCode>> NarGetRequestError<NarStorageError> {
+    fn into_status_code(self) -> StatusCode {
+        match self {
+            Self::NarStorage(err) => err.into(),
         }
     }
 }
 
-impl<NarStorageError: fmt::Display> IntoResponse
-    for NarGetRequestError<NarStorageError>
+impl<NarStorageError> IntoResponse for NarGetRequestError<NarStorageError>
+where
+    NarStorageError: fmt::Display + Into<StatusCode>,
 {
     fn into_response(self) -> axum::response::Response {
-        (self.status_code(), self.to_string()).into_response()
+        let message = self.to_string();
+        (self.into_status_code(), message).into_response()
     }
 }

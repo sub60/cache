@@ -18,7 +18,7 @@ async fn stored_nar_is_served() {
         nix.store().nar_info_and_bytes(&store_path).await;
     let nar_file_name = NarFileName::from(&narinfo);
 
-    test_ctx.nar_storage().insert(&nar_file_name, nar_bytes.clone());
+    test_ctx.nar_storage().insert_unchecked(&nar_file_name, nar_bytes.clone());
 
     let mut app = test_ctx.app_router();
 

@@ -98,8 +98,10 @@ async fn handler<Ctx: Context>(
     Ok(nar_multiparts_complete::Response::AlreadyExists)
 }
 
-impl<NarStorageError> NarMultipartsCompleteError<NarStorageError> {
-    fn status_code(&self) -> StatusCode {
+impl<NarStorageError: Into<StatusCode>>
+    NarMultipartsCompleteError<NarStorageError>
+{
+    fn into_status_code(self) -> StatusCode {
         match self {
             Self::CompleteMultipartUpload(
                 CompleteMultipartUploadError::NoSuchUpload,
@@ -110,16 +112,19 @@ impl<NarStorageError> NarMultipartsCompleteError<NarStorageError> {
             | Self::EmptyUpload
             | Self::TooManyParts(..) => StatusCode::BAD_REQUEST,
             Self::CompleteMultipartUpload(
-                CompleteMultipartUploadError::Storage(_),
-            ) => StatusCode::INTERNAL_SERVER_ERROR,
+                CompleteMultipartUploadError::Storage(err),
+            ) => err.into(),
         }
     }
 }
 
-impl<NarStorageError: fmt::Display> IntoResponse
+impl<NarStorageError> IntoResponse
     for NarMultipartsCompleteError<NarStorageError>
+where
+    NarStorageError: fmt::Display + Into<StatusCode>,
 {
     fn into_response(self) -> axum::response::Response {
-        (self.status_code(), self.to_string()).into_response()
+        let message = self.to_string();
+        (self.into_status_code(), message).into_response()
     }
 }

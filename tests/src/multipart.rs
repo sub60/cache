@@ -142,7 +142,7 @@ async fn initiation_skips_existing_nars() {
     let response = initiate_upload(&mut app, &token, &nar_file_name).await;
     assert_eq!(response, StatusCode::OK);
 
-    test_ctx.nar_storage().insert(&nar_file_name, nar_bytes);
+    test_ctx.nar_storage().insert_unchecked(&nar_file_name, nar_bytes);
 
     let response = initiate_upload(&mut app, &token, &nar_file_name).await;
     assert_eq!(response, StatusCode::NO_CONTENT);

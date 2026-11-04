@@ -46,8 +46,6 @@ pub enum CopyError {
     PutNarFailed(http::StatusCode),
     #[display("PUT to NARInfo endpoint failed with code {_0}")]
     PutNarInfoFailed(http::StatusCode),
-    #[display("PUT to redirected NAR endpoint failed with code {_0}")]
-    PutNarRedirectFailed(http::StatusCode),
 }
 
 impl MockNixStore {
@@ -319,8 +317,7 @@ fn mock_narinfo(store_path: StorePath, nar_bytes: &[u8]) -> NarInfo<()> {
     }
 }
 
-/// Uploads the NAR bytes to the cache server, following redirects to the object
-/// storage.
+/// Uploads the NAR bytes to the cache server.
 #[expect(clippy::too_many_arguments)]
 async fn put_nar(
     app: &mut axum::Router,
@@ -329,47 +326,19 @@ async fn put_nar(
     nar_bytes: Bytes,
     token: Option<&str>,
 ) -> Result<(), CopyError> {
-    let make_request = |builder: http::request::Builder, uri: &str| {
-        builder
-            .method(http::Method::PUT)
-            .uri(uri)
-            .header(header::CONTENT_TYPE, "application/x-nix-nar")
-            .body(Body::from(nar_bytes.clone()))
-            .expect("valid request")
-    };
-
     let response = send(
         app,
-        make_request(
-            cache_request(token),
-            &format!("{base}/nar/{nar_file_name}"),
-        ),
+        cache_request(token)
+            .method(http::Method::PUT)
+            .uri(format!("{base}/nar/{nar_file_name}"))
+            .header(header::CONTENT_TYPE, "application/x-nix-nar")
+            .body(Body::from(nar_bytes))
+            .expect("valid request"),
     )
     .await;
 
     match response.status() {
-        StatusCode::NO_CONTENT => Ok(()),
-
-        StatusCode::TEMPORARY_REDIRECT => {
-            // Follow the 307 redirect.
-            let location = response
-                .headers()
-                .get(header::LOCATION)
-                .expect("307 must have Location")
-                .to_str()
-                .expect("Location is valid UTF-8");
-
-            // The redirect URL authenticates the request itself.
-            let response =
-                send(app, make_request(Request::builder(), location)).await;
-
-            if response.status().is_success() {
-                Ok(())
-            } else {
-                Err(CopyError::PutNarRedirectFailed(response.status()))
-            }
-        },
-
+        StatusCode::CREATED | StatusCode::NO_CONTENT => Ok(()),
         other => Err(CopyError::PutNarFailed(other)),
     }
 }

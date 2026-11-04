@@ -6,6 +6,8 @@ use core::num::{NonZeroU16, NonZeroU32};
 use core::str::FromStr;
 use core::time::Duration;
 
+use axum::extract::Request;
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use nix_types::NarFileName;
 
@@ -22,7 +24,7 @@ pub trait NarStorage: Sync {
         + Sync;
 
     /// The type of error returned by the storage.
-    type Error: Error + Send;
+    type Error: Error + Into<StatusCode> + Send;
 
     /// Aborts the given multipart upload.
     ///
@@ -93,6 +95,21 @@ pub trait NarStorage: Sync {
         Output = Result<Option<impl IntoResponse + Send>, Self::Error>,
     > + Send;
 
+    /// Stores the NAR in the body of the given request to the given cache.
+    ///
+    /// Returns `true` if the NAR was inserted, or `false` if it was already
+    /// stored.
+    ///
+    /// Implementors must not store bodies SHA-256 hash isn't the NAR's
+    /// [`file_hash`](NarFileName::file_hash), and should fail with a `400 Bad
+    /// Request` error instead.
+    fn insert(
+        &self,
+        cache: &CacheInfos,
+        nar: &NarFileName,
+        request: Request,
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
+
     /// Returns the maximum number of parts supported by multipart uploads.
     fn max_multipart_parts(&self) -> Option<usize>;
 
@@ -107,15 +124,6 @@ pub trait NarStorage: Sync {
 
     /// Returns the target size, in bytes, of each multipart upload part.
     fn part_size(&self) -> NonZeroU32;
-
-    /// Returns the URL clients upload the given NAR of the given cache to in a
-    /// single request, valid for at least `min_ttl`.
-    fn upload_url(
-        &self,
-        cache: &CacheInfos,
-        nar: &NarFileName,
-        min_ttl: Duration,
-    ) -> impl AsRef<str>;
 }
 
 /// A multipart upload of a NAR of a cache.

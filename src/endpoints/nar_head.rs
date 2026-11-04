@@ -47,6 +47,8 @@ async fn handler<Ctx: Context>(
             (ctx.cache_control().no_store(), response.status_code())
         })
         .map_err(|storage_err| {
-            (StatusCode::INTERNAL_SERVER_ERROR, storage_err.to_string())
+            let message = storage_err.to_string();
+            let status: StatusCode = storage_err.into();
+            (status, message)
         })
 }

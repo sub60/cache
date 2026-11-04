@@ -25,7 +25,7 @@ async fn writes_with_a_token_for_the_cache_are_allowed() {
 
     let response =
         put_nar(&test_ctx, "foo", Some(&format!("Bearer {token}"))).await;
-    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(response.status(), StatusCode::CREATED);
 }
 
 #[tokio::test]
@@ -36,7 +36,7 @@ async fn tokens_can_be_sent_as_basic_credentials() {
 
     let response =
         put_nar(&test_ctx, "foo", Some(&format!("Basic {credentials}"))).await;
-    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(response.status(), StatusCode::CREATED);
 }
 
 #[tokio::test]
@@ -47,7 +47,7 @@ async fn tokens_are_checked_against_the_current_time() {
 
     for (expires_at, status) in [
         (now - hour, StatusCode::UNAUTHORIZED),
-        (now + hour, StatusCode::TEMPORARY_REDIRECT),
+        (now + hour, StatusCode::CREATED),
     ] {
         let token =
             test_ctx.db().add_ci_job_token("namespace", "foo", expires_at);
@@ -105,7 +105,8 @@ async fn put_nar(
 ) -> Response<Body> {
     let nix = MockNixClient::default();
     let store_path = nix.store().add_file("hello-world", b"hello world").await;
-    let (narinfo, _) = nix.store().nar_info_and_bytes(&store_path).await;
+    let (narinfo, nar_bytes) =
+        nix.store().nar_info_and_bytes(&store_path).await;
     let nar_file_name = NarFileName::from(&narinfo);
 
     send(
@@ -113,6 +114,7 @@ async fn put_nar(
         Method::PUT,
         &format!("/namespace/{cache}/nar/{nar_file_name}"),
         authorization,
+        Body::from(nar_bytes),
     )
     .await
 }
@@ -127,15 +129,18 @@ async fn get_nix_cache_info(
         Method::GET,
         &format!("/namespace/{cache}/nix-cache-info"),
         authorization,
+        Body::empty(),
     )
     .await
 }
 
+#[expect(clippy::too_many_arguments)]
 async fn send(
     test_ctx: &TestContext,
     method: Method,
     uri: &str,
     authorization: Option<&str>,
+    body: Body,
 ) -> Response<Body> {
     let mut request = Request::builder().method(method).uri(uri);
 
@@ -143,7 +148,7 @@ async fn send(
         request = request.header(header::AUTHORIZATION, authorization);
     }
 
-    let request = request.body(Body::empty()).expect("valid request");
+    let request = request.body(body).expect("valid request");
 
     let Ok(response) = test_ctx.app_router().call(request).await;
 

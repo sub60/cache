@@ -85,7 +85,7 @@ async fn copy_from_cache_mock() {
 
     // Pre-populate the storages with the NAR and NARInfo so the cache server
     // can serve them.
-    test_ctx.nar_storage().insert(&nar_key, nar_bytes);
+    test_ctx.nar_storage().insert_unchecked(&nar_key, nar_bytes);
     test_ctx
         .narinfo_storage()
         .insert(&cache, &narinfo_key, narinfo.to_string())
@@ -127,7 +127,7 @@ async fn copy_from_cache_real() {
 
     // Pre-populate the storages with the NAR and NARInfo so the cache server
     // can serve them.
-    test_ctx.nar_storage().insert(&nar_key, nar_bytes);
+    test_ctx.nar_storage().insert_unchecked(&nar_key, nar_bytes);
     test_ctx
         .narinfo_storage()
         .insert(&cache, &narinfo_key, narinfo.to_string())

@@ -95,11 +95,11 @@ async fn handler<Ctx: Context>(
     }))
 }
 
-impl<NarStorageError> NarMultipartsError<NarStorageError> {
-    fn status_code(&self) -> StatusCode {
+impl<NarStorageError: Into<StatusCode>> NarMultipartsError<NarStorageError> {
+    fn into_status_code(self) -> StatusCode {
         match self {
-            Self::CheckNarExistence(_) | Self::CreateMultipartUpload(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
+            Self::CheckNarExistence(err) | Self::CreateMultipartUpload(err) => {
+                err.into()
             },
         }
     }
@@ -120,10 +120,12 @@ fn into_response(
     }
 }
 
-impl<NarStorageError: fmt::Display> IntoResponse
-    for NarMultipartsError<NarStorageError>
+impl<NarStorageError> IntoResponse for NarMultipartsError<NarStorageError>
+where
+    NarStorageError: fmt::Display + Into<StatusCode>,
 {
     fn into_response(self) -> axum::response::Response {
-        (self.status_code(), self.to_string()).into_response()
+        let message = self.to_string();
+        (self.into_status_code(), message).into_response()
     }
 }

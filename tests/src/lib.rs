@@ -10,6 +10,7 @@ mod cache_control;
 mod common;
 mod multipart;
 mod nar_get;
+mod nar_put;
 mod narinfo;
 mod nix_copy;
 

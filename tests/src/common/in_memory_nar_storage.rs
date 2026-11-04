@@ -5,12 +5,13 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use axum::Router;
-use axum::body::Bytes;
-use axum::extract::Path;
+use axum::body::{self, Bytes};
+use axum::extract::{Path, Request};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, put};
 use nix_types::NarFileName;
+use sha2::{Digest, Sha256};
 use sub60_cache::api::Etag;
 use sub60_cache::{
     CacheInfos,
@@ -49,6 +50,10 @@ struct PendingUpload {
     Debug, Copy, Clone, PartialEq, Eq, derive_more::Display, cauchy::Error,
 )]
 pub enum InMemoryNarStorageError {
+    /// The SHA-256 hash of an inserted NAR isn't the one in its file name.
+    #[display("NAR's hash doesn't match its file name")]
+    HashMismatch,
+
     /// The multipart upload was completed before being started.
     #[display("multipart upload was not started")]
     MultipartUploadNotStarted,
@@ -73,13 +78,25 @@ pub enum InMemoryNarStorageError {
         "multipart upload completion has too many Etags: {_0} for {_1} parts"
     )]
     TooManyMultipartUploadEtags(usize, usize),
+
+    /// The body of an inserted NAR couldn't be read.
+    #[display("couldn't read NAR from request body")]
+    UnreadableBody,
 }
 
 impl InMemoryNarStorage {
     /// Inserts a NAR, unless one with the same file name is already stored.
     ///
+    /// Unlike [`NarStorage::insert()`], it doesn't check that the bytes'
+    /// SHA-256 hash is the one in the NAR's file name, so tests can seed the
+    /// storage with any bytes.
+    ///
     /// Returns `true` if the NAR was inserted.
-    pub fn insert(&self, nar: &NarFileName, bytes: impl Into<Bytes>) -> bool {
+    pub fn insert_unchecked(
+        &self,
+        nar: &NarFileName,
+        bytes: impl Into<Bytes>,
+    ) -> bool {
         self.with_inner(|inner| {
             if inner.nars.contains_key(nar) {
                 return false;
@@ -171,23 +188,6 @@ impl From<InMemoryNarStorage> for Router {
             }
         };
 
-        let put_storage = storage.clone();
-
-        let put_handler = async move |Path::<String>(nar), bytes: Bytes| {
-            let nar = match nar.parse::<NarFileName>() {
-                Ok(nar) => nar,
-                Err(err) => {
-                    let msg = format!("invalid NarFileName: {err}");
-                    return (StatusCode::BAD_REQUEST, msg).into_response();
-                },
-            };
-            if put_storage.insert(&nar, bytes) {
-                StatusCode::CREATED.into_response()
-            } else {
-                StatusCode::NO_CONTENT.into_response()
-            }
-        };
-
         let multipart_put_handler = async || StatusCode::NOT_IMPLEMENTED;
 
         let route_path = format!("{}/{{nar}}", storage.base_route);
@@ -197,7 +197,7 @@ impl From<InMemoryNarStorage> for Router {
 
         Self::new()
             .route(&multipart_route_path, put(multipart_put_handler))
-            .route(&route_path, get(get_handler).put(put_handler))
+            .route(&route_path, get(get_handler))
     }
 }
 
@@ -319,6 +319,23 @@ impl NarStorage for InMemoryNarStorage {
         Ok(self.with_inner(|inner| inner.nars.get(nar).cloned()))
     }
 
+    async fn insert(
+        &self,
+        _cache: &CacheInfos,
+        nar: &NarFileName,
+        request: Request,
+    ) -> Result<bool, Self::Error> {
+        let bytes = body::to_bytes(request.into_body(), usize::MAX)
+            .await
+            .map_err(|_| InMemoryNarStorageError::UnreadableBody)?;
+
+        if Sha256::digest(&bytes).as_slice() != nar.file_hash.to_bytes() {
+            return Err(InMemoryNarStorageError::HashMismatch);
+        }
+
+        Ok(self.insert_unchecked(nar, bytes))
+    }
+
     fn max_multipart_parts(&self) -> Option<usize> {
         None
     }
@@ -338,13 +355,20 @@ impl NarStorage for InMemoryNarStorage {
     fn part_size(&self) -> NonZeroU32 {
         NonZeroU32::MAX
     }
+}
 
-    fn upload_url(
-        &self,
-        _cache: &CacheInfos,
-        nar: &NarFileName,
-        _min_ttl: Duration,
-    ) -> impl AsRef<str> {
-        self.nar_url(nar)
+impl From<InMemoryNarStorageError> for StatusCode {
+    fn from(err: InMemoryNarStorageError) -> Self {
+        match err {
+            InMemoryNarStorageError::HashMismatch => Self::BAD_REQUEST,
+            InMemoryNarStorageError::MultipartUploadNotStarted
+            | InMemoryNarStorageError::MultipartUploadNarMismatch
+            | InMemoryNarStorageError::MissingMultipartUploadPart(_)
+            | InMemoryNarStorageError::TooFewMultipartUploadEtags(..)
+            | InMemoryNarStorageError::TooManyMultipartUploadEtags(..)
+            | InMemoryNarStorageError::UnreadableBody => {
+                Self::INTERNAL_SERVER_ERROR
+            },
+        }
     }
 }

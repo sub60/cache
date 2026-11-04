@@ -1,11 +1,10 @@
 //! TODO: docs.
 
 use core::fmt;
-use core::time::Duration;
 
 use axum::Extension;
-use axum::body::Body;
-use axum::http::{StatusCode, header};
+use axum::extract::Request;
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::MethodRouter;
 
@@ -33,8 +32,10 @@ impl endpoints::CacheEndpoint for nar_put::Endpoint {
 
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(
-            async move |path, Extension(cache_infos)| {
-                handler(path, cache_infos, &mut ctx).await.map(into_response)
+            async move |path, Extension(cache_infos), request| {
+                handler(path, cache_infos, request, &mut ctx)
+                    .await
+                    .map(|response| response.status_code())
             },
         )
     }
@@ -43,51 +44,34 @@ impl endpoints::CacheEndpoint for nar_put::Endpoint {
 async fn handler<Ctx: Context>(
     path: nar_put::Path,
     cache_infos: CacheInfos,
+    request: Request,
     ctx: &mut Ctx,
 ) -> Result<nar_put::Response, NarPutRequestError<NarStorageError<Ctx>>> {
-    let nar_storage = ctx.nar_storage();
-
-    if nar_storage
-        .contains(&cache_infos, &path.nar_file_name)
+    match ctx
+        .nar_storage()
+        .insert(&cache_infos, &path.nar_file_name, request)
         .await
-        .map_err(NarPutRequestError::NarStorage)?
     {
-        Ok(nar_put::Response::AlreadyExists)
-    } else {
-        let nar_url = nar_storage.upload_url(
-            &cache_infos,
-            &path.nar_file_name,
-            Duration::from_mins(10),
-        );
-        Ok(nar_put::Response::Redirect(
-            nar_url.as_ref().parse().expect("valid URL"),
-        ))
+        Ok(true) => Ok(nar_put::Response::Created),
+        Ok(false) => Ok(nar_put::Response::AlreadyExists),
+        Err(err) => Err(NarPutRequestError::NarStorage(err)),
     }
 }
 
-impl<NarStorageError> NarPutRequestError<NarStorageError> {
-    fn status_code(&self) -> StatusCode {
-        match *self {
-            Self::NarStorage(_) => StatusCode::INTERNAL_SERVER_ERROR,
+impl<NarStorageError: Into<StatusCode>> NarPutRequestError<NarStorageError> {
+    fn into_status_code(self) -> StatusCode {
+        match self {
+            Self::NarStorage(err) => err.into(),
         }
     }
 }
 
-fn into_response(response: nar_put::Response) -> axum::response::Response {
-    let mut builder =
-        axum::response::Response::builder().status(response.status_code());
-
-    if let nar_put::Response::Redirect(nar_url) = &response {
-        builder = builder.header(header::LOCATION, nar_url.to_string());
-    }
-
-    builder.body(Body::empty()).expect("valid response")
-}
-
-impl<NarStorageError: fmt::Display> IntoResponse
-    for NarPutRequestError<NarStorageError>
+impl<NarStorageError> IntoResponse for NarPutRequestError<NarStorageError>
+where
+    NarStorageError: fmt::Display + Into<StatusCode>,
 {
     fn into_response(self) -> axum::response::Response {
-        (self.status_code(), self.to_string()).into_response()
+        let message = self.to_string();
+        (self.into_status_code(), message).into_response()
     }
 }

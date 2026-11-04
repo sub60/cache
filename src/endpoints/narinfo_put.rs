@@ -137,29 +137,31 @@ async fn handler<Ctx: Context>(
     }
 }
 
-impl<NarStorageError, NarInfoStorageError>
+impl<NarStorageError: Into<StatusCode>, NarInfoStorageError>
     NarInfoPutRequestError<NarStorageError, NarInfoStorageError>
 {
-    fn status_code(&self) -> StatusCode {
+    fn into_status_code(self) -> StatusCode {
         match self {
             Self::InvalidNarInfoFileName(_)
             | Self::NarInfoNotUtf8(_)
             | Self::NarInfoStoreHashMismatch { .. }
             | Self::NarNotFound(_)
             | Self::ParseNarInfo(_) => StatusCode::BAD_REQUEST,
-            Self::CheckNarExistence(_) | Self::StoreNarInfo(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            },
+            Self::CheckNarExistence(err) => err.into(),
+            Self::StoreNarInfo(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
 
-impl<NarStorageError: fmt::Display, NarInfoStorageError: fmt::Display>
-    IntoResponse
+impl<NarStorageError, NarInfoStorageError> IntoResponse
     for NarInfoPutRequestError<NarStorageError, NarInfoStorageError>
+where
+    NarStorageError: fmt::Display + Into<StatusCode>,
+    NarInfoStorageError: fmt::Display,
 {
     fn into_response(self) -> axum::response::Response {
-        (self.status_code(), self.to_string()).into_response()
+        let message = self.to_string();
+        (self.into_status_code(), message).into_response()
     }
 }
 
