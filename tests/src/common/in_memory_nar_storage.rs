@@ -42,6 +42,8 @@ struct InMemoryNarStorageInner {
 
 struct PendingUpload {
     nar: NarFileName,
+    /// The size of the NAR the upload declared when it started, in bytes.
+    declared_size: NonZeroU64,
     parts: Vec<Option<Bytes>>,
 }
 
@@ -57,6 +59,19 @@ pub enum InMemoryNarStorageError {
     /// The multipart upload was completed before being started.
     #[display("multipart upload was not started")]
     MultipartUploadNotStarted,
+
+    /// A part of a multipart upload was uploaded with a different length than
+    /// its URL accepts, which is the part size for every part but the last.
+    #[display("part {part_number} has {len} bytes instead of {expected_len}")]
+    PartLengthMismatch {
+        part_number: NonZeroU16,
+        len: usize,
+        expected_len: u64,
+    },
+
+    /// A part past the end of the upload's NAR was requested or uploaded.
+    #[display("part {_0} is past the end of the NAR")]
+    PartPastEnd(NonZeroU16),
 
     /// A multipart upload part was missing when completing the upload.
     #[display("multipart upload is missing bytes for part {_0}")]
@@ -132,6 +147,9 @@ impl InMemoryNarStorage {
     }
 
     /// Stores a part in an in-progress multipart upload.
+    ///
+    /// Like the URLs of production storages, it only accepts a part of the
+    /// length the upload's declared size leaves for it.
     pub fn upload_multipart_part(
         &self,
         upload_id: MultipartUploadId,
@@ -139,10 +157,23 @@ impl InMemoryNarStorage {
         bytes: Bytes,
     ) -> Result<Etag, InMemoryNarStorageError> {
         self.with_inner(|inner| {
+            let part_size = inner.part_size;
+
             let upload = inner
                 .multipart_uploads
                 .get_mut(&upload_id)
                 .ok_or(InMemoryNarStorageError::MultipartUploadNotStarted)?;
+
+            let expected_len =
+                part_len(upload.declared_size, part_size, part_number)?;
+
+            if bytes.len() as u64 != expected_len {
+                return Err(InMemoryNarStorageError::PartLengthMismatch {
+                    part_number,
+                    len: bytes.len(),
+                    expected_len,
+                });
+            }
 
             let part_idx = usize::from(part_number.get() - 1);
             if upload.parts.len() <= part_idx {
@@ -168,6 +199,27 @@ impl InMemoryNarStorage {
         let mut inner = self.inner.lock().unwrap();
         f(&mut inner)
     }
+}
+
+/// Returns the length of the given part of a multipart upload of a NAR of the
+/// given size, in bytes.
+///
+/// Every part is a full part except the last one, which gets what's left, so
+/// production storages only accept those lengths.
+fn part_len(
+    declared_size: NonZeroU64,
+    part_size: NonZeroU32,
+    part_number: NonZeroU16,
+) -> Result<u64, InMemoryNarStorageError> {
+    let part_size = u64::from(part_size.get());
+    let start = u64::from(part_number.get() - 1) * part_size;
+
+    declared_size
+        .get()
+        .checked_sub(start)
+        .filter(|&rest| rest > 0)
+        .map(|rest| rest.min(part_size))
+        .ok_or(InMemoryNarStorageError::PartPastEnd(part_number))
 }
 
 impl From<InMemoryNarStorage> for Router {
@@ -291,14 +343,18 @@ impl NarStorage for InMemoryNarStorage {
         &self,
         _cache: &CacheInfos,
         nar: &NarFileName,
-        _size: NonZeroU64,
+        size: NonZeroU64,
     ) -> Result<Self::MultipartUploadId, Self::Error> {
         Ok(self.with_inner(|inner| {
             let upload_id = inner.next_upload_id;
             inner.next_upload_id += 1;
             inner.multipart_uploads.insert(
                 upload_id,
-                PendingUpload { nar: nar.clone(), parts: Vec::new() },
+                PendingUpload {
+                    nar: nar.clone(),
+                    declared_size: size,
+                    parts: Vec::new(),
+                },
             );
             upload_id
         }))
@@ -347,15 +403,24 @@ impl NarStorage for InMemoryNarStorage {
         part_numbers: &[NonZeroU16],
         _min_ttl: Duration,
     ) -> Result<Vec<String>, Self::Error> {
-        Ok(part_numbers
+        let (declared_size, part_size) = self.with_inner(|inner| {
+            inner
+                .multipart_uploads
+                .get(upload.id)
+                .map(|pending| (pending.declared_size, inner.part_size))
+                .ok_or(InMemoryNarStorageError::MultipartUploadNotStarted)
+        })?;
+
+        part_numbers
             .iter()
-            .map(|part_number| {
-                format!(
+            .map(|&part_number| {
+                part_len(declared_size, part_size, part_number)?;
+                Ok(format!(
                     "http://cache.test{}/multipart-upload/{}?partNumber={part_number}&uploadId={}",
                     self.base_route, upload.nar, upload.id,
-                )
+                ))
             })
-            .collect())
+            .collect()
     }
 
     fn part_size(&self) -> NonZeroU32 {
@@ -366,9 +431,13 @@ impl NarStorage for InMemoryNarStorage {
 impl From<InMemoryNarStorageError> for StatusCode {
     fn from(err: InMemoryNarStorageError) -> Self {
         match err {
-            InMemoryNarStorageError::HashMismatch => Self::BAD_REQUEST,
-            InMemoryNarStorageError::MultipartUploadNotStarted
-            | InMemoryNarStorageError::MissingMultipartUploadPart(_)
+            InMemoryNarStorageError::HashMismatch
+            | InMemoryNarStorageError::PartLengthMismatch { .. }
+            | InMemoryNarStorageError::PartPastEnd(_) => Self::BAD_REQUEST,
+            InMemoryNarStorageError::MultipartUploadNotStarted => {
+                Self::NOT_FOUND
+            },
+            InMemoryNarStorageError::MissingMultipartUploadPart(_)
             | InMemoryNarStorageError::TooFewMultipartUploadEtags(..)
             | InMemoryNarStorageError::TooManyMultipartUploadEtags(..)
             | InMemoryNarStorageError::UnreadableBody => {
