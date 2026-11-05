@@ -7,6 +7,7 @@ use core::time::Duration;
 
 use http::{Method, StatusCode};
 use nix_types::NarFileName;
+use smallvec::SmallVec;
 
 use crate::fmt_write::FmtWrite;
 use crate::{CachePath, PathParams};
@@ -65,8 +66,10 @@ pub struct ResponseBody {
     /// TODO: docs.
     pub part_size: NonZeroU32,
 
-    /// TODO: docs.
-    pub parts_urls: [url::Url; 4],
+    /// The URLs to upload the first parts of the NAR to, in order, starting
+    /// from part 1. There are at most 4 of them, and fewer if the NAR has
+    /// fewer parts.
+    pub parts_urls: SmallVec<[url::Url; 4]>,
 
     /// The expiration timestamp of this batch of upload URLs, expressed as the
     /// elapsed time since the UNIX epoch.

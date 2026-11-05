@@ -1,4 +1,4 @@
-use core::num::NonZeroU16;
+use core::num::{NonZeroU16, NonZeroU32};
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
@@ -122,6 +122,56 @@ async fn completion_with_invalid_parts_is_bad_request() {
     )
     .await;
     assert_eq!(response, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn initiation_returns_one_url_per_part_up_to_four() {
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_namespace("namespace");
+    test_ctx.db_mut().add_cache("namespace", "cache");
+    let token = test_ctx.write_token("namespace", "cache");
+
+    let nix = MockNixClient::default();
+    let store_path = nix.store().add_file("hello-world", b"hello world").await;
+    let (narinfo, _) = nix.store().nar_info_and_bytes(&store_path).await;
+    let file_size = narinfo.file_size.get();
+
+    let body = nar_multiparts::RequestBody {
+        nar_file_name: NarFileName::from(&narinfo),
+        file_size: narinfo.file_size,
+    };
+
+    // A NAR of one part, of two parts, and of more parts than the URLs the
+    // initiation returns.
+    for (part_size, num_urls) in
+        [(file_size, 1), (file_size.div_ceil(2), 2), (file_size / 8, 4)]
+    {
+        let part_size =
+            NonZeroU32::new(part_size as u32).expect("non-zero part size");
+        test_ctx.nar_storage().set_part_size(part_size);
+
+        let request = Request::builder()
+            .method(Method::POST)
+            .header(header::AUTHORIZATION, format!("Bearer {token}"))
+            .uri("/namespace/cache/nar-multiparts")
+            .body(Body::from(body.to_string()))
+            .expect("valid request");
+
+        let Ok(response) = test_ctx.app_router().call(request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response_body =
+            axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .expect("read nar-multiparts body");
+
+        let response_body = str::from_utf8(&response_body)
+            .expect("UTF-8 body")
+            .parse::<nar_multiparts::ResponseBody>()
+            .expect("valid nar-multiparts body");
+
+        assert_eq!(response_body.parts_urls.len(), num_urls, "{part_size}");
+    }
 }
 
 #[tokio::test]

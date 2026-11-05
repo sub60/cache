@@ -52,9 +52,10 @@ async fn narinfo_head_only_reports_the_cache_it_was_pushed_to() {
 
     let mut app = test_ctx.app_router();
 
-    for (base, status) in
-        [("namespace/foo", StatusCode::OK), ("namespace/bar", StatusCode::NOT_FOUND)]
-    {
+    for (base, status) in [
+        ("namespace/foo", StatusCode::OK),
+        ("namespace/bar", StatusCode::NOT_FOUND),
+    ] {
         let request = Request::builder()
             .method(Method::HEAD)
             .uri(format!("/{base}/{}.narinfo", store_path.hash()))

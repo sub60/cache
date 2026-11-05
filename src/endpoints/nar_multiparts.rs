@@ -1,14 +1,15 @@
 //! TODO: docs.
 
+use core::fmt;
 use core::num::{NonZeroU16, NonZeroU64};
 use core::time::Duration;
-use core::{array, fmt};
 
 use axum::Extension;
 use axum::body::Body;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::MethodRouter;
+use smallvec::SmallVec;
 
 use crate::api::endpoints::nar_multiparts;
 use crate::context::NarStorageError;
@@ -92,9 +93,17 @@ async fn handler<Ctx: Context>(
 
     let min_ttl = Duration::from_mins(10);
 
-    let part_numbers: [NonZeroU16; 4] = array::from_fn(|part_idx| {
-        NonZeroU16::MIN.saturating_add(part_idx as u16)
-    });
+    let part_size = nar_storage.part_size();
+
+    // The NAR's parts, of which only the first ones get URLs right away.
+    let num_parts = body.file_size.get().div_ceil(u64::from(part_size.get()));
+
+    let part_numbers = (1..=num_parts.min(4))
+        .map(|part_number| {
+            NonZeroU16::new(part_number as u16)
+                .expect("part numbers start at 1")
+        })
+        .collect::<SmallVec<[NonZeroU16; 4]>>();
 
     let urls = nar_storage
         .multipart_upload_part_urls(
@@ -109,12 +118,14 @@ async fn handler<Ctx: Context>(
         .await
         .map_err(NarMultipartsError::GetPartUrls)?;
 
-    let parts_urls =
-        array::from_fn(|idx| urls[idx].as_ref().parse().expect("valid URL"));
+    let parts_urls = urls
+        .iter()
+        .map(|url| url.as_ref().parse().expect("valid URL"))
+        .collect();
 
     Ok(nar_multiparts::Response::Created(nar_multiparts::ResponseBody {
         upload_id: upload_id.to_string(),
-        part_size: nar_storage.part_size(),
+        part_size,
         parts_urls,
         expiration_ts: now + min_ttl,
     }))

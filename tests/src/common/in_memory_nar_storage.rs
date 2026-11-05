@@ -33,11 +33,11 @@ pub struct InMemoryNarStorage {
     inner: Arc<Mutex<InMemoryNarStorageInner>>,
 }
 
-#[derive(Default)]
 struct InMemoryNarStorageInner {
     nars: HashMap<NarFileName, Bytes>,
     multipart_uploads: HashMap<MultipartUploadId, PendingUpload>,
     next_upload_id: MultipartUploadId,
+    part_size: NonZeroU32,
 }
 
 struct PendingUpload {
@@ -125,6 +125,12 @@ impl InMemoryNarStorage {
         Self { base_route, inner: Default::default() }
     }
 
+    /// Sets the size of the parts of multipart uploads, which is larger than
+    /// any NAR by default.
+    pub fn set_part_size(&self, part_size: NonZeroU32) {
+        self.with_inner(|inner| inner.part_size = part_size);
+    }
+
     /// Stores a part in an in-progress multipart upload.
     pub fn upload_multipart_part(
         &self,
@@ -193,6 +199,17 @@ impl From<InMemoryNarStorage> for Router {
         Self::new()
             .route(&multipart_route_path, put(multipart_put_handler))
             .route(&route_path, get(get_handler))
+    }
+}
+
+impl Default for InMemoryNarStorageInner {
+    fn default() -> Self {
+        Self {
+            nars: HashMap::new(),
+            multipart_uploads: HashMap::new(),
+            next_upload_id: 0,
+            part_size: NonZeroU32::MAX,
+        }
     }
 }
 
@@ -342,7 +359,7 @@ impl NarStorage for InMemoryNarStorage {
     }
 
     fn part_size(&self) -> NonZeroU32 {
-        NonZeroU32::MAX
+        self.with_inner(|inner| inner.part_size)
     }
 }
 
