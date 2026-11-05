@@ -58,11 +58,6 @@ pub enum InMemoryNarStorageError {
     #[display("multipart upload was not started")]
     MultipartUploadNotStarted,
 
-    /// A multipart operation used a NAR different from the one used to create
-    /// the upload.
-    #[display("multipart upload NAR does not match its initiation NAR")]
-    MultipartUploadNarMismatch,
-
     /// A multipart upload part was missing when completing the upload.
     #[display("multipart upload is missing bytes for part {_0}")]
     MissingMultipartUploadPart(usize),
@@ -205,33 +200,21 @@ impl NarStorage for InMemoryNarStorage {
     type MultipartUploadId = MultipartUploadId;
     type Error = InMemoryNarStorageError;
 
-    async fn abort_multipart_upload(
-        &self,
-        upload: MultipartUpload<'_, Self::MultipartUploadId>,
-    ) -> Result<bool, Self::Error> {
-        self.with_inner(|inner| {
-            let Some(pending) = inner.multipart_uploads.get(upload.id) else {
-                return Ok(false);
-            };
-
-            if &pending.nar != upload.nar {
-                return Err(
-                    InMemoryNarStorageError::MultipartUploadNarMismatch,
-                );
-            }
-
-            inner.multipart_uploads.remove(upload.id);
-            Ok(true)
-        })
-    }
-
     async fn complete_multipart_upload(
         &self,
         upload: MultipartUpload<'_, Self::MultipartUploadId>,
         etags: &[Etag],
     ) -> Result<bool, CompleteMultipartUploadError<Self::Error>> {
         self.with_inner(|inner| {
+            // The NAR is already stored, so the upload's parts are discarded.
             if inner.nars.contains_key(upload.nar) {
+                if inner
+                    .multipart_uploads
+                    .get(upload.id)
+                    .is_some_and(|pending| &pending.nar == upload.nar)
+                {
+                    inner.multipart_uploads.remove(upload.id);
+                }
                 return Ok(false);
             }
 
@@ -368,7 +351,6 @@ impl From<InMemoryNarStorageError> for StatusCode {
         match err {
             InMemoryNarStorageError::HashMismatch => Self::BAD_REQUEST,
             InMemoryNarStorageError::MultipartUploadNotStarted
-            | InMemoryNarStorageError::MultipartUploadNarMismatch
             | InMemoryNarStorageError::MissingMultipartUploadPart(_)
             | InMemoryNarStorageError::TooFewMultipartUploadEtags(..)
             | InMemoryNarStorageError::TooManyMultipartUploadEtags(..)

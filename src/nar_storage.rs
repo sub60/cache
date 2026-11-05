@@ -26,19 +26,11 @@ pub trait NarStorage: Sync {
     /// The type of error returned by the storage.
     type Error: Error + Into<StatusCode> + Send;
 
-    /// Aborts the given multipart upload.
-    ///
-    /// Returns `true` if the upload was aborted, or `false` if it didn't exist
-    /// (e.g. because it had already been completed or aborted).
-    fn abort_multipart_upload(
-        &self,
-        upload: MultipartUpload<'_, Self::MultipartUploadId>,
-    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
-
     /// Completes the given multipart upload.
     ///
     /// Returns `true` if the NAR was inserted, or `false` if it was already
-    /// stored.
+    /// stored. In the latter case, implementors should discard what the upload
+    /// stored, since it's a duplicate.
     ///
     /// Implementors can assume `etags.len()` is less than or equal to
     /// [`Self::max_multipart_parts()`], when a maximum is returned.
@@ -60,9 +52,8 @@ pub trait NarStorage: Sync {
     /// Creates a new multipart upload of the given NAR of the given cache,
     /// which is `size` bytes long.
     ///
-    /// Multipart uploads can be abandoned without ever being completed or
-    /// aborted, e.g. by a client that stops halfway through an upload, or
-    /// when [`Self::abort_multipart_upload()`] fails. Implementors must
+    /// Multipart uploads can be abandoned without ever being completed, e.g.
+    /// by a client that stops halfway through an upload. Implementors must
     /// eventually clean up such uploads on their own, e.g. by expiring them
     /// after some time.
     fn create_multipart_upload(

@@ -81,21 +81,11 @@ async fn handler<Ctx: Context>(
         .await
         .map_err(NarMultipartsCompleteError::CompleteMultipartUpload)?;
 
-    if did_insert {
-        return Ok(nar_multiparts_complete::Response::Created);
-    }
-
-    // The NAR is already stored, so aborting this upload is just cleanup, and
-    // failing to do so shouldn't fail the request.
-    if let Err(err) = nar_storage.abort_multipart_upload(upload).await {
-        tracing::warn!(
-            upload_id = %path.upload_id,
-            nar_file_name = %body.nar_file_name,
-            "couldn't abort redundant multipart upload: {err}",
-        );
-    }
-
-    Ok(nar_multiparts_complete::Response::AlreadyExists)
+    Ok(if did_insert {
+        nar_multiparts_complete::Response::Created
+    } else {
+        nar_multiparts_complete::Response::AlreadyExists
+    })
 }
 
 impl<NarStorageError: Into<StatusCode>>
