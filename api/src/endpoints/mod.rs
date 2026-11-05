@@ -1,6 +1,7 @@
 //! The endpoints of the cache's HTTP API, one per module.
 
 pub mod auth_github_actions;
+pub mod missing_narinfos;
 pub mod nar_get;
 pub mod nar_head;
 pub mod nar_multiparts;

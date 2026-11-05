@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
-use nix_types::{NarInfo, NarInfoFileName};
+use nix_types::{NarInfo, NarInfoFileName, StoreHash};
 use sub60_cache::{CacheId, CacheInfos, NarInfoStorage};
 
 /// A [`NarInfoStorage`] that stores NARInfos in memory.
@@ -60,6 +60,23 @@ impl NarInfoStorage for InMemoryNarInfoStorage {
             }
             narinfos.insert(key, narinfo.to_string().into());
             true
+        }))
+    }
+
+    async fn missing(
+        &self,
+        cache: &CacheInfos,
+        store_hashes: &[StoreHash],
+    ) -> Result<Vec<StoreHash>, Self::Error> {
+        Ok(self.with_narinfos(|narinfos| {
+            store_hashes
+                .iter()
+                .copied()
+                .filter(|&store_hash| {
+                    let file_name = NarInfoFileName { store_hash };
+                    !narinfos.contains_key(&(cache.id, file_name))
+                })
+                .collect()
         }))
     }
 }

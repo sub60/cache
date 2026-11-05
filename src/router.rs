@@ -17,6 +17,7 @@ pub fn router(ctx: impl Context) -> Router {
         .endpoint::<api::narinfo_put::Endpoint>(ctx.clone())
         .endpoint::<api::nix_cache_info::Endpoint>(ctx.clone())
         // Custom routes.
+        .endpoint::<api::missing_narinfos::Endpoint>(ctx.clone())
         .endpoint::<api::nar_multiparts::Endpoint>(ctx.clone())
         .endpoint::<api::nar_multiparts_parts::Endpoint>(ctx.clone())
         .endpoint::<api::nar_multiparts_complete::Endpoint>(ctx)

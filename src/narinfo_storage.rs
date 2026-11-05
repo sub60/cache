@@ -3,7 +3,7 @@
 use core::error::Error;
 use core::fmt;
 
-use nix_types::{NarInfo, NarInfoFileName};
+use nix_types::{NarInfo, NarInfoFileName, StoreHash};
 
 use crate::CacheInfos;
 
@@ -12,18 +12,19 @@ pub trait NarInfoStorage: Sync {
     /// The type of error returned by the storage.
     type Error: Error + Send;
 
-    /// Returns whether the given NARInfo of the given cache is stored.
+    /// Returns whether the storage contains the given NARInfo on the given
+    /// cache.
     fn contains(
         &self,
         cache: &CacheInfos,
-        narinfo: &NarInfoFileName,
+        file_name: &NarInfoFileName,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Returns the given NARInfo of the given cache, if it's stored.
     fn get(
         &self,
         cache: &CacheInfos,
-        narinfo: &NarInfoFileName,
+        file_name: &NarInfoFileName,
     ) -> impl Future<
         Output = Result<Option<impl AsRef<[u8]> + Send>, Self::Error>,
     > + Send;
@@ -42,4 +43,12 @@ pub trait NarInfoStorage: Sync {
         file_name: &NarInfoFileName,
         narinfo: &NarInfo<impl fmt::Display + Sync>,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
+
+    /// Returns the store hashes of the NARInfos the given cache doesn't have,
+    /// in the same order as they appear in `store_hashes`.
+    fn missing(
+        &self,
+        cache: &CacheInfos,
+        store_hashes: &[StoreHash],
+    ) -> impl Future<Output = Result<Vec<StoreHash>, Self::Error>> + Send;
 }
