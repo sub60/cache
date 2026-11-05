@@ -8,6 +8,7 @@ pub(crate) mod nar_multiparts_complete;
 pub(crate) mod nar_multiparts_parts;
 pub(crate) mod nar_put;
 pub(crate) mod narinfo_get;
+pub(crate) mod narinfo_head;
 pub(crate) mod narinfo_put;
 pub(crate) mod nix_cache_info;
 

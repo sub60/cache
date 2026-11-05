@@ -8,5 +8,6 @@ pub mod nar_multiparts_complete;
 pub mod nar_multiparts_parts;
 pub mod nar_put;
 pub mod narinfo_get;
+pub mod narinfo_head;
 pub mod narinfo_put;
 pub mod nix_cache_info;

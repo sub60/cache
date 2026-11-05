@@ -1,5 +1,5 @@
 use axum::body::Body;
-use axum::http::{Request, Response, StatusCode};
+use axum::http::{Method, Request, Response, StatusCode};
 use nix_types::{NarInfo, StorePath};
 use tower_service::Service;
 
@@ -31,6 +31,44 @@ async fn narinfo_is_only_served_by_the_cache_it_was_pushed_to() {
     let bar_response =
         get_narinfo(&mut app, "namespace/bar", &store_path).await;
     assert_eq!(bar_response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn narinfo_head_only_reports_the_cache_it_was_pushed_to() {
+    let mut test_ctx = TestContext::default();
+    test_ctx.db_mut().add_namespace("namespace");
+    test_ctx.db_mut().add_cache("namespace", "foo");
+    test_ctx.db_mut().add_cache("namespace", "bar");
+
+    let nix = MockNixClient::default();
+
+    let store_path = nix.store().add_file("hello-world", b"hello world").await;
+
+    nix.copy([store_path.clone()])
+        .to(test_ctx.app_router(), "namespace", "foo")
+        .token(test_ctx.write_token("namespace", "foo"))
+        .await
+        .unwrap();
+
+    let mut app = test_ctx.app_router();
+
+    for (base, status) in
+        [("namespace/foo", StatusCode::OK), ("namespace/bar", StatusCode::NOT_FOUND)]
+    {
+        let request = Request::builder()
+            .method(Method::HEAD)
+            .uri(format!("/{base}/{}.narinfo", store_path.hash()))
+            .body(Body::empty())
+            .expect("valid request");
+
+        let Ok(response) = app.call(request).await;
+        assert_eq!(response.status(), status, "{base}");
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read narinfo HEAD body");
+        assert!(body.is_empty(), "{base}");
+    }
 }
 
 #[tokio::test]

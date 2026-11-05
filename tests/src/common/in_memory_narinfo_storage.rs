@@ -27,6 +27,16 @@ impl InMemoryNarInfoStorage {
 impl NarInfoStorage for InMemoryNarInfoStorage {
     type Error = Infallible;
 
+    async fn contains(
+        &self,
+        cache: &CacheInfos,
+        narinfo: &NarInfoFileName,
+    ) -> Result<bool, Self::Error> {
+        Ok(self.with_narinfos(|narinfos| {
+            narinfos.contains_key(&(cache.id, narinfo.clone()))
+        }))
+    }
+
     async fn get(
         &self,
         cache: &CacheInfos,

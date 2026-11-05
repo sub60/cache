@@ -12,6 +12,13 @@ pub trait NarInfoStorage: Sync {
     /// The type of error returned by the storage.
     type Error: Error + Send;
 
+    /// Returns whether the given NARInfo of the given cache is stored.
+    fn contains(
+        &self,
+        cache: &CacheInfos,
+        narinfo: &NarInfoFileName,
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
+
     /// Returns the given NARInfo of the given cache, if it's stored.
     fn get(
         &self,
