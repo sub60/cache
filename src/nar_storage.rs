@@ -9,7 +9,7 @@ use core::time::Duration;
 use axum::extract::Request;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use nix_types::NarFileName;
+use nix_types::{NarFileName, Nix32Digest};
 
 use crate::CacheInfos;
 use crate::api::Etag;
@@ -26,20 +26,22 @@ pub trait NarStorage: Sync {
     /// The type of error returned by the storage.
     type Error: Error + Into<StatusCode> + Send;
 
-    /// Completes the given multipart upload.
+    /// Completes the given multipart upload to the given cache.
     ///
-    /// Returns `true` if the NAR was inserted, or `false` if it was already
-    /// stored. In the latter case, implementors should discard what the upload
-    /// stored, since it's a duplicate.
-    ///
-    /// Implementors can assume `etags.len()` is less than or equal to
-    /// [`Self::max_multipart_parts()`], when a maximum is returned.
+    /// Implementors must compute the NAR's file hash from the bytes the upload
+    /// stored, since clients never declare it. They can assume `etags.len()` is
+    /// less than or equal to [`Self::max_multipart_parts()`], when a maximum is
+    /// returned.
     fn complete_multipart_upload(
         &self,
-        upload: MultipartUpload<'_, Self::MultipartUploadId>,
+        cache: &CacheInfos,
+        upload_id: &Self::MultipartUploadId,
         etags: &[Etag],
     ) -> impl Future<
-        Output = Result<bool, CompleteMultipartUploadError<Self::Error>>,
+        Output = Result<
+            CompletedMultipartUpload,
+            CompleteMultipartUploadError<Self::Error>,
+        >,
     > + Send;
 
     /// Returns whether the given NAR of the given cache is stored.
@@ -49,8 +51,8 @@ pub trait NarStorage: Sync {
         nar: &NarFileName,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
-    /// Creates a new multipart upload of the given NAR of the given cache,
-    /// which is `size` bytes long.
+    /// Creates a new multipart upload of a NAR of `size` bytes to the given
+    /// cache.
     ///
     /// Multipart uploads can be abandoned without ever being completed, e.g.
     /// by a client that stops halfway through an upload. Implementors must
@@ -59,7 +61,6 @@ pub trait NarStorage: Sync {
     fn create_multipart_upload(
         &self,
         cache: &CacheInfos,
-        nar: &NarFileName,
         size: NonZeroU64,
     ) -> impl Future<Output = Result<Self::MultipartUploadId, Self::Error>> + Send;
 
@@ -106,11 +107,13 @@ pub trait NarStorage: Sync {
     /// Returns the maximum number of parts supported by multipart uploads.
     fn max_multipart_parts(&self) -> Option<usize>;
 
-    /// Returns the URLs clients upload the given parts of a multipart upload
-    /// to, in the same order as `part_numbers`, valid for at least `min_ttl`.
+    /// Returns the URLs clients upload the given parts of the given multipart
+    /// upload to the given cache to, in the same order as `part_numbers`, valid
+    /// for at least `min_ttl`.
     fn multipart_upload_part_urls(
         &self,
-        upload: MultipartUpload<'_, Self::MultipartUploadId>,
+        cache: &CacheInfos,
+        upload_id: &Self::MultipartUploadId,
         part_numbers: &[NonZeroU16],
         min_ttl: Duration,
     ) -> impl Future<Output = Result<Vec<impl AsRef<str> + Send>, Self::Error>> + Send;
@@ -119,34 +122,15 @@ pub trait NarStorage: Sync {
     fn part_size(&self) -> NonZeroU32;
 }
 
-/// A multipart upload of a NAR of a cache.
-pub struct MultipartUpload<'a, UploadId> {
-    /// The cache the NAR is uploaded to.
-    pub cache: &'a CacheInfos,
+/// A multipart upload that completed.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct CompletedMultipartUpload {
+    /// The SHA-256 hash of the NAR the upload stored.
+    pub file_hash: Nix32Digest<32>,
 
-    /// The NAR being uploaded.
-    pub nar: &'a NarFileName,
-
-    /// The ID of the upload.
-    pub id: &'a UploadId,
-}
-
-impl<UploadId> Clone for MultipartUpload<'_, UploadId> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<UploadId> Copy for MultipartUpload<'_, UploadId> {}
-
-impl<UploadId: fmt::Debug> fmt::Debug for MultipartUpload<'_, UploadId> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MultipartUpload")
-            .field("cache", &self.cache.id)
-            .field("nar", &self.nar)
-            .field("id", &self.id)
-            .finish()
-    }
+    /// Whether the upload inserted the NAR, which is `false` if a NAR with the
+    /// same file hash was already stored.
+    pub inserted: bool,
 }
 
 /// The type of error returned by

@@ -5,8 +5,7 @@ use core::num::{NonZeroU32, NonZeroU64};
 use core::str::FromStr;
 use core::time::Duration;
 
-use http::{Method, StatusCode};
-use nix_types::NarFileName;
+use http::Method;
 use smallvec::SmallVec;
 
 use crate::fmt_write::FmtWrite;
@@ -28,34 +27,12 @@ pub struct Path {
 /// The ID of a multipart upload.
 pub type UploadId = String;
 
-/// The type of error that can occur when parsing a string into a
-/// [`RequestBody`].
-pub type RequestBodyFromStrError = serde_json::Error;
-
 /// The body of a `/nar-multiparts` request.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RequestBody {
-    /// The name of the NAR being uploaded.
-    pub nar_file_name: NarFileName,
-
     /// The size of the NAR being uploaded, in bytes.
     pub file_size: NonZeroU64,
 }
-
-/// The response to the endpoint's requests.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[expect(clippy::large_enum_variant)]
-pub enum Response {
-    /// The NAR already exists, so it doesn't need to be uploaded.
-    AlreadyExists,
-
-    /// The upload was started.
-    Created(ResponseBody),
-}
-
-/// The type of error that can occur when parsing a string into a
-/// [`ResponseBody`].
-pub type ResponseBodyFromStrError = serde_json::Error;
 
 /// The body of a `/nar-multiparts` response.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -76,6 +53,14 @@ pub struct ResponseBody {
     #[serde(with = "crate::serde_utils::secs")]
     pub expiration_ts: Duration,
 }
+
+/// The type of error that can occur when parsing a string into a
+/// [`RequestBody`].
+pub type RequestBodyFromStrError = serde_json::Error;
+
+/// The type of error that can occur when parsing a string into a
+/// [`ResponseBody`].
+pub type ResponseBodyFromStrError = serde_json::Error;
 
 impl fmt::Display for RequestBody {
     #[inline]
@@ -114,16 +99,5 @@ impl crate::Endpoint for Endpoint {
 
     type Path = Path;
     type Request = RequestBody;
-    type Response = Response;
-}
-
-impl Response {
-    /// Returns the response's status code.
-    #[inline]
-    pub fn status_code(&self) -> StatusCode {
-        match self {
-            Self::AlreadyExists => StatusCode::NO_CONTENT,
-            Self::Created(_) => StatusCode::OK,
-        }
-    }
+    type Response = ResponseBody;
 }

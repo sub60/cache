@@ -6,7 +6,6 @@ use core::str::FromStr;
 use core::time::Duration;
 
 use http::Method;
-use nix_types::NarFileName;
 use smallvec::SmallVec;
 use url::Url;
 
@@ -30,20 +29,17 @@ pub struct Path<Id = UploadId> {
     pub upload_id: Id,
 }
 
-/// The type of error that can occur when parsing a string into a
-/// [`RequestBody`].
-pub type RequestBodyFromStrError = serde_json::Error;
-
 /// The body of a `/nar-multiparts/{uploadId}/parts` request.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RequestBody {
     /// The list of part numbers to request upload URLs for. The numbers can be
     /// in any order, but there shouldn't be any duplicates.
     pub part_numbers: SmallVec<[NonZeroU16; 8]>,
-
-    /// The name of the NAR being uploaded.
-    pub nar_file_name: NarFileName,
 }
+
+/// The type of error that can occur when parsing a string into a
+/// [`RequestBody`].
+pub type RequestBodyFromStrError = serde_json::Error;
 
 impl fmt::Display for RequestBody {
     #[inline]

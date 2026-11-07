@@ -4,7 +4,7 @@ use core::fmt;
 use core::str::FromStr;
 
 use http::{Method, StatusCode};
-use nix_types::NarFileName;
+use nix_types::Nix32Digest;
 use smallvec::SmallVec;
 
 use crate::endpoints::nar_multiparts::UploadId;
@@ -28,19 +28,15 @@ pub struct Path<Id = UploadId> {
 }
 
 /// The response to the endpoint's requests.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Response {
     /// The NAR was stored.
-    Created,
+    Created(ResponseBody),
 
     /// The NAR already existed, e.g. because another upload of it completed
     /// first, and this upload was discarded.
-    AlreadyExists,
+    AlreadyExists(ResponseBody),
 }
-
-/// The type of error that can occur when parsing a string into a
-/// [`RequestBody`].
-pub type RequestBodyFromStrError = serde_json::Error;
 
 /// The body of a `/nar-multiparts/{uploadId}/complete` request.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -51,10 +47,22 @@ pub struct RequestBody {
     /// The [`Etag`]s must be in order, i.e. the first one must be the one
     /// returned by uploading part 1, the second one by uploading part 2, etc.
     pub etags: SmallVec<[Etag; 8]>,
-
-    /// The name of the NAR being uploaded.
-    pub nar_file_name: NarFileName,
 }
+
+/// The body of a `/nar-multiparts/{uploadId}/complete` response.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ResponseBody {
+    /// The SHA-256 hash of the uploaded NAR.
+    pub file_hash: Nix32Digest<32>,
+}
+
+/// The type of error that can occur when parsing a string into a
+/// [`RequestBody`].
+pub type RequestBodyFromStrError = serde_json::Error;
+
+/// The type of error that can occur when parsing a string into a
+/// [`ResponseBody`].
+pub type ResponseBodyFromStrError = serde_json::Error;
 
 impl fmt::Display for RequestBody {
     #[inline]
@@ -72,6 +80,22 @@ impl FromStr for RequestBody {
     }
 }
 
+impl fmt::Display for ResponseBody {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        serde_json::to_writer(FmtWrite(f), self).map_err(|_| fmt::Error)
+    }
+}
+
+impl FromStr for ResponseBody {
+    type Err = ResponseBodyFromStrError;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
 impl crate::Endpoint for Endpoint {
     const METHOD: Method = Method::POST;
 
@@ -81,12 +105,20 @@ impl crate::Endpoint for Endpoint {
 }
 
 impl Response {
+    /// Returns the response's body.
+    #[inline]
+    pub fn body(&self) -> &ResponseBody {
+        match self {
+            Self::Created(body) | Self::AlreadyExists(body) => body,
+        }
+    }
+
     /// Returns the response's status code.
     #[inline]
     pub fn status_code(&self) -> StatusCode {
         match self {
-            Self::Created => StatusCode::CREATED,
-            Self::AlreadyExists => StatusCode::OK,
+            Self::Created(_) => StatusCode::CREATED,
+            Self::AlreadyExists(_) => StatusCode::OK,
         }
     }
 }

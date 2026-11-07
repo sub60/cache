@@ -14,7 +14,6 @@ use crate::{
     CacheInfos,
     CompleteMultipartUploadError,
     Context,
-    MultipartUpload,
     NarStorage,
     Permission,
     Permissions,
@@ -38,9 +37,11 @@ impl endpoints::CacheEndpoint for nar_multiparts_complete::Endpoint {
     fn method_router(mut ctx: impl Context) -> MethodRouter {
         endpoints::method_router::<Self, _, _>(
             async move |path, Extension(cache_infos), body| {
-                handler(path, cache_infos, body, &mut ctx)
-                    .await
-                    .map(|response| response.status_code())
+                handler(path, cache_infos, body, &mut ctx).await.map(
+                    |response| {
+                        (response.status_code(), response.body().to_string())
+                    },
+                )
             },
         )
     }
@@ -70,21 +71,19 @@ async fn handler<Ctx: Context>(
         ));
     }
 
-    let upload = MultipartUpload {
-        cache: &cache_infos,
-        nar: &body.nar_file_name,
-        id: &path.upload_id,
-    };
-
-    let did_insert = nar_storage
-        .complete_multipart_upload(upload, &body.etags)
+    let completed = nar_storage
+        .complete_multipart_upload(&cache_infos, &path.upload_id, &body.etags)
         .await
         .map_err(NarMultipartsCompleteError::CompleteMultipartUpload)?;
 
-    Ok(if did_insert {
-        nar_multiparts_complete::Response::Created
+    let body = nar_multiparts_complete::ResponseBody {
+        file_hash: completed.file_hash,
+    };
+
+    Ok(if completed.inserted {
+        nar_multiparts_complete::Response::Created(body)
     } else {
-        nar_multiparts_complete::Response::AlreadyExists
+        nar_multiparts_complete::Response::AlreadyExists(body)
     })
 }
 

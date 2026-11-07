@@ -13,7 +13,6 @@ use crate::{
     CacheInfos,
     Clock,
     Context,
-    MultipartUpload,
     NarStorage,
     Permission,
     Permissions,
@@ -47,11 +46,8 @@ async fn handler<Ctx: Context>(
 
     let urls = nar_storage
         .multipart_upload_part_urls(
-            MultipartUpload {
-                cache: &cache_infos,
-                nar: &body.nar_file_name,
-                id: &path.upload_id,
-            },
+            &cache_infos,
+            &path.upload_id,
             &body.part_numbers,
             min_ttl,
         )

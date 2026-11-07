@@ -10,13 +10,13 @@ use axum::extract::{Path, Request};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, put};
-use nix_types::NarFileName;
+use nix_types::{NarFileName, Nix32Digest};
 use sha2::{Digest, Sha256};
 use sub60_cache::api::Etag;
 use sub60_cache::{
     CacheInfos,
     CompleteMultipartUploadError,
-    MultipartUpload,
+    CompletedMultipartUpload,
     NarStorage,
 };
 
@@ -34,14 +34,13 @@ pub struct InMemoryNarStorage {
 }
 
 struct InMemoryNarStorageInner {
-    nars: HashMap<NarFileName, Bytes>,
+    nars: HashMap<Nix32Digest<32>, Bytes>,
     multipart_uploads: HashMap<MultipartUploadId, PendingUpload>,
     next_upload_id: MultipartUploadId,
     part_size: NonZeroU32,
 }
 
 struct PendingUpload {
-    nar: NarFileName,
     /// The size of the NAR the upload declared when it started, in bytes.
     declared_size: NonZeroU64,
     parts: Vec<Option<Bytes>>,
@@ -95,7 +94,7 @@ pub enum InMemoryNarStorageError {
 }
 
 impl InMemoryNarStorage {
-    /// Inserts a NAR, unless one with the same file name is already stored.
+    /// Inserts a NAR, unless one with the same file hash is already stored.
     ///
     /// Unlike [`NarStorage::insert()`], it doesn't check that the bytes'
     /// SHA-256 hash is the one in the NAR's file name, so tests can seed the
@@ -108,10 +107,10 @@ impl InMemoryNarStorage {
         bytes: impl Into<Bytes>,
     ) -> bool {
         self.with_inner(|inner| {
-            if inner.nars.contains_key(nar) {
+            if inner.nars.contains_key(&nar.file_hash) {
                 return false;
             }
-            inner.nars.insert(nar.clone(), bytes.into());
+            inner.nars.insert(nar.file_hash, bytes.into());
             true
         })
     }
@@ -234,7 +233,8 @@ impl From<InMemoryNarStorage> for Router {
                     return (StatusCode::BAD_REQUEST, msg).into_response();
                 },
             };
-            match get_storage.with_inner(|inner| inner.nars.get(&nar).cloned())
+            match get_storage
+                .with_inner(|inner| inner.nars.get(&nar.file_hash).cloned())
             {
                 Some(bytes) => Response::new(bytes.into()),
                 None => StatusCode::NOT_FOUND.into_response(),
@@ -246,7 +246,7 @@ impl From<InMemoryNarStorage> for Router {
         let route_path = format!("{}/{{nar}}", storage.base_route);
 
         let multipart_route_path =
-            format!("{}/multipart-upload/{{nar}}", storage.base_route);
+            format!("{}/multipart-upload/{{upload_id}}", storage.base_route);
 
         Self::new()
             .route(&multipart_route_path, put(multipart_put_handler))
@@ -271,28 +271,17 @@ impl NarStorage for InMemoryNarStorage {
 
     async fn complete_multipart_upload(
         &self,
-        upload: MultipartUpload<'_, Self::MultipartUploadId>,
+        _cache: &CacheInfos,
+        upload_id: &Self::MultipartUploadId,
         etags: &[Etag],
-    ) -> Result<bool, CompleteMultipartUploadError<Self::Error>> {
+    ) -> Result<
+        CompletedMultipartUpload,
+        CompleteMultipartUploadError<Self::Error>,
+    > {
         self.with_inner(|inner| {
-            // The NAR is already stored, so the upload's parts are discarded.
-            if inner.nars.contains_key(upload.nar) {
-                if inner
-                    .multipart_uploads
-                    .get(upload.id)
-                    .is_some_and(|pending| &pending.nar == upload.nar)
-                {
-                    inner.multipart_uploads.remove(upload.id);
-                }
-                return Ok(false);
-            }
-
-            // Upload IDs are scoped to the NAR they were created for, so an
-            // upload created for a different NAR doesn't exist for this one.
             let pending = inner
                 .multipart_uploads
-                .get_mut(upload.id)
-                .filter(|pending| &pending.nar == upload.nar)
+                .get_mut(upload_id)
                 .ok_or(CompleteMultipartUploadError::NoSuchUpload)?;
 
             if etags.len() < pending.parts.len() {
@@ -325,9 +314,19 @@ impl NarStorage for InMemoryNarStorage {
                 bytes.extend_from_slice(&part);
             }
 
-            inner.multipart_uploads.remove(upload.id);
-            inner.nars.insert(upload.nar.clone(), Bytes::from(bytes));
-            Ok(true)
+            let file_hash = Nix32Digest::new(&Sha256::digest(&bytes).into());
+
+            // A NAR with the same file hash is already stored, so the upload's
+            // bytes are discarded.
+            let inserted = !inner.nars.contains_key(&file_hash);
+
+            if inserted {
+                inner.nars.insert(file_hash, Bytes::from(bytes));
+            }
+
+            inner.multipart_uploads.remove(upload_id);
+
+            Ok(CompletedMultipartUpload { file_hash, inserted })
         })
     }
 
@@ -336,13 +335,12 @@ impl NarStorage for InMemoryNarStorage {
         _cache: &CacheInfos,
         nar: &NarFileName,
     ) -> Result<bool, Self::Error> {
-        Ok(self.with_inner(|inner| inner.nars.contains_key(nar)))
+        Ok(self.with_inner(|inner| inner.nars.contains_key(&nar.file_hash)))
     }
 
     async fn create_multipart_upload(
         &self,
         _cache: &CacheInfos,
-        nar: &NarFileName,
         size: NonZeroU64,
     ) -> Result<Self::MultipartUploadId, Self::Error> {
         Ok(self.with_inner(|inner| {
@@ -350,11 +348,7 @@ impl NarStorage for InMemoryNarStorage {
             inner.next_upload_id += 1;
             inner.multipart_uploads.insert(
                 upload_id,
-                PendingUpload {
-                    nar: nar.clone(),
-                    declared_size: size,
-                    parts: Vec::new(),
-                },
+                PendingUpload { declared_size: size, parts: Vec::new() },
             );
             upload_id
         }))
@@ -373,7 +367,7 @@ impl NarStorage for InMemoryNarStorage {
         _cache: &CacheInfos,
         nar: &NarFileName,
     ) -> Result<Option<Bytes>, Self::Error> {
-        Ok(self.with_inner(|inner| inner.nars.get(nar).cloned()))
+        Ok(self.with_inner(|inner| inner.nars.get(&nar.file_hash).cloned()))
     }
 
     async fn insert(
@@ -399,14 +393,15 @@ impl NarStorage for InMemoryNarStorage {
 
     async fn multipart_upload_part_urls(
         &self,
-        upload: MultipartUpload<'_, Self::MultipartUploadId>,
+        _cache: &CacheInfos,
+        upload_id: &Self::MultipartUploadId,
         part_numbers: &[NonZeroU16],
         _min_ttl: Duration,
     ) -> Result<Vec<String>, Self::Error> {
         let (declared_size, part_size) = self.with_inner(|inner| {
             inner
                 .multipart_uploads
-                .get(upload.id)
+                .get(upload_id)
                 .map(|pending| (pending.declared_size, inner.part_size))
                 .ok_or(InMemoryNarStorageError::MultipartUploadNotStarted)
         })?;
@@ -416,8 +411,8 @@ impl NarStorage for InMemoryNarStorage {
             .map(|&part_number| {
                 part_len(declared_size, part_size, part_number)?;
                 Ok(format!(
-                    "http://cache.test{}/multipart-upload/{}?partNumber={part_number}&uploadId={}",
-                    self.base_route, upload.nar, upload.id,
+                    "http://cache.test{}/multipart-upload/{}?partNumber={part_number}",
+                    self.base_route, upload_id,
                 ))
             })
             .collect()

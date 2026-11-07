@@ -37,7 +37,7 @@ pub use commit_sha::{CommitSha, CommitShaFromStrError};
 pub use context::Context;
 pub use nar_storage::{
     CompleteMultipartUploadError,
-    MultipartUpload,
+    CompletedMultipartUpload,
     NarStorage,
 };
 pub use narinfo_storage::NarInfoStorage;
