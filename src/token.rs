@@ -32,11 +32,11 @@ pub struct Token(
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum TokenKind {
-    /// A CI job.
-    CiJob = 0,
-
     /// A machine, like a laptop or a build server.
-    Machine = 1,
+    Machine = 0,
+
+    /// A CI job.
+    CiJob = 1,
 }
 
 /// The SHA-256 hash of a [`Token`].
@@ -100,8 +100,8 @@ impl TokenKind {
     #[inline]
     fn from_byte(byte: u8) -> Option<Self> {
         match byte {
-            0 => Some(Self::CiJob),
-            1 => Some(Self::Machine),
+            0 => Some(Self::Machine),
+            1 => Some(Self::CiJob),
             _ => None,
         }
     }
@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn from_bytes_accepts_new_tokens() {
-        for kind in [TokenKind::CiJob, TokenKind::Machine] {
+        for kind in [TokenKind::Machine, TokenKind::CiJob] {
             let token = Token::new(kind, [7; 20]);
             let parsed = Token::from_bytes(*token.as_bytes()).unwrap();
             assert_eq!(parsed.as_bytes(), token.as_bytes());
